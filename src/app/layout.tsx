@@ -60,11 +60,8 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/assets/logo.png", type: "image/png" },
-    ],
-    apple: [{ url: "/assets/logo.png" }],
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 
