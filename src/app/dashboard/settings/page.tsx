@@ -1,75 +1,43 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Bell, CheckCircle2, KeyRound, Lock, Shield, Smartphone, User } from "lucide-react";
 import Header from "@/components/dashboard/Header";
-import PageHeader from "@/components/dashboard/PageHeader";
-import { Settings } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+type Tab = "profile" | "password" | "security";
+type Profile = { email: string; full_name: string | null; phone: string | null; locale: string; email_notifications: boolean; security_notifications: boolean; created_at: string };
+type Factor = { id: string; friendly_name?: string; status: string };
+
+const tabs = [{ id: "profile" as const, label: "Perfil", icon: User }, { id: "password" as const, label: "Senha", icon: Lock }, { id: "security" as const, label: "Segurança", icon: Shield }];
 
 export default function SettingsPage() {
-  return (
-    <>
-      <Header title="Configurações" description="Gerencie sua conta e seu plano" />
-      <div className="dashboard-content flex flex-1 flex-col">
-        <PageHeader
-          icon={<Settings size={20} />}
-          title="Configurações"
-          actions={[
-            {
-              label: "Salvar",
-              primary: true,
-              onClick: () => {},
-            },
-          ]}
-        />
+  const [tab, setTab] = useState<Tab>("profile");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [message, setMessage] = useState("");
 
-        <div className="mt-5 flex-1 space-y-8 rounded-[18px] border p-4 themeable-bg-canvas themeable-border-hairline sm:mt-6 sm:p-6 lg:p-8">
-          <section>
-            <h3 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink mb-4">
-              Perfil
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[13px] font-medium tracking-[-0.2px] themeable-text-ink-muted-48 mb-1.5">
-                  Nome
-                </label>
-                <input
-                  type="text"
-                  defaultValue="Rayna"
-                  className="w-full h-11 px-4 rounded-pill themeable-bg-canvas border themeable-border-hairline text-[15px] themeable-text-ink placeholder:themeable-text-ink-muted-48 outline-none focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[13px] font-medium tracking-[-0.2px] themeable-text-ink-muted-48 mb-1.5">
-                  E-mail
-                </label>
-                <input
-                  type="email"
-                  defaultValue="rayna@prismaplayer.com.br"
-                  className="w-full h-11 px-4 rounded-pill themeable-bg-canvas border themeable-border-hairline text-[15px] themeable-text-ink placeholder:themeable-text-ink-muted-48 outline-none focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue transition-colors"
-                />
-              </div>
-            </div>
-          </section>
+  useEffect(() => { void fetch("/api/account/profile", { cache: "no-store" }).then((response) => response.json()).then((data) => setProfile(data.profile ?? null)); }, []);
 
-          <section>
-            <h3 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink mb-4">
-              Plano
-            </h3>
-            <div className="flex flex-col gap-4 rounded-[11px] border p-5 themeable-bg-surface-pearl themeable-border-hairline sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[15px] font-semibold tracking-[-0.2px] themeable-text-ink">
-                  Plano Essential
-                </p>
-                <p className="text-[13px] tracking-[-0.2px] themeable-text-ink-muted-48 mt-0.5">
-                  3 vídeos ativos · 1 player · Suporte padrão
-                </p>
-              </div>
-              <button className="min-h-11 rounded-full bg-prisma-blue px-4 py-2 text-[13px] font-normal tracking-[-0.2px] text-white transition-transform active:scale-95">
-                Fazer upgrade
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </>
-  );
+  return <><Header /><div className="dashboard-content flex-1"><div className="mb-6"><h1 className="text-[28px] font-semibold tracking-[-0.7px] themeable-text-ink">Conta e segurança</h1><p className="mt-1 text-[14px] themeable-text-ink-muted-48">Gerencie identidade, senha, preferências e dispositivos de acesso.</p></div>
+    <div className="mb-6 flex gap-2 overflow-x-auto border-b pb-3 themeable-border-hairline">{tabs.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => { setTab(item.id); setMessage(""); }} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[14px] font-medium ${tab === item.id ? "bg-prisma-blue text-white" : "themeable-bg-surface-pearl themeable-text-ink"}`}><Icon size={16} />{item.label}</button>; })}</div>
+    {message && <div role="status" className="mb-4 rounded-[11px] border border-prisma-blue/25 bg-prisma-blue/5 px-4 py-3 text-[13px] text-prisma-blue">{message}</div>}
+    {tab === "profile" && (profile ? <ProfilePanel key={profile.email} profile={profile} setProfile={setProfile} setMessage={setMessage} /> : <Card title="Carregando conta"><p className="text-[14px] themeable-text-ink-muted-48">Buscando seus dados com segurança…</p></Card>)}
+    {tab === "password" && <PasswordPanel setMessage={setMessage} />}
+    {tab === "security" && <SecurityPanel setMessage={setMessage} />}
+  </div></>;
 }
+
+function Card({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) { return <section className="rounded-[18px] border themeable-bg-canvas themeable-border-hairline"><div className="border-b px-5 py-4 themeable-border-hairline"><h2 className="text-[17px] font-semibold themeable-text-ink">{title}</h2>{description && <p className="mt-1 text-[13px] themeable-text-ink-muted-48">{description}</p>}</div><div className="p-5">{children}</div></section>; }
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) { return <input {...props} className="mt-2 h-11 w-full rounded-full border bg-transparent px-4 text-[14px] outline-none themeable-border-hairline themeable-text-ink focus:border-prisma-blue" />; }
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) { return <button type="button" onClick={() => onChange(!checked)} className={`h-6 w-11 rounded-full p-1 ${checked ? "bg-prisma-blue" : "bg-black/20 dark:bg-white/20"}`}><span className={`block h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : ""}`} /></button>; }
+
+function ProfilePanel({ profile, setProfile, setMessage }: { profile: Profile; setProfile: (profile: Profile) => void; setMessage: (value: string) => void }) {
+  const [name, setName] = useState(profile.full_name ?? ""); const [phone, setPhone] = useState(profile.phone ?? ""); const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications); const [securityNotifications, setSecurityNotifications] = useState(profile.security_notifications);
+  async function save() { const response = await fetch("/api/account/profile", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fullName: name, phone, emailNotifications, securityNotifications }) }); const data = await response.json(); if (response.ok) { setProfile(data.profile); setMessage("Perfil atualizado com segurança."); } else setMessage("Não foi possível atualizar o perfil."); }
+  return <div className="space-y-5"><Card title="Dados pessoais" description="Seu e-mail é gerenciado pelo Supabase Auth e não é alterado por este formulário."><div className="grid gap-5 sm:grid-cols-2"><label className="text-[13px] font-medium themeable-text-ink">Nome completo<Input value={name} onChange={(event) => setName(event.target.value)} /></label><label className="text-[13px] font-medium themeable-text-ink">Telefone<Input value={phone} onChange={(event) => setPhone(event.target.value)} /></label><label className="text-[13px] font-medium themeable-text-ink sm:col-span-2">E-mail<Input value={profile?.email ?? ""} readOnly /></label></div><button onClick={save} className="mt-5 min-h-11 rounded-full bg-prisma-blue px-5 text-[14px] text-white">Salvar alterações</button></Card>
+  <Card title="Notificações"><div className="space-y-3"><div className="flex items-center justify-between rounded-[11px] border p-4 themeable-border-hairline"><div className="flex gap-3"><Bell size={18} className="text-prisma-blue" /><div><p className="text-[14px] font-medium themeable-text-ink">E-mails do produto</p><p className="text-[12px] themeable-text-ink-muted-48">Processamento, limites e novidades.</p></div></div><Toggle checked={emailNotifications} onChange={setEmailNotifications} /></div><div className="flex items-center justify-between rounded-[11px] border p-4 themeable-border-hairline"><div className="flex gap-3"><Shield size={18} className="text-prisma-blue" /><div><p className="text-[14px] font-medium themeable-text-ink">Alertas de segurança</p><p className="text-[12px] themeable-text-ink-muted-48">Senha, MFA e acessos importantes.</p></div></div><Toggle checked={securityNotifications} onChange={setSecurityNotifications} /></div></div></Card></div>;
+}
+
+function PasswordPanel({ setMessage }: { setMessage: (value: string) => void }) { const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); async function update() { if (password !== confirm) { setMessage("As senhas não coincidem."); return; } const response = await fetch("/api/account/password", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) }); setMessage(response.ok ? "Senha atualizada. Os próximos acessos usarão a nova senha." : "Use pelo menos 10 caracteres, com letras e números."); if (response.ok) { setPassword(""); setConfirm(""); } } return <Card title="Alterar senha" description="A atualização é executada pelo Supabase Auth; a senha nunca é armazenada no banco da aplicação."><div className="grid gap-5 sm:grid-cols-2"><label className="text-[13px] font-medium themeable-text-ink">Nova senha<Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" /></label><label className="text-[13px] font-medium themeable-text-ink">Confirmar senha<Input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="new-password" /></label></div><div className="mt-4 flex flex-wrap gap-4 text-[12px] themeable-text-ink-muted-48"><span className="flex gap-1"><CheckCircle2 size={15} />10 caracteres</span><span className="flex gap-1"><CheckCircle2 size={15} />Letras e números</span></div><button onClick={update} disabled={!password || !confirm} className="mt-5 min-h-11 rounded-full bg-prisma-blue px-5 text-[14px] text-white disabled:opacity-40">Atualizar senha</button></Card>; }
+
+function SecurityPanel({ setMessage }: { setMessage: (value: string) => void }) { const [factors, setFactors] = useState<Factor[]>([]); const [qr, setQr] = useState(""); const [factorId, setFactorId] = useState(""); const [code, setCode] = useState(""); useEffect(() => { void fetch("/api/account/security", { cache: "no-store" }).then((response) => response.json()).then((data) => setFactors(data.factors ?? [])); }, []); async function enroll() { const { data, error } = await createClient().auth.mfa.enroll({ factorType: "totp", friendlyName: "Prisma Player" }); if (error) { setMessage("Não foi possível iniciar o MFA."); return; } setFactorId(data.id); setQr(data.totp.qr_code); } async function verify() { const supabase = createClient(); const challenge = await supabase.auth.mfa.challenge({ factorId }); if (challenge.error) { setMessage("Falha ao criar o desafio MFA."); return; } const result = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.data.id, code }); setMessage(result.error ? "Código inválido." : "Autenticação em dois fatores ativada."); if (!result.error) { setQr(""); setCode(""); const listed = await supabase.auth.mfa.listFactors(); setFactors(listed.data?.all ?? []); } } return <div className="space-y-5"><Card title="Autenticação em dois fatores" description="Proteja a conta com um aplicativo autenticador TOTP.">{factors.some((factor) => factor.status === "verified") ? <div className="flex items-center gap-3 rounded-[11px] border border-green-500/25 bg-green-500/5 p-4 text-[14px] text-green-600"><Shield size={20} />MFA ativo nesta conta</div> : qr ? <div className="grid gap-5 sm:grid-cols-[180px_1fr]"><div dangerouslySetInnerHTML={{ __html: qr }} className="overflow-hidden rounded-[11px] bg-white p-3" /><div><label className="text-[13px] font-medium themeable-text-ink">Código de 6 dígitos<Input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" /></label><button onClick={verify} disabled={code.length !== 6} className="mt-4 min-h-11 rounded-full bg-prisma-blue px-5 text-white disabled:opacity-40">Confirmar e ativar</button></div></div> : <button onClick={enroll} className="flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] text-white"><Smartphone size={17} />Configurar aplicativo</button>}</Card><Card title="Sessão atual"><div className="flex gap-3 rounded-[11px] border p-4 themeable-border-hairline"><KeyRound size={19} className="text-prisma-blue" /><div><p className="text-[14px] font-medium themeable-text-ink">Sessão protegida por cookie HttpOnly</p><p className="mt-1 text-[12px] themeable-text-ink-muted-48">Tokens são renovados no servidor e as páginas privadas exigem identidade válida.</p></div></div></Card></div>; }

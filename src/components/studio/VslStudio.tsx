@@ -7,7 +7,7 @@ import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/components/player";
 
-interface StoredVideo { name: string; src: string; type: string }
+interface StoredVideo { id?: string; name: string; src: string; type: string }
 type ModuleId = "style" | "progress" | "autoplay" | "turbo" | "headlines" | "traffic" | "actions" | "thumbnail" | "resume" | "pixels" | "captions" | "playback";
 
 interface StudioConfig {
@@ -63,8 +63,12 @@ export default function VslStudio() {
   const playerStyle = { "--player-accent": config.smartProgress ? config.progressColor : config.accent, "--player-progress-height": `${config.progressHeight}px`, borderRadius: `${config.radius}px`, backgroundColor: config.background } as CSSProperties;
   const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => setConfig((current) => ({ ...current, [key]: value }));
 
-  function save() {
+  async function save() {
     localStorage.setItem("prisma-studio-config", JSON.stringify(config));
+    if (video?.id) {
+      const response = await fetch("/api/player-configs", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id, config, domains: config.domains }) });
+      if (!response.ok) return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
   }

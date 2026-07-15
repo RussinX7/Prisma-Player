@@ -4,18 +4,40 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrandLogo from "@/components/BrandLogo";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    router.push("/dashboard");
+    setError("");
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (authError) {
+      setError("E-mail ou senha inválidos.");
+      setLoading(false);
+      return;
+    }
+    router.replace("/dashboard/videos");
+    router.refresh();
+  }
+
+  async function signInWith(provider: "google" | "apple") {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
+  }
+
+  async function recoverPassword() {
+    if (!email.trim()) { setError("Informe seu e-mail para recuperar a senha."); return; }
+    const supabase = createClient();
+    const { error: recoverError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/callback?next=/reset-password` });
+    setError(recoverError ? "Não foi possível enviar o e-mail." : "Enviamos o link de recuperação para seu e-mail.");
   }
 
   return (
@@ -61,12 +83,13 @@ export default function LoginPage() {
                 >
                   Senha
                 </label>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={recoverPassword}
                   className="text-caption text-prisma-blue hover:underline"
                 >
                   Esqueceu?
-                </a>
+                </button>
               </div>
               <input
                 id="password"
@@ -109,6 +132,7 @@ export default function LoginPage() {
                 "Entrar"
               )}
             </button>
+            {error && <p role="status" className="text-center text-[13px] text-red-500">{error}</p>}
           </form>
 
           <div className="relative my-8">
@@ -123,7 +147,7 @@ export default function LoginPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button className="h-[44px] flex items-center justify-center gap-2 themeable-bg-canvas border themeable-border-hairline rounded-pill text-caption themeable-text-ink transition-all hover:themeable-bg-canvas-parchment active:scale-[0.98]">
+            <button type="button" onClick={() => signInWith("google")} className="h-[44px] flex items-center justify-center gap-2 themeable-bg-canvas border themeable-border-hairline rounded-pill text-caption themeable-text-ink transition-all hover:themeable-bg-canvas-parchment active:scale-[0.98]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -132,7 +156,7 @@ export default function LoginPage() {
               </svg>
               Google
             </button>
-            <button className="h-[44px] flex items-center justify-center gap-2 bg-surface-black text-white border border-surface-black rounded-pill text-caption transition-all hover:opacity-90 active:scale-[0.98]">
+            <button type="button" onClick={() => signInWith("apple")} className="h-[44px] flex items-center justify-center gap-2 bg-surface-black text-white border border-surface-black rounded-pill text-caption transition-all hover:opacity-90 active:scale-[0.98]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
               </svg>
