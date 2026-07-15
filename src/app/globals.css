@@ -207,6 +207,23 @@ body {
   outline: 2px solid color-mix(in srgb, var(--color-prisma-blue) 18%, transparent);
 }
 
+.studio-input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 11px;
+  background: transparent;
+  padding: 10px 13px;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+}
+
+.dark .studio-input { border-color: rgba(255, 255, 255, 0.14); }
+.studio-input:focus { border-color: #0066cc; outline: 2px solid rgba(0, 102, 204, 0.14); }
+.panel-help { border-radius: 11px; background: rgba(0, 102, 204, 0.08); padding: 13px; color: #0066cc; font-size: 13px; line-height: 1.5; }
+
 @media (min-width: 640px) {
   .dashboard-content {
     padding: 24px 24px 0;

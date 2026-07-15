@@ -1,41 +1,50 @@
 .prisma-video-player {
   width: 100%;
   overflow: hidden;
-  border-radius: 18px;
-  background: #000;
-}
-
-.prisma-video-player .video-js {
-  width: 100%;
+  border-radius: inherit;
   background: #000;
   color: #fff;
   font-family: var(--font-sans);
 }
 
-.prisma-video-player .vjs-control-bar {
-  background: rgba(0, 0, 0, 0.78);
+.prisma-video-player video {
+  display: block;
+  width: 100%;
+  max-height: 72dvh;
+  background: #000;
+  object-fit: contain;
 }
 
-.prisma-video-player .vjs-big-play-button {
-  width: 64px;
-  height: 64px;
-  margin-left: -32px;
-  margin-top: -32px;
-  border: 0;
-  border-radius: 9999px;
-  background: var(--player-accent, rgba(0, 102, 204, 0.92));
-  line-height: 64px;
+.prisma-video-player .media-slider__fill {
+  background: var(--player-accent, #0066cc);
 }
 
-.prisma-video-player .vjs-play-progress,
-.prisma-video-player .vjs-volume-level {
-  background-color: var(--player-accent, #0066cc);
+.prisma-video-player .media-time-controls .media-slider {
+  min-height: var(--player-progress-height, 6px);
 }
 
-.prisma-video-player .vjs-control:focus-visible,
-.prisma-video-player .vjs-big-play-button:focus-visible {
-  outline: 2px solid #0071e3;
-  outline-offset: 2px;
+.prisma-player--controls-hidden .media-controls,
+.prisma-player--progress-hidden .media-time-controls .media-slider,
+.prisma-player--time-hidden .media-time,
+.prisma-player--volume-hidden .media-button--mute,
+.prisma-player--volume-hidden .media-popover--volume,
+.prisma-player--fullscreen-hidden .media-button--fullscreen,
+.prisma-player--settings-hidden .media-button--settings {
+  display: none !important;
+}
+
+.prisma-video-player :is(button, [role="slider"]):focus-visible {
+  outline: 2px solid #2997ff;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prisma-video-player *,
+  .prisma-video-player *::before,
+  .prisma-video-player *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 640px) {

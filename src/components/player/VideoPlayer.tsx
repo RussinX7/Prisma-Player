@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import videojs from "video.js";
-import type Player from "video.js/dist/types/player";
-import "video.js/dist/video-js.css";
+import { useEffect, useMemo, useRef } from "react";
+import { createPlayer } from "@videojs/react";
+import { Video, VideoSkin, videoFeatures } from "@videojs/react/video";
+import "@videojs/react/video/skin.css";
 import "./video-player.css";
 import type { VideoPlayerProps } from "./types";
+
+const Player = createPlayer({ features: videoFeatures, displayName: "PrismaPlayer" });
 
 export default function VideoPlayer({
   sources,
@@ -13,51 +15,65 @@ export default function VideoPlayer({
   autoplay = false,
   muted = false,
   controls = true,
+  loop = false,
+  playbackRate = 1,
+  bigPlayButton = true,
+  pauseWhenHidden = false,
+  onTimeUpdate,
+  controlVisibility,
+  textTracks = [],
   className = "",
 }: VideoPlayerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<Player | null>(null);
+  const mediaRef = useRef<HTMLVideoElement>(null);
+  const source = sources[0];
+  const visibilityClasses = useMemo(() => [
+    !controls && "prisma-player--controls-hidden",
+    !bigPlayButton && "prisma-player--big-play-hidden",
+    controlVisibility?.progressControl === false && "prisma-player--progress-hidden",
+    controlVisibility?.currentTimeDisplay === false && "prisma-player--time-hidden",
+    controlVisibility?.volumePanel === false && "prisma-player--volume-hidden",
+    controlVisibility?.fullscreenToggle === false && "prisma-player--fullscreen-hidden",
+    controlVisibility?.playbackRateMenuButton === false && "prisma-player--settings-hidden",
+  ].filter(Boolean).join(" "), [bigPlayButton, controlVisibility, controls]);
 
   useEffect(() => {
-    if (!containerRef.current || playerRef.current) return;
+    if (mediaRef.current) mediaRef.current.playbackRate = playbackRate;
+  }, [playbackRate]);
 
-    const videoElement = document.createElement("video-js");
-    videoElement.classList.add("vjs-big-play-centered");
-    containerRef.current.appendChild(videoElement);
-
-    playerRef.current = videojs(videoElement, {
-      controls,
-      responsive: true,
-      fluid: true,
-      preload: "metadata",
-      playsinline: true,
-      html5: {
-        vhs: {
-          overrideNative: false,
-        },
-      },
-    });
-
-    return () => {
-      const player = playerRef.current;
-      if (player && !player.isDisposed()) player.dispose();
-      playerRef.current = null;
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (!media || !pauseWhenHidden) return;
+    const handleVisibility = () => {
+      if (document.hidden && !media.paused) media.pause();
     };
-  }, [controls]);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [pauseWhenHidden]);
 
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || player.isDisposed()) return;
-
-    player.autoplay(autoplay);
-    player.muted(muted);
-    player.poster(poster ?? "");
-    player.src(sources);
-  }, [autoplay, muted, poster, sources]);
+  if (!source) return null;
 
   return (
-    <div className={`prisma-video-player ${className}`} data-vjs-player>
-      <div ref={containerRef} />
+    <div className={`prisma-video-player ${visibilityClasses} ${className}`} style={{ "--media-color-primary": "var(--player-accent, #0066cc)" } as React.CSSProperties}>
+      <Player.Provider>
+        <VideoSkin poster={poster}>
+          <Video
+            ref={mediaRef}
+            src={source.src}
+            autoPlay={autoplay}
+            muted={muted}
+            loop={loop}
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+            onLoadedMetadata={(event) => { event.currentTarget.playbackRate = playbackRate; }}
+            onTimeUpdate={(event) => onTimeUpdate?.(event.currentTarget.currentTime)}
+          >
+            {textTracks.map((track) => (
+              <track key={`${track.src}-${track.srclang}`} src={track.src} kind={track.kind} label={track.label} srcLang={track.srclang} default={track.default} />
+            ))}
+          </Video>
+        </VideoSkin>
+      </Player.Provider>
     </div>
   );
 }
