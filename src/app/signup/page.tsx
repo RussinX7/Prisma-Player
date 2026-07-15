@@ -23,13 +23,14 @@ export default function SignupPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="text-center mb-10">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <Link href="/" className="inline-flex items-center mb-7" aria-label="Voltar para o início">
               <Image
                 src="/assets/logo.png"
                 alt="Prisma Player"
-                width={28}
-                height={28}
-                className="rounded-sm brightness-0 invert"
+                width={246}
+                height={56}
+                priority
+                className="h-12 w-auto object-contain"
               />
             </Link>
             <h1 className="text-display-lg text-on-dark mb-2">

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,7 +15,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
+    router.push("/dashboard");
   }
 
   return (
@@ -21,13 +23,14 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="text-center mb-10">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <Link href="/" className="inline-flex items-center mb-7" aria-label="Voltar para o início">
               <Image
                 src="/assets/logo.png"
                 alt="Prisma Player"
-                width={28}
-                height={28}
-                className="rounded-sm dark:brightness-0 dark:invert"
+                width={246}
+                height={56}
+                priority
+                className="h-12 w-auto object-contain"
               />
             </Link>
             <h1 className="text-display-lg themeable-text-ink mb-2">

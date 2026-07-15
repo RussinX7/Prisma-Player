@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Nav() {
@@ -6,18 +7,16 @@ export default function Nav() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-surface-black h-11">
       <div className="container-section h-full flex items-center justify-between px-5 max-w-[1440px] mx-auto">
         <div className="flex items-center gap-6">
-          <a href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex shrink-0 items-center" aria-label="Prisma Player">
             <Image
               src="/assets/logo.png"
               alt="Prisma Player"
-              width={20}
-              height={20}
-              className="rounded-sm brightness-0 invert"
+              width={154}
+              height={35}
+              priority
+              className="h-[26px] w-auto object-contain"
             />
-            <span className="text-white text-xs font-semibold tracking-[-0.12px]">
-              Prisma
-            </span>
-          </a>
+          </Link>
           <div className="hidden md:flex items-center gap-5">
             {[
               ["Funcionalidades", "#features"],
