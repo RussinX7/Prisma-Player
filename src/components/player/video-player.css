@@ -32,6 +32,11 @@
   backdrop-filter: none !important;
 }
 
+.prisma-video-player .media-overlay {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 /* A navegação de ±10s não faz parte da experiência VSL do Prisma. */
 .prisma-video-player .media-button--seek {
   display: none !important;

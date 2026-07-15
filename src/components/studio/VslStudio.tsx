@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowLeft, Captions, Check, ChevronRight, Code2, Gauge, Globe2, Heading, ImageIcon, MousePointerClick, Palette, Play, Radio, RotateCcw, Save, Shield, Subtitles, TimerReset, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/components/player";
+import { createClient } from "@/lib/supabase/client";
 
 interface StoredVideo { id?: string; name: string; src: string; type: string }
 type ModuleId = "style" | "progress" | "autoplay" | "turbo" | "headlines" | "hooks" | "traffic" | "actions" | "thumbnail" | "resume" | "pixels" | "captions" | "playback";
@@ -18,6 +19,7 @@ interface StudioConfig {
   ctaEnabled: boolean; ctaText: string; ctaUrl: string; ctaStart: number; thumbnailEnabled: boolean; resumeEnabled: boolean; resumeMessage: string;
   pixelsEnabled: boolean; pixelProvider: string; pixelName: string; pixelId: string; captionsEnabled: boolean; captionName: string;
   loop: boolean; muted: boolean; smartPause: boolean; fullscreenDesktop: boolean; fullscreenMobile: boolean;
+  assets: Record<string, string>;
 }
 
 const rates = [0.75, 1, 1.25, 1.5, 2];
@@ -45,6 +47,7 @@ const initialConfig: StudioConfig = {
   ctaEnabled: false, ctaText: "Quero aproveitar agora", ctaUrl: "https://", ctaStart: 60, thumbnailEnabled: false, resumeEnabled: true, resumeMessage: "Você já começou a assistir este vídeo",
   pixelsEnabled: false, pixelProvider: "Meta", pixelName: "", pixelId: "", captionsEnabled: false, captionName: "",
   loop: false, muted: false, smartPause: true, fullscreenDesktop: true, fullscreenMobile: true,
+  assets: {},
 };
 
 export default function VslStudio() {
@@ -65,12 +68,15 @@ export default function VslStudio() {
   const [resumePlaybackSignal, setResumePlaybackSignal] = useState(0);
   const [saved, setSaved] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
+  const [playerId, setPlayerId] = useState<string>();
+  const [saveError, setSaveError] = useState("");
   const [posterUrl, setPosterUrl] = useState<string>();
   const [pausePosterUrl, setPausePosterUrl] = useState<string>();
   const [endPosterUrl, setEndPosterUrl] = useState<string>();
   const [thumbnailOverlay, setThumbnailOverlay] = useState<"pause" | "end" | null>(null);
   const [posterPreviewActive, setPosterPreviewActive] = useState(false);
   const [captionTrack, setCaptionTrack] = useState<{ src: string; kind: "subtitles"; label: string; srclang: string; default: boolean }>();
+  const [assetFiles, setAssetFiles] = useState<Partial<Record<"thumbnailStart" | "thumbnailPause" | "thumbnailEnd" | "captions", File>>>({});
   const sources = useMemo(() => video ? [{ src: video.src, type: video.type }] : [], [video]);
   const controlVisibility = useMemo(() => ({ progressControl: config.progressBar && !config.smartProgress, currentTimeDisplay: config.time, durationDisplay: config.time, volumePanel: config.volume, fullscreenToggle: config.fullscreen, pictureInPictureToggle: config.pictureInPicture, playbackRateMenuButton: config.speedControl }), [config.progressBar, config.smartProgress, config.time, config.volume, config.fullscreen, config.pictureInPicture, config.speedControl]);
   const playerStyle = { "--player-accent": config.smartProgress ? config.progressColor : config.accent, "--player-progress-height": `${config.progressHeight}px`, borderRadius: `${config.radius}px`, backgroundColor: config.background } as CSSProperties;
@@ -82,12 +88,61 @@ export default function VslStudio() {
   const smartProgress = Math.min(100, (1 - Math.pow(1 - actualProgress, 0.55)) * 100);
   const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => setConfig((current) => ({ ...current, [key]: value }));
 
+  useEffect(() => {
+    if (!video?.id) return;
+    let activeRequest = true;
+    fetch(`/api/player-configs?videoId=${encodeURIComponent(video.id)}`).then((response) => response.ok ? response.json() : null).then(async (payload: { playerConfig?: { id?: string; config?: Partial<StudioConfig> } } | null) => {
+      if (!activeRequest || !payload?.playerConfig) return;
+      if (payload.playerConfig.id) setPlayerId(payload.playerConfig.id);
+      if (payload.playerConfig.config) {
+        const loaded = { ...initialConfig, ...payload.playerConfig.config };
+        setConfig(loaded);
+        const assets = loaded.assets ?? {};
+        const supabase = createClient();
+        const signed = await Promise.all(Object.entries(assets).map(async ([kind, path]) => {
+          const { data } = await supabase.storage.from("player-assets").createSignedUrl(path, 3600);
+          return [kind, data?.signedUrl] as const;
+        }));
+        if (!activeRequest) return;
+        for (const [kind, url] of signed) {
+          if (!url) continue;
+          if (kind === "thumbnailStart") setPosterUrl(url);
+          if (kind === "thumbnailPause") setPausePosterUrl(url);
+          if (kind === "thumbnailEnd") setEndPosterUrl(url);
+          if (kind === "captions") setCaptionTrack({ src: url, kind: "subtitles", label: loaded.captionName || "Legendas", srclang: "pt-BR", default: true });
+        }
+      }
+    }).catch(() => undefined);
+    return () => { activeRequest = false; };
+  }, [video?.id]);
+
   async function save() {
-    localStorage.setItem("prisma-studio-config", JSON.stringify(config));
+    setSaveError("");
+    let persistedConfig = config;
     if (video?.id) {
-      const response = await fetch("/api/player-configs", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id, config, domains: config.domains }) });
-      if (!response.ok) return;
+      if (Object.keys(assetFiles).length > 0) {
+        const supabase = createClient();
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) { setSaveError("Sua sessão expirou."); return; }
+        const assets = { ...config.assets };
+        for (const [kind, file] of Object.entries(assetFiles)) {
+          if (!file) continue;
+          const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
+          const path = `${userData.user.id}/${video.id}/${kind}-${crypto.randomUUID()}.${extension}`;
+          const { data, error } = await supabase.storage.from("player-assets").upload(path, file, { contentType: file.type || undefined, cacheControl: "31536000", upsert: false });
+          if (error || !data) { setSaveError(`Não foi possível enviar ${file.name}.`); return; }
+          assets[kind] = data.path;
+        }
+        persistedConfig = { ...config, assets };
+        setConfig(persistedConfig);
+        setAssetFiles({});
+      }
+      const response = await fetch("/api/player-configs", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id, config: persistedConfig, domains: persistedConfig.domains }) });
+      if (!response.ok) { setSaveError("Não foi possível salvar no Supabase."); return; }
+      const payload = await response.json() as { playerConfig?: { id?: string } };
+      if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
     }
+    localStorage.setItem("prisma-studio-config", JSON.stringify(persistedConfig));
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
   }
@@ -112,13 +167,13 @@ export default function VslStudio() {
   return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
     <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-4 border-b border-black/10 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-black/85 sm:px-6">
       <div className="flex min-w-0 items-center gap-4"><BrandLogo className="hidden h-8 w-[154px] sm:inline-block" /><div className="hidden h-7 w-px bg-black/10 dark:bg-white/10 sm:block" /><div className="min-w-0"><p className="text-[12px] text-[#7a7a7a]">Studio Prisma</p><h1 className="truncate text-[15px] font-semibold">{video?.name ?? "Personalizador de VSL"}</h1></div></div>
-      <div className="flex shrink-0 gap-2"><button type="button" onClick={() => setEmbedOpen(true)} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">Embed</span></button><button type="button" onClick={save} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
+      <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}<button type="button" onClick={() => setEmbedOpen(true)} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">Embed</span></button><button type="button" onClick={save} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
     </header>
 
     <div className="grid min-h-[calc(100dvh-64px)] lg:grid-cols-[320px_minmax(0,1fr)]">
       <aside className="border-b border-black/10 bg-white dark:border-white/10 dark:bg-[#272729] lg:border-b-0 lg:border-r">
         <div className="sticky top-16 max-h-[calc(100dvh-64px)] overflow-y-auto p-3 sm:p-4">
-          {active ? <ModulePanel module={active} config={config} update={update} onBack={() => setActive(null)} onPoster={(file, kind) => { const nextUrl = URL.createObjectURL(file); if (kind === "start") { if (posterUrl) URL.revokeObjectURL(posterUrl); setPosterUrl(nextUrl); setPosterPreviewActive(true); } else if (kind === "pause") { if (pausePosterUrl) URL.revokeObjectURL(pausePosterUrl); setPausePosterUrl(nextUrl); } else { if (endPosterUrl) URL.revokeObjectURL(endPosterUrl); setEndPosterUrl(nextUrl); } }} onCaption={(file) => { if (captionTrack) URL.revokeObjectURL(captionTrack.src); setCaptionTrack({ src: URL.createObjectURL(file), kind: "subtitles", label: file.name, srclang: "pt-BR", default: true }); }} /> : <>
+          {active ? <ModulePanel module={active} config={config} update={update} onBack={() => setActive(null)} onPoster={(file, kind) => { const nextUrl = URL.createObjectURL(file); if (kind === "start") { if (posterUrl) URL.revokeObjectURL(posterUrl); setPosterUrl(nextUrl); setPosterPreviewActive(true); setAssetFiles((items) => ({ ...items, thumbnailStart: file })); } else if (kind === "pause") { if (pausePosterUrl) URL.revokeObjectURL(pausePosterUrl); setPausePosterUrl(nextUrl); setAssetFiles((items) => ({ ...items, thumbnailPause: file })); } else { if (endPosterUrl) URL.revokeObjectURL(endPosterUrl); setEndPosterUrl(nextUrl); setAssetFiles((items) => ({ ...items, thumbnailEnd: file })); } }} onCaption={(file) => { if (captionTrack) URL.revokeObjectURL(captionTrack.src); setCaptionTrack({ src: URL.createObjectURL(file), kind: "subtitles", label: file.name, srclang: "pt-BR", default: true }); setAssetFiles((items) => ({ ...items, captions: file })); }} /> : <>
             <Link href="/dashboard/videos" className="mb-3 flex min-h-11 items-center gap-2 px-3 text-[14px] text-[#0066cc]"><ArrowLeft size={16} />Voltar aos vídeos</Link>
             <div className="mb-4 px-3"><h2 className="text-[20px] font-semibold">Personalização</h2><p className="mt-1 text-[13px] text-[#7a7a7a] dark:text-[#a1a1a6]">Escolha um módulo para configurar.</p></div>
             <nav className="space-y-1">{modules.map((item) => { const enabled = item.status ? Boolean(config[item.status]) : undefined; return <button key={item.id} type="button" onClick={() => setActive(item.id)} className="flex min-h-12 w-full items-center gap-3 rounded-[11px] px-3 text-left transition-colors hover:bg-[#f5f5f7] dark:hover:bg-[#2a2a2c]"><item.icon size={18} className="text-[#0066cc] dark:text-[#2997ff]" /><span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{item.label}</span>{item.badge && <span className="rounded bg-[#0066cc] px-1.5 py-0.5 text-[9px] text-white">{item.badge}</span>}{enabled !== undefined && <span className={`text-[11px] font-semibold ${enabled ? "text-green-500" : "text-red-500"}`}>{enabled ? "On" : "Off"}</span>}<ChevronRight size={15} className="text-[#7a7a7a]" /></button>; })}</nav>
@@ -144,8 +199,33 @@ export default function VslStudio() {
         </div>
       </main>
     </div>
-    <Dialog open={embedOpen} onClose={() => setEmbedOpen(false)} title="Código de incorporação" description="O identificador é público; segredos permanecem no servidor." footer={<button type="button" onClick={() => navigator.clipboard.writeText('<script src="https://player.prismaplayer.com/embed.js" data-player="demo"></script>')} className="min-h-11 rounded-full bg-[#0066cc] px-5 text-white">Copiar código</button>}><pre className="overflow-x-auto rounded-[11px] bg-black p-4 text-[12px] text-white">{'<script src="https://player.prismaplayer.com/embed.js" data-player="demo"></script>'}</pre></Dialog>
+    <EmbedDialog open={embedOpen} onClose={() => setEmbedOpen(false)} playerId={playerId} videoId={video?.id} ratio={previewRatio} />
   </div>;
+}
+
+function EmbedDialog({ open, onClose, playerId, videoId, ratio }: { open: boolean; onClose: () => void; playerId?: string; videoId?: string; ratio: number }) {
+  const [format, setFormat] = useState<"javascript" | "iframe">("javascript");
+  const [responsive, setResponsive] = useState(false);
+  const [mobileId, setMobileId] = useState("");
+  const [copied, setCopied] = useState<"embed" | "speed" | null>(null);
+  const id = playerId ?? videoId ?? "salve-o-player-primeiro";
+  const origin = typeof window === "undefined" ? "https://prisma-player.vercel.app" : window.location.origin;
+  const padding = `${(100 / Math.max(ratio, 0.1)).toFixed(4)}%`;
+  const iframe = `<iframe src="${origin}/embed/${id}" title="Prisma Player" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:${ratio.toFixed(4)};border:0;display:block"></iframe>`;
+  const javascript = `<div id="prisma-player-${id}" style="width:100%;position:relative;padding-top:${padding}"></div>\n<script>(function(){var f=document.createElement('iframe');f.src='${origin}/embed/${id}';f.title='Prisma Player';f.allow='autoplay; fullscreen; picture-in-picture';f.allowFullscreen=true;f.style='position:absolute;inset:0;width:100%;height:100%;border:0';document.getElementById('prisma-player-${id}').appendChild(f)}())</script>`;
+  const responsiveCode = responsive && mobileId ? javascript.replace(`f.src='${origin}/embed/${id}'`, `f.src=window.matchMedia('(max-width: 767px)').matches?'${origin}/embed/${mobileId}':'${origin}/embed/${id}'`) : javascript;
+  const embedCode = format === "iframe" ? iframe : responsiveCode;
+  const speedCode = `<link rel="preconnect" href="${origin}" crossorigin>\n<link rel="dns-prefetch" href="${origin}">`;
+  const copy = async (value: string, kind: "embed" | "speed") => { await navigator.clipboard.writeText(value); setCopied(kind); setTimeout(() => setCopied(null), 1500); };
+
+  return <Dialog open={open} onClose={onClose} title="Embed" description="Incorpore o vídeo onde quiser com o player responsivo do Prisma." size="lg">
+    <div className="space-y-6">
+      <section className="rounded-[14px] border p-4 themeable-border-hairline"><div className="flex items-start justify-between gap-4"><div><h3 className="text-[15px] font-semibold themeable-text-ink">Vídeo responsivo</h3><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Use versões diferentes para mobile e desktop.</p></div><Switch checked={responsive} onChange={setResponsive} /></div>{responsive && <TextInput label="ID do player mobile" value={mobileId} placeholder="Cole o ID do player mobile" onChange={setMobileId} />}</section>
+      <section><div className="mb-3"><h3 className="text-[15px] font-semibold themeable-text-ink">Copie o código de Embed</h3><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Use o código abaixo para inserir o vídeo diretamente no seu site.</p></div><div className="mb-3 flex w-fit rounded-full themeable-bg-surface-pearl p-1"><button type="button" onClick={() => setFormat("javascript")} className={`min-h-10 rounded-full px-4 text-[13px] ${format === "javascript" ? "bg-prisma-blue text-white" : "themeable-text-ink"}`}>Recomendado · JavaScript</button><button type="button" onClick={() => setFormat("iframe")} className={`min-h-10 rounded-full px-4 text-[13px] ${format === "iframe" ? "bg-prisma-blue text-white" : "themeable-text-ink"}`}>iFrame</button></div><pre className="max-h-64 overflow-auto rounded-[11px] bg-[#111] p-4 text-[12px] leading-relaxed text-white">{embedCode}</pre><button type="button" onClick={() => copy(embedCode, "embed")} className="mt-3 min-h-11 rounded-full bg-prisma-blue px-5 text-[14px] text-white">{copied === "embed" ? "Copiado" : "Copiar código"}</button></section>
+      <section className="border-t pt-6 themeable-border-hairline"><h3 className="text-[15px] font-semibold themeable-text-ink">Otimizar velocidade de carregamento</h3><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Cole este código dentro da tag &lt;head&gt; do seu site.</p><pre className="mt-3 overflow-auto rounded-[11px] bg-[#111] p-4 text-[12px] text-white">{speedCode}</pre><button type="button" onClick={() => copy(speedCode, "speed")} className="mt-3 min-h-11 rounded-full border px-5 text-[14px] themeable-border-hairline themeable-text-ink">{copied === "speed" ? "Copiado" : "Copiar otimização"}</button></section>
+      {!playerId && <p className="rounded-[11px] bg-amber-500/10 p-3 text-[13px] text-amber-600">Salve o player antes de usar o código definitivo de Embed.</p>}
+    </div>
+  </Dialog>;
 }
 
 function ModulePanel({ module, config, update, onBack, onPoster, onCaption }: { module: ModuleId; config: StudioConfig; update: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void; onBack: () => void; onPoster: (file: File, kind: "start" | "pause" | "end") => void; onCaption: (file: File) => void }) {
