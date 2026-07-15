@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowLeft, Captions, Check, ChevronRight, Code2, Gauge, Globe2, Heading, ImageIcon, MousePointerClick, Palette, Play, Radio, RotateCcw, Save, Shield, Subtitles, TimerReset, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
@@ -11,7 +11,7 @@ interface StoredVideo { id?: string; name: string; src: string; type: string }
 type ModuleId = "style" | "progress" | "autoplay" | "turbo" | "headlines" | "traffic" | "actions" | "thumbnail" | "resume" | "pixels" | "captions" | "playback";
 
 interface StudioConfig {
-  accent: string; background: string; radius: number; bigPlay: boolean; progressBar: boolean; time: boolean; volume: boolean; fullscreen: boolean; speedControl: boolean;
+  accent: string; background: string; radius: number; bigPlay: boolean; progressBar: boolean; time: boolean; volume: boolean; fullscreen: boolean; pictureInPicture: boolean; speedControl: boolean;
   smartProgress: boolean; progressColor: string; progressHeight: number; smartAutoplay: boolean; autoplayMessage: string; playbackRate: number;
   headlineEnabled: boolean; headline: string; trafficEnabled: boolean; domains: string[]; blockVpn: boolean; accessToken: boolean;
   ctaEnabled: boolean; ctaText: string; ctaUrl: string; ctaStart: number; thumbnailEnabled: boolean; resumeEnabled: boolean; resumeMessage: string;
@@ -36,7 +36,7 @@ const modules: Array<{ id: ModuleId; label: string; icon: typeof Palette; status
 ];
 
 const initialConfig: StudioConfig = {
-  accent: "#0066cc", background: "#000000", radius: 12, bigPlay: true, progressBar: true, time: true, volume: true, fullscreen: true, speedControl: true,
+  accent: "#0066cc", background: "#000000", radius: 12, bigPlay: true, progressBar: true, time: true, volume: true, fullscreen: true, pictureInPicture: true, speedControl: true,
   smartProgress: true, progressColor: "#0066cc", progressHeight: 6, smartAutoplay: true, autoplayMessage: "Seu vídeo já começou. Clique para ouvir.", playbackRate: 1,
   headlineEnabled: true, headline: "Descubra a maneira mais simples de transformar atenção em vendas", trafficEnabled: false, domains: [], blockVpn: true, accessToken: false,
   ctaEnabled: false, ctaText: "Quero aproveitar agora", ctaUrl: "https://", ctaStart: 60, thumbnailEnabled: false, resumeEnabled: true, resumeMessage: "Você já começou a assistir este vídeo",
@@ -53,14 +53,22 @@ export default function VslStudio() {
     catch { return initialConfig; }
   });
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [videoSize, setVideoSize] = useState({ width: 16, height: 9 });
+  const [startTime, setStartTime] = useState(0);
+  const [resumePoint, setResumePoint] = useState<number | null>(null);
   const [autoplayActivated, setAutoplayActivated] = useState(false);
   const [saved, setSaved] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string>();
   const [captionTrack, setCaptionTrack] = useState<{ src: string; kind: "subtitles"; label: string; srclang: string; default: boolean }>();
   const sources = useMemo(() => video ? [{ src: video.src, type: video.type }] : [], [video]);
-  const controlVisibility = useMemo(() => ({ progressControl: config.progressBar, currentTimeDisplay: config.time, durationDisplay: config.time, volumePanel: config.volume, fullscreenToggle: config.fullscreen, playbackRateMenuButton: config.speedControl }), [config.progressBar, config.time, config.volume, config.fullscreen, config.speedControl]);
+  const controlVisibility = useMemo(() => ({ progressControl: config.progressBar, currentTimeDisplay: config.time, durationDisplay: config.time, volumePanel: config.volume, fullscreenToggle: config.fullscreen, pictureInPictureToggle: config.pictureInPicture, playbackRateMenuButton: config.speedControl }), [config.progressBar, config.time, config.volume, config.fullscreen, config.pictureInPicture, config.speedControl]);
   const playerStyle = { "--player-accent": config.smartProgress ? config.progressColor : config.accent, "--player-progress-height": `${config.progressHeight}px`, borderRadius: `${config.radius}px`, backgroundColor: config.background } as CSSProperties;
+  const resumeStorageKey = `prisma-resume:${video?.id ?? video?.name ?? "preview"}`;
+  const lastPersistedSecond = useRef(-1);
+  const previewRatio = videoSize.width > 0 && videoSize.height > 0 ? videoSize.width / videoSize.height : 16 / 9;
+  const previewStyle = { ...playerStyle, aspectRatio: `${videoSize.width} / ${videoSize.height}`, width: `min(100%, calc(62dvh * ${previewRatio}))`, maxWidth: "680px" } as CSSProperties;
   const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => setConfig((current) => ({ ...current, [key]: value }));
 
   async function save() {
@@ -71,6 +79,23 @@ export default function VslStudio() {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
+  }
+
+  function handleMetadata(metadata: { duration: number; width: number; height: number }) {
+    setDuration(metadata.duration);
+    if (metadata.width > 0 && metadata.height > 0) setVideoSize({ width: metadata.width, height: metadata.height });
+    if (!config.resumeEnabled) return;
+    const savedPoint = Number(localStorage.getItem(resumeStorageKey));
+    if (Number.isFinite(savedPoint) && savedPoint >= 5 && savedPoint < metadata.duration - 5) setResumePoint(savedPoint);
+  }
+
+  function handleTimeUpdate(time: number) {
+    setCurrentTime(time);
+    const second = Math.floor(time);
+    if (config.resumeEnabled && second !== lastPersistedSecond.current && second > 0) {
+      lastPersistedSecond.current = second;
+      localStorage.setItem(resumeStorageKey, String(second));
+    }
   }
 
   return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
@@ -93,11 +118,14 @@ export default function VslStudio() {
       <main className="flex min-w-0 flex-col bg-[#000] p-4 sm:p-6 lg:p-8">
         <div className="mb-4 flex items-center justify-between text-white"><div><p className="text-[12px] text-white/50">Prévia ao vivo</p><p className="text-[14px] font-semibold">{active ? modules.find((item) => item.id === active)?.label : "Visão geral"}</p></div><span className="rounded-full bg-white/10 px-3 py-2 text-[12px]">{config.playbackRate.toFixed(2)}x</span></div>
         <div className="flex flex-1 items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-[#252527] p-4 sm:p-8">
-          <div className="w-full max-w-[680px]">
+          <div className="w-full">
             {config.headlineEnabled && <h2 className="mx-auto mb-4 max-w-2xl text-center text-[clamp(18px,2.6vw,30px)] font-semibold leading-tight text-white">{config.headline}</h2>}
-            {video ? <div style={playerStyle} className="mx-auto max-h-[62dvh] max-w-[680px] overflow-hidden"><VideoPlayer sources={sources} poster={posterUrl} textTracks={captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} controlVisibility={controlVisibility} onTimeUpdate={setCurrentTime} /></div> : <div style={playerStyle} className="mx-auto flex aspect-video max-w-[680px] items-center justify-center text-center text-white/50"><div><Play size={36} className="mx-auto mb-3" /><p>Importe um vídeo para testar o Studio</p></div></div>}
-            {config.smartAutoplay && !autoplayActivated && <button type="button" onClick={() => setAutoplayActivated(true)} className="relative mx-auto -mt-24 mb-8 block w-fit max-w-[240px] rounded-[11px] border border-white/40 px-5 py-3 text-center text-[13px] font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `${config.accent}dd` }}>{config.autoplayMessage}</button>}
+            {video ? <div style={previewStyle} className="relative mx-auto max-h-[62dvh] overflow-hidden"><VideoPlayer className={`${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); }} />
+              {resumePoint !== null && <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{config.resumeMessage}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
+              {config.smartAutoplay && !autoplayActivated && resumePoint === null && <button type="button" onClick={() => setAutoplayActivated(true)} className="absolute left-1/2 top-1/2 z-10 w-[min(240px,80%)] -translate-x-1/2 -translate-y-1/2 rounded-[11px] border border-white/40 px-5 py-3 text-center text-[13px] font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `${config.accent}dd` }}>{config.autoplayMessage}</button>}
+            </div> : <div style={playerStyle} className="mx-auto flex aspect-video max-w-[680px] items-center justify-center text-center text-white/50"><div><Play size={36} className="mx-auto mb-3" /><p>Importe um vídeo para testar o Studio</p></div></div>}
             {config.ctaEnabled && currentTime >= config.ctaStart && <a href={config.ctaUrl} target="_blank" rel="noreferrer" className="mx-auto mt-5 flex min-h-12 w-fit items-center rounded-full px-7 text-[16px] text-white" style={{ backgroundColor: config.accent }}>{config.ctaText}</a>}
+            {video && <p className="mt-3 text-center text-[11px] text-white/40">{videoSize.width}×{videoSize.height} · {duration ? `${Math.floor(duration / 60)}:${String(Math.floor(duration % 60)).padStart(2, "0")}` : "Lendo metadados"}</p>}
           </div>
         </div>
       </main>
@@ -116,7 +144,7 @@ function ModulePanel({ module, config, update, onBack, onPoster, onCaption }: { 
 }
 
 function renderPanel(module: ModuleId, c: StudioConfig, u: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void, onPoster: (file: File) => void, onCaption: (file: File) => void) {
-  if (module === "style") return <><Color label="Cor principal" value={c.accent} onChange={(v) => u("accent", v)} /><Color label="Fundo" value={c.background} onChange={(v) => u("background", v)} /><Range label="Cantos arredondados" value={c.radius} min={0} max={28} suffix="px" onChange={(v) => u("radius", v)} /><PanelTitle>Controles nativos</PanelTitle><CheckRow label="Botão de play grande" checked={c.bigPlay} onChange={(v) => u("bigPlay", v)} /><CheckRow label="Barra de progresso" checked={c.progressBar} onChange={(v) => u("progressBar", v)} /><CheckRow label="Tempo do vídeo" checked={c.time} onChange={(v) => u("time", v)} /><CheckRow label="Volume" checked={c.volume} onChange={(v) => u("volume", v)} /><CheckRow label="Fullscreen" checked={c.fullscreen} onChange={(v) => u("fullscreen", v)} /><CheckRow label="Velocidades" checked={c.speedControl} onChange={(v) => u("speedControl", v)} /></>;
+  if (module === "style") return <><Color label="Cor principal" value={c.accent} onChange={(v) => u("accent", v)} /><Color label="Fundo" value={c.background} onChange={(v) => u("background", v)} /><Range label="Cantos arredondados" value={c.radius} min={0} max={28} suffix="px" onChange={(v) => u("radius", v)} /><PanelTitle>Controles do player</PanelTitle><CheckRow label="Feedback central de play" checked={c.bigPlay} onChange={(v) => u("bigPlay", v)} /><CheckRow label="Barra de progresso" checked={c.progressBar} onChange={(v) => u("progressBar", v)} /><CheckRow label="Tempo do vídeo" checked={c.time} onChange={(v) => u("time", v)} /><CheckRow label="Volume" checked={c.volume} onChange={(v) => u("volume", v)} /><CheckRow label="Fullscreen" checked={c.fullscreen} onChange={(v) => u("fullscreen", v)} /><CheckRow label="Picture-in-Picture" checked={c.pictureInPicture} onChange={(v) => u("pictureInPicture", v)} /><CheckRow label="Velocidades" checked={c.speedControl} onChange={(v) => u("speedControl", v)} /></>;
   if (module === "progress") return <><p className="panel-help">Uma camada visual do Prisma sobre o ProgressControl do Video.js.</p><Color label="Cor da barra" value={c.progressColor} onChange={(v) => u("progressColor", v)} /><Range label="Altura" value={c.progressHeight} min={3} max={12} suffix="px" onChange={(v) => u("progressHeight", v)} /></>;
   if (module === "autoplay") return <><p className="panel-help">Autoplay segue as políticas do navegador e começa mudo quando necessário.</p><TextArea label="Mensagem de ativação" value={c.autoplayMessage} onChange={(v) => u("autoplayMessage", v)} /></>;
   if (module === "turbo") return <><p className="panel-help">Teste manual de playbackRate usando a API nativa do Video.js.</p><Range label="Velocidade" value={c.playbackRate} min={0.75} max={2} step={0.25} suffix="x" onChange={(v) => u("playbackRate", v)} /></>;

@@ -20,6 +20,9 @@ export default function VideoPlayer({
   bigPlayButton = true,
   pauseWhenHidden = false,
   onTimeUpdate,
+  onLoadedMetadata,
+  onEnded,
+  startTime = 0,
   controlVisibility,
   textTracks = [],
   className = "",
@@ -33,12 +36,18 @@ export default function VideoPlayer({
     controlVisibility?.currentTimeDisplay === false && "prisma-player--time-hidden",
     controlVisibility?.volumePanel === false && "prisma-player--volume-hidden",
     controlVisibility?.fullscreenToggle === false && "prisma-player--fullscreen-hidden",
+    controlVisibility?.pictureInPictureToggle === false && "prisma-player--pip-hidden",
     controlVisibility?.playbackRateMenuButton === false && "prisma-player--settings-hidden",
   ].filter(Boolean).join(" "), [bigPlayButton, controlVisibility, controls]);
 
   useEffect(() => {
     if (mediaRef.current) mediaRef.current.playbackRate = playbackRate;
   }, [playbackRate]);
+
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (media && Number.isFinite(startTime) && Math.abs(media.currentTime - startTime) > 1) media.currentTime = startTime;
+  }, [startTime]);
 
   useEffect(() => {
     const media = mediaRef.current;
@@ -65,8 +74,14 @@ export default function VideoPlayer({
             playsInline
             preload="metadata"
             crossOrigin="anonymous"
-            onLoadedMetadata={(event) => { event.currentTarget.playbackRate = playbackRate; }}
+            onLoadedMetadata={(event) => {
+              const media = event.currentTarget;
+              media.playbackRate = playbackRate;
+              if (startTime > 0 && startTime < media.duration) media.currentTime = startTime;
+              onLoadedMetadata?.({ duration: media.duration, width: media.videoWidth, height: media.videoHeight });
+            }}
             onTimeUpdate={(event) => onTimeUpdate?.(event.currentTarget.currentTime)}
+            onEnded={onEnded}
           >
             {textTracks.map((track) => (
               <track key={`${track.src}-${track.srclang}`} src={track.src} kind={track.kind} label={track.label} srcLang={track.srclang} default={track.default} />
