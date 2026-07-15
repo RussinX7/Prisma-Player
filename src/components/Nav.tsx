@@ -36,7 +36,7 @@ export default function Nav() {
         </div>
         <div className="flex items-center gap-3">
           <a
-            href="#"
+            href="/login"
             className="text-white/80 hover:text-white text-xs tracking-[-0.12px] transition-colors hidden sm:block"
           >
             Login
