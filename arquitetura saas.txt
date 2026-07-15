@@ -1,0 +1,910 @@
+# Guia de Arquitetura SaaS da Vanguard
+
+> Documento vivo sobre a stack, a arquitetura, as decisões técnicas e o método usado para construir a Vanguard. O objetivo é preservar o conhecimento do projeto e servir como base para SaaS futuros de qualquer nicho.
+
+## 1. Objetivo deste documento
+
+Este guia registra:
+
+- a stack real usada na Vanguard;
+- como as camadas do sistema se relacionam;
+- os padrões de segurança adotados;
+- como autenticação, planos, pagamentos, campanhas, domínios e analytics funcionam;
+- os erros que um SaaS deve evitar;
+- um roteiro para criar novos produtos sem copiar regras específicas da Vanguard;
+- checklists de desenvolvimento, testes, implantação e operação.
+
+Ele não contém chaves, tokens, dados pessoais de clientes ou credenciais. Segredos devem existir apenas nas variáveis protegidas do ambiente de produção.
+
+---
+
+## 2. Stack atual da Vanguard
+
+### Aplicação e linguagem
+
+| Camada | Tecnologia | Responsabilidade |
+| --- | --- | --- |
+| Linguagem | TypeScript 5 | Tipagem do frontend, backend e regras de negócio |
+| Framework | Next.js 16, App Router | Páginas, layouts, Server Components, Route Handlers e middleware/proxy |
+| Interface | React 19 | Componentes e interações do usuário |
+| Estilos | Tailwind CSS 4 | Layout responsivo, temas e sistema visual |
+| Componentes | shadcn/ui + Radix UI | Primitivos acessíveis e componentes reutilizáveis |
+| Ícones | Lucide React | Iconografia consistente |
+| Visualização | Cobe | Globo 3D e visualizações geográficas |
+
+### Dados, autenticação e infraestrutura
+
+| Camada | Tecnologia | Responsabilidade |
+| --- | --- | --- |
+| Banco | PostgreSQL via Supabase | Persistência relacional, constraints, índices e funções SQL |
+| Identidade | Supabase Auth SSR | Sessões autenticadas por cookies seguros |
+| Acesso privilegiado | Supabase Service Role, somente no servidor | Operações validadas pelo backend |
+| Hospedagem | Vercel | Deploy do Next.js, HTTPS, funções serverless e cron |
+| Domínios | API da Vercel + DNS do cliente | Cadastro, verificação e SSL de domínios personalizados |
+| Pagamentos | SyncPay | Planos, checkout Pix, assinatura e webhooks |
+| Métricas de desempenho | Vercel Speed Insights | Web Vitals e desempenho real da aplicação |
+| Controle de versão | Git + GitHub | Histórico, revisão e publicação do código |
+
+### Ferramentas de qualidade
+
+- ESLint 9 com configuração do Next.js;
+- TypeScript em modo `strict` e `noEmit`;
+- build de produção do Next.js antes de publicar;
+- migrations SQL versionadas;
+- validação de diff com `git diff --check`;
+- CSP, HSTS e demais cabeçalhos de segurança configurados no Next.js.
+
+---
+
+## 3. Estrutura arquitetural
+
+O projeto é um monólito modular. Frontend, backend HTTP e integração com o banco vivem no mesmo repositório, mas possuem limites claros.
+
+```text
+Navegador
+  -> páginas e componentes React
+  -> /api/* do Next.js
+  -> autenticação e autorização no servidor
+  -> serviços de domínio
+  -> cliente Supabase com service role
+  -> PostgreSQL
+
+Serviços externos
+  -> SyncPay envia webhooks ao backend
+  -> Vercel Cron chama rotas internas protegidas
+  -> API da Vercel gerencia domínios personalizados
+```
+
+### Organização principal
+
+```text
+src/app/                 páginas, layouts e endpoints HTTP
+src/components/          componentes compartilhados
+src/components/ui/       primitivos de interface
+src/data/                conteúdo estático e apresentação de planos
+src/lib/auth/            autenticação e sessões
+src/lib/billing/         planos, cobrança, cupons e gateway
+src/lib/domains/         validação e integração de domínios
+src/lib/link/            mecanismo de decisão e redirecionamento
+src/lib/security/        utilitários de segurança
+src/lib/team/            workspace, membros e permissões
+src/lib/supabase/        clientes Supabase separados por contexto
+supabase/migrations/     evolução versionada do banco
+public/                  imagens, logos e recursos públicos
+```
+
+### Regra fundamental
+
+O navegador nunca é autoridade para decidir:
+
+- qual usuário está autenticado;
+- se alguém é administrador;
+- qual plano está ativo;
+- quanto custa uma compra;
+- quantos cliques foram usados;
+- quais recursos o plano libera;
+- se um cupom é válido;
+- se um pagamento foi aprovado;
+- qual workspace pode ser alterado.
+
+O frontend solicita uma ação. O backend identifica o usuário pela sessão, carrega dados confiáveis, valida a permissão, calcula o resultado e só então grava no banco.
+
+---
+
+## 4. Sistema visual e experiência
+
+A Vanguard utiliza o `vercel-DESIGN.md` como fonte de verdade para o design.
+
+Princípios aplicados:
+
+- preto, branco, cinzas e dourado como acento controlado;
+- interfaces densas apenas quando os dados exigem;
+- cartões com bordas discretas e hierarquia tipográfica;
+- modo claro e escuro seguindo inicialmente a preferência do sistema;
+- responsividade real para celular, tablet e desktop;
+- feedback imediato em botões assíncronos;
+- estados de carregamento, vazio, sucesso e erro;
+- menus agrupados e navegação previsível;
+- confirmação para ações destrutivas;
+- foco visível e semântica acessível.
+
+### Padrão para telas internas
+
+Uma tela interna deve normalmente conter:
+
+1. título e descrição curta;
+2. ação primária visível;
+3. resumo ou métricas úteis;
+4. busca e filtros, quando houver volume;
+5. tabela ou cards responsivos;
+6. estados vazios instrutivos;
+7. mensagens de erro que não exponham detalhes internos.
+
+### Padrão para operações assíncronas
+
+- desabilitar o botão durante o envio;
+- trocar o texto para “Salvando...”, “Criando...” ou equivalente;
+- evitar cliques duplicados;
+- mostrar confirmação de sucesso;
+- atualizar o estado local sem exigir recarregar a página;
+- redirecionar somente depois da confirmação do backend.
+
+---
+
+## 5. Autenticação e sessões
+
+### Fluxo correto
+
+1. O usuário envia credenciais para uma rota do backend.
+2. O backend aplica rate limit e valida o payload.
+3. O Supabase Auth autentica a identidade.
+4. A sessão é gravada em cookies seguros e `httpOnly` quando aplicável.
+5. Cada endpoint recupera o usuário da sessão, nunca de um `user_id` enviado pelo cliente.
+6. A troca de contas usa registros criptografados e sessões independentes.
+
+### Proteções importantes
+
+- não confiar em `user_id`, `workspace_id`, `role` ou `is_admin` vindos do body;
+- não armazenar service role no navegador;
+- não liberar administração por uma flag alterável no frontend;
+- usar comparação em tempo constante para segredos de webhook e cron;
+- aplicar rate limit distribuído em login, recuperação e ações sensíveis;
+- usar tokens de recuperação de uso único, com hash e validade curta;
+- retornar respostas mínimas, sem perfil completo em páginas públicas;
+- usar `cache-control: private, no-store` em dados pessoais.
+
+### Administrador da plataforma x administrador do workspace
+
+São papéis diferentes:
+
+- **admin da plataforma:** acessa o painel administrativo global;
+- **owner/admin do workspace:** gerencia somente a equipe e os recursos daquele workspace.
+
+Nunca reutilizar uma única flag para os dois conceitos.
+
+---
+
+## 6. Banco de dados e Supabase
+
+### Princípios adotados
+
+- banco relacional com chaves estrangeiras;
+- `check constraints` para estados e valores;
+- índices alinhados às consultas reais;
+- unicidade para operações idempotentes;
+- migrations imutáveis e versionadas;
+- RLS habilitada nas tabelas sensíveis;
+- `anon` e `authenticated` sem escrita direta nas tabelas de negócio;
+- service role usada somente depois de autenticação e autorização no backend;
+- funções `security definer` com `search_path` fixo;
+- permissões de funções revogadas de `public`, `anon` e `authenticated`.
+
+### Por que não chamar `.from()` no navegador
+
+Mesmo com RLS, expor a estrutura do banco no bundle facilita enumeração de tabelas, engenharia reversa e erros de autorização. Na Vanguard, dados sensíveis passam por DTOs mínimos em rotas da aplicação.
+
+### DTO mínimo
+
+Uma resposta deve conter somente o necessário para aquela tela. Exemplos:
+
+- sidebar recebe nome exibido, plano resumido e uso;
+- checkout recebe preço público e identificador do plano;
+- painel de pagamento recebe faturas do usuário atual, sem payload bruto do gateway;
+- equipe recebe membros do workspace selecionado, sem dados de outros workspaces.
+
+### Migrations
+
+Cada mudança estrutural deve:
+
+1. possuir arquivo com timestamp crescente;
+2. ser idempotente quando possível;
+3. criar constraints e índices;
+4. configurar RLS e grants;
+5. prever bancos antigos sem módulos opcionais;
+6. ser testada antes do deploy do código dependente.
+
+---
+
+## 7. Planos, permissões e entitlements
+
+O plano é carregado pelo backend e convertido em permissões de domínio.
+
+Exemplos de limites:
+
+- cliques por ciclo;
+- domínios;
+- campanhas;
+- membros da equipe;
+- funcionalidades de proteção;
+- teste A/B;
+- plataformas e filtros avançados.
+
+### Regras essenciais
+
+- a interface pode ocultar ou bloquear um recurso, mas o backend deve validar novamente;
+- assinatura expirada ou suspensa interrompe recursos protegidos;
+- o slug do plano não deve ser enviado pelo cliente como prova de acesso;
+- preços são recalculados no servidor;
+- o Enterprise é tratado como ilimitado na apresentação, sem exibir números artificiais enormes;
+- trial pode ter regras diferentes de um plano pago.
+
+### Cliques excedentes
+
+A Vanguard utiliza cobrança pós-paga por ciclo:
+
+- Basic: R$ 0,010 por clique extra;
+- Pro: R$ 0,006 por clique extra;
+- Scale: R$ 0,004 por clique extra;
+- Enterprise: ilimitado, sem excedente.
+
+O cálculo usa micro-reais inteiros, evitando erros de ponto flutuante. No encerramento do ciclo, o contador rápido é reconciliado com o ledger de eventos. Uma fatura idempotente é criada somente para o excesso real.
+
+Enquanto houver fatura de excedente pendente:
+
+- o novo ciclo não é liberado;
+- reativação manual não contorna a cobrança;
+- outra assinatura não pode ser criada para fugir do débito;
+- o checkout aparece na área de pagamentos;
+- somente a confirmação autenticada do webhook quita a fatura.
+
+---
+
+## 8. Pagamentos e webhooks
+
+### Fluxo de assinatura
+
+1. O cliente escolhe um plano público.
+2. O backend carrega o plano verdadeiro no banco.
+3. O backend valida assinatura existente e débitos.
+4. Cupom, quando presente, é reservado atomicamente.
+5. A integração cria ou reutiliza um plano no gateway.
+6. Uma assinatura e um pedido locais são criados como pendentes.
+7. O usuário é encaminhado ao checkout HTTPS validado.
+8. O webhook consulta novamente os dados no gateway.
+9. Valor, plano, token e status são comparados.
+10. O backend ativa o acesso e liquida o cupom.
+
+### Regras de segurança de pagamento
+
+- nunca aceitar “paid: true” enviado pelo navegador;
+- validar assinatura do webhook;
+- registrar `event_id` único para idempotência;
+- consultar o gateway no processamento do webhook;
+- comparar o valor pago com o valor esperado em centavos;
+- não gravar tokens ou payloads sensíveis em respostas ao cliente;
+- separar status de pedido, assinatura e evento;
+- impedir que retries dupliquem pedidos, cupons ou ativações;
+- auditar divergências de valor.
+
+### Cupons
+
+Um sistema de cupons completo precisa suportar:
+
+- código normalizado e único;
+- desconto percentual ou fixo;
+- data de início e expiração;
+- limite global e por conta;
+- planos elegíveis;
+- reserva antes do checkout;
+- liberação da reserva em falha;
+- liquidação após pagamento;
+- cálculo sempre no backend.
+
+---
+
+## 9. Trial gratuito
+
+O trial Basic de sete dias é uma oferta controlada pelo servidor.
+
+Boas práticas aplicadas:
+
+- um uso por identidade elegível;
+- e-mail e IP armazenados como hashes com segredo, não em texto puro;
+- restrição persistente mesmo se a conta for removida;
+- ativação transacional no banco;
+- prazo iniciado somente quando o usuário ativa;
+- opção de adiar e recuperar a oferta no inbox;
+- trial não usa cobrança de cliques excedentes;
+- expiração remove o acesso aos recursos pagos.
+
+O fingerprint reduz abuso, mas não deve ser tratado como identificação infalível. Redes compartilhadas, VPNs e CGNAT exigem política de suporte para falsos positivos.
+
+---
+
+## 10. Workspaces e equipes
+
+O workspace é a unidade de isolamento do produto.
+
+Cada recurso pertence a um workspace ou ao seu usuário de cobrança. Convites e membros possuem papéis explícitos, validade e status.
+
+### Regras recomendadas
+
+- owner não pode ser removido acidentalmente;
+- convite deve expirar e ser de uso único;
+- e-mail do convite deve corresponder ao usuário que aceita;
+- limite de membros vem do plano;
+- somente owner ou papel autorizado convida e remove;
+- toda consulta deve filtrar pelo workspace autorizado;
+- alterações aparecem no inbox e na auditoria;
+- remover membro revoga imediatamente o acesso.
+
+---
+
+## 11. Domínios personalizados
+
+### Fluxo
+
+1. Usuário informa um hostname normalizado.
+2. Backend valida formato, plano, limite e propriedade exclusiva.
+3. Backend adiciona o domínio ao projeto da Vercel.
+4. A Vercel retorna registros de verificação e roteamento.
+5. A interface mostra instruções DNS mínimas e claras.
+6. Backend verifica propagação e SSL.
+7. Somente domínio ativo pode ser usado em campanha.
+8. Ao remover, o backend exclui do banco e do projeto Vercel.
+
+### Cuidados
+
+- não permitir domínio da própria aplicação como domínio de cliente;
+- não permitir que um hostname pertença a dois workspaces;
+- domínio raiz normalmente usa registro A indicado pela Vercel;
+- subdomínio normalmente usa CNAME;
+- registros TXT comprovam propriedade, mas não roteiam tráfego;
+- a raiz de um domínio de campanha não deve exibir o painel da Vanguard;
+- host desconhecido deve retornar resposta segura, não a landing page.
+
+---
+
+## 12. Campanhas e mecanismo de tráfego
+
+O mecanismo de decisão é um pipeline server-side. Cada etapa recebe um contexto confiável e pode aprovar ou rejeitar o acesso.
+
+Pipeline atual:
+
+1. localizar campanha pelo host e slug;
+2. validar URLs;
+3. conferir IP bloqueado;
+4. validar assinatura, limite e funcionalidades do plano;
+5. aplicar filtro de dispositivo;
+6. aplicar filtro geográfico;
+7. classificar tráfego;
+8. executar proteção antifraude;
+9. escolher variação A/B quando permitida;
+10. preservar UTMs e parâmetros autorizados;
+11. registrar a decisão;
+12. redirecionar para destino ou fallback.
+
+### Boas práticas do pipeline
+
+- uma etapa não confia na decisão visual do frontend;
+- regras de campanha são carregadas do banco;
+- URLs permitem apenas protocolos seguros definidos;
+- o destino final não deve vazar em HTML ou metadata pública;
+- eventos guardam hashes de rede, não o IP bruto;
+- falha de plano nunca consome cota faturável;
+- decisões possuem motivo auditável;
+- cache nunca mistura campanhas ou workspaces.
+
+---
+
+## 13. Analytics e observabilidade
+
+O ledger de cliques é a fonte de verdade para analytics e cobrança.
+
+Dados úteis:
+
+- campanha;
+- horário;
+- país e região;
+- dispositivo e plataforma;
+- classe de tráfego;
+- destino decidido;
+- motivo da decisão;
+- fingerprint de IP e user agent;
+- variante A/B;
+- UTMs preservadas.
+
+### Privacidade
+
+- não persistir IP bruto quando um hash é suficiente;
+- restringir histórico ao workspace;
+- paginar consultas grandes;
+- agregar informações para gráficos;
+- limitar exportações;
+- definir retenção e exclusão de dados;
+- registrar bloqueios e desbloqueios em auditoria.
+
+### Performance
+
+- índices por usuário, campanha, status e data;
+- agregações limitadas às janelas necessárias;
+- carregamento paralelo de dados independentes;
+- skeletons durante navegação;
+- imagens otimizadas e dimensionadas;
+- Speed Insights para acompanhar dados reais.
+
+---
+
+## 14. Suporte, inbox e administração
+
+### Tickets
+
+Um ticket possui autor, categoria, prioridade, status, responsável, mensagens e timestamps.
+
+Para alto volume:
+
+- listar tickets de forma compacta;
+- filtrar por status, prioridade, categoria e responsável;
+- abrir somente uma conversa por vez;
+- destacar não lidos;
+- registrar quem respondeu;
+- resolver, reabrir e arquivar;
+- impedir que o cliente altere campos administrativos;
+- validar no backend quem pode enviar cada tipo de mensagem.
+
+### Painel administrativo
+
+O painel global deve permanecer separado do workspace e proteger:
+
+- usuários;
+- assinaturas;
+- pagamentos;
+- campanhas;
+- domínios;
+- tickets;
+- cupons;
+- afiliados;
+- logs e segurança.
+
+Cada ação administrativa precisa de autenticação, autorização e auditoria. IDs presentes na URL não concedem acesso por si mesmos.
+
+---
+
+## 15. LGPD e documentos legais
+
+Princípios técnicos relevantes:
+
+- coletar somente o necessário;
+- informar finalidade e base legal;
+- manter Termos de Uso e Política de Privacidade acessíveis;
+- registrar consentimento quando necessário;
+- permitir correção e exclusão conforme a política;
+- proteger dados em trânsito e em repouso;
+- definir retenção e descarte;
+- restringir acesso interno;
+- possuir canal de contato e encarregado quando aplicável;
+- preparar resposta a incidentes.
+
+O checkbox jurídico não substitui uma política adequada nem aconselhamento jurídico. Textos legais precisam ser revisados por profissional qualificado antes de produção.
+
+---
+
+## 16. Segurança aplicada
+
+### Ameaças consideradas
+
+- IDOR por troca de IDs em URL ou body;
+- manipulação de sessão;
+- alteração de plano ou preço no frontend;
+- escrita direta pelo Data API do Supabase;
+- descoberta de tabelas e RPCs;
+- replay de webhook;
+- cobrança com valor divergente;
+- abuso de trial e cupom;
+- open redirect;
+- SSRF por URLs fornecidas pelo usuário;
+- enumeração de contas;
+- brute force;
+- XSS, clickjacking e MIME sniffing;
+- vazamento em logs, RSC, bundles e respostas JSON;
+- corrida de concorrência em contadores e faturamento.
+
+### Controles principais
+
+- autorização server-side em todas as mutations;
+- DTOs mínimos;
+- RLS e grants restritivos;
+- CSP e cabeçalhos HTTP;
+- rate limit persistente;
+- hashes e HMAC para fingerprints;
+- comparação em tempo constante;
+- validação de URL e hostname;
+- locks, índices únicos e operações idempotentes;
+- webhook confirmado no gateway;
+- auditoria para ações sensíveis;
+- nenhuma chave privilegiada com prefixo `NEXT_PUBLIC_`.
+
+### Checklist para um endpoint novo
+
+- [ ] Exige autenticação?
+- [ ] Recupera o usuário da sessão?
+- [ ] Confere workspace e papel?
+- [ ] Valida body, query e parâmetros?
+- [ ] Ignora campos de autoridade enviados pelo cliente?
+- [ ] Aplica rate limit proporcional ao risco?
+- [ ] Retorna apenas o DTO necessário?
+- [ ] Usa `no-store` para dados privados?
+- [ ] É idempotente quando recebe retries?
+- [ ] Registra auditoria sem vazar segredos?
+- [ ] Possui tratamento de erro genérico no cliente?
+- [ ] Tem proteção contra concorrência?
+
+---
+
+## 17. Como criar um SaaS futuro de qualquer nicho
+
+O método abaixo funciona para CRM, agenda, educação, financeiro, marketing, saúde, logística ou outro produto. As regras específicas mudam, mas a estrutura permanece.
+
+### Fase 1 — Definição do produto
+
+1. Definir um problema específico e um usuário específico.
+2. Descrever o resultado que o cliente compra.
+3. Mapear três a cinco fluxos essenciais.
+4. Separar MVP de ideias futuras.
+5. Definir métricas de sucesso.
+6. Escolher o modelo de cobrança.
+
+Entregáveis:
+
+- proposta de valor;
+- personas;
+- mapa de jornadas;
+- matriz de planos;
+- riscos legais;
+- critérios de aceite.
+
+### Fase 2 — Modelagem do domínio
+
+Começar pelas entidades, não pelas telas.
+
+Modelo genérico:
+
+```text
+users
+profiles
+workspaces
+workspace_members
+plans
+subscriptions
+orders
+domain_entities
+events
+notifications
+support_tickets
+audit_logs
+```
+
+Para cada entidade, definir:
+
+- dono do registro;
+- quem pode ler;
+- quem pode criar, editar e excluir;
+- estados válidos;
+- eventos importantes;
+- retenção;
+- constraints;
+- índices.
+
+### Fase 3 — Fundação técnica
+
+1. Criar Next.js com TypeScript estrito.
+2. Configurar Tailwind e componentes acessíveis.
+3. Criar tokens visuais e temas.
+4. Configurar Supabase Auth SSR.
+5. Criar cliente anônimo apenas se realmente necessário.
+6. Manter service role somente no servidor.
+7. Criar middleware/proxy de sessão e hosts.
+8. Configurar headers de segurança.
+9. Criar logging e auditoria.
+10. Configurar ambientes local, preview e produção.
+
+### Fase 4 — Autenticação e tenancy
+
+1. Cadastro e login.
+2. Confirmação de e-mail quando necessária.
+3. Recuperação de senha segura.
+4. Workspace inicial.
+5. Convites e papéis.
+6. Guardas de rota.
+7. Testes de isolamento entre contas.
+
+Antes de desenvolver recursos pagos, provar que um usuário jamais acessa o workspace de outro alterando um ID.
+
+### Fase 5 — Billing
+
+1. Planos no banco.
+2. Entitlements centralizados.
+3. Checkout server-side.
+4. Pedidos locais.
+5. Webhook idempotente.
+6. Validação de valores.
+7. Renovação, atraso, pausa e cancelamento.
+8. Trial, cupons e excedentes, se necessários.
+9. Tela de cobrança e histórico.
+10. Reconciliação periódica.
+
+### Fase 6 — Funcionalidade principal
+
+Desenvolver cada módulo verticalmente:
+
+```text
+migration -> repository -> service -> endpoint -> interface -> validação -> teste
+```
+
+Evitar criar todas as telas primeiro e “ligar o backend depois”. Isso gera estados falsos e decisões no cliente.
+
+### Fase 7 — Administração e suporte
+
+- painel administrativo isolado;
+- busca de usuários;
+- gestão de planos e pagamentos;
+- tickets;
+- auditoria;
+- métricas operacionais;
+- ferramentas de suporte com menor privilégio possível.
+
+### Fase 8 — Lançamento
+
+- executar migrations em staging;
+- testar cadastro até pagamento;
+- testar webhook duplicado;
+- testar expiração e inadimplência;
+- testar celular e desktop;
+- revisar acessibilidade;
+- executar lint, TypeScript e build;
+- verificar robots, sitemap e metadata;
+- configurar alertas e backups;
+- documentar rollback;
+- liberar gradualmente.
+
+---
+
+## 18. Como adaptar a base a outro nicho
+
+### O que pode ser reutilizado
+
+- autenticação;
+- workspaces e equipe;
+- planos e entitlements;
+- checkout, pedidos e webhooks;
+- cupons e trial;
+- suporte e inbox;
+- auditoria;
+- painel administrativo;
+- tema e componentes;
+- domínio personalizado;
+- analytics de eventos;
+- segurança e deploy.
+
+### O que deve ser substituído
+
+- entidades centrais do produto;
+- regras específicas de campanha;
+- métricas de negócio;
+- limites dos planos;
+- linguagem da interface;
+- documentos legais;
+- integrações externas do nicho;
+- política de retenção.
+
+### Exemplos
+
+**SaaS de agendamento**
+
+- campanha vira agenda/serviço;
+- clique vira reserva;
+- domínio personalizado vira página de agendamento;
+- excedente pode ser reserva adicional.
+
+**SaaS de cursos**
+
+- campanha vira curso;
+- equipe vira instrutores;
+- evento vira progresso do aluno;
+- plano limita alunos, armazenamento ou cursos.
+
+**SaaS financeiro**
+
+- campanha vira conta ou centro de custo;
+- evento vira lançamento;
+- analytics vira fluxo de caixa;
+- segurança e auditoria precisam de rigor adicional.
+
+---
+
+## 19. Erros que devem ser evitados
+
+- colocar regras críticas apenas no React;
+- confiar em IDs enviados pelo navegador;
+- expor service role;
+- usar preço enviado pelo checkout;
+- ativar plano pela página de sucesso;
+- usar número decimal de ponto flutuante para dinheiro;
+- não tratar webhook repetido;
+- misturar admin global e admin de workspace;
+- criar tabela sem RLS, grants, constraints ou índices;
+- retornar `select *` para o frontend;
+- guardar IP, senha, token ou documento em logs;
+- depender de refresh manual para atualizar interface;
+- permitir múltiplos envios do mesmo formulário;
+- usar números gigantes para representar “ilimitado” na interface;
+- executar migration destrutiva sem backup e rollback;
+- publicar sem build de produção.
+
+---
+
+## 20. Processo de desenvolvimento recomendado
+
+### Antes de alterar
+
+1. Ler `vercel-DESIGN.md` para mudanças visuais.
+2. Conferir `git status` e preservar alterações existentes.
+3. Mapear frontend, endpoint, serviço e banco relacionados.
+4. Identificar regras de plano e autorização.
+
+### Durante
+
+1. Criar migration quando houver alteração de dados.
+2. Implementar autoridade no backend.
+3. Expor DTO mínimo.
+4. Criar UI com loading, erro e sucesso.
+5. Tornar ações idempotentes.
+6. Testar cenários negativos.
+
+### Antes do commit
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+git diff --check
+git status --short
+```
+
+Revisar especialmente:
+
+- segredos acidentais;
+- payloads excessivos;
+- endpoints sem autorização;
+- links externos inseguros;
+- migrations incompatíveis;
+- arquivos de usuário não relacionados.
+
+### Publicação
+
+1. sincronizar a branch;
+2. criar commit descritivo;
+3. enviar ao GitHub;
+4. aplicar migrations na ordem;
+5. configurar novas variáveis de ambiente;
+6. acompanhar build e logs;
+7. fazer smoke test em produção.
+
+---
+
+## 21. Variáveis de ambiente
+
+Categorias atuais:
+
+- URL pública e SEO;
+- Supabase server-side;
+- chaves públicas do Supabase;
+- SyncPay;
+- fingerprint de trial;
+- rate limit;
+- troca segura de contas;
+- Vercel Domains API;
+- Vercel Cron;
+- identificação legal.
+
+Regras:
+
+- usar `.env.example` apenas como catálogo sem valores reais;
+- variáveis públicas devem possuir somente informações realmente públicas;
+- secrets precisam de alta entropia e rotação;
+- preview e produção devem ter credenciais separadas quando possível;
+- após vazamento, remover do histórico não é suficiente: revogar e gerar outra chave.
+
+---
+
+## 22. Operação e manutenção
+
+### Rotina diária
+
+- conferir falhas de deploy;
+- verificar webhooks com erro;
+- acompanhar pagamentos divergentes;
+- observar tickets prioritários;
+- verificar cron de cobrança;
+- acompanhar métricas de desempenho.
+
+### Rotina semanal
+
+- revisar eventos de segurança;
+- checar crescimento das tabelas;
+- testar backup e restauração;
+- analisar endpoints lentos;
+- revisar dependências e alertas;
+- conferir domínios com erro de DNS/SSL.
+
+### Rotina mensal
+
+- reconciliar pedidos e gateway;
+- validar faturas de excedentes;
+- revisar acessos administrativos;
+- revisar retenção de dados;
+- atualizar documentação;
+- executar teste completo do fluxo de compra.
+
+---
+
+## 23. Definição de pronto
+
+Uma funcionalidade só está pronta quando:
+
+- resolve o fluxo do usuário;
+- funciona em celular e desktop;
+- funciona nos temas claro e escuro;
+- possui feedback de carregamento e sucesso;
+- valida no frontend por experiência e no backend por segurança;
+- respeita plano e workspace;
+- não expõe dados desnecessários;
+- trata retry e concorrência;
+- possui migration segura quando necessária;
+- passa em lint, TypeScript e build;
+- está documentada;
+- pode ser operada e suportada em produção.
+
+---
+
+## 24. Arquivos de referência da Vanguard
+
+- `vercel-DESIGN.md`: sistema visual;
+- `.env.example`: catálogo de configuração;
+- `src/lib/auth/server.ts`: autenticação server-side;
+- `src/lib/billing/service.ts`: orquestração de cobrança;
+- `src/lib/billing/overage.ts`: cobrança de cliques extras;
+- `src/lib/link/engine.ts`: motor de decisão de tráfego;
+- `src/lib/link/pipeline/`: etapas do pipeline;
+- `src/lib/domains/vercel.ts`: integração de domínios;
+- `src/app/api/`: superfície HTTP controlada;
+- `supabase/migrations/`: histórico do banco;
+- `supabase/migrations/20260715170000_click_overage_billing.sql`: medição e faturamento de excedentes.
+
+---
+
+## 25. Conclusão
+
+O maior aprendizado da Vanguard é que um SaaS confiável não é apenas uma coleção de telas. Ele é uma combinação de:
+
+- produto bem delimitado;
+- dados modelados com integridade;
+- autoridade no servidor;
+- pagamentos idempotentes;
+- isolamento entre clientes;
+- interface clara e responsiva;
+- observabilidade;
+- documentação;
+- operação contínua.
+
+A mesma fundação pode criar produtos de diferentes nichos. O segredo é manter os módulos horizontais — autenticação, tenancy, billing, segurança, suporte e deploy — e substituir cuidadosamente o domínio central do negócio.

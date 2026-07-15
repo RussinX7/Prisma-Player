@@ -1,0 +1,102 @@
+export default function Footer() {
+  return (
+    <footer className="bg-canvas-parchment pt-16 pb-8 px-6">
+      <div className="max-w-[980px] mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          <div>
+            <h4 className="text-caption-strong text-ink-muted-48 mb-4 uppercase tracking-wider">
+              Produto
+            </h4>
+            <ul className="space-y-2">
+              {[
+                "Início",
+                "Headlines AI",
+                "Smart Autoplay",
+                "Turbo Playback",
+                "Teste A/B",
+                "Analytics",
+                "Planos",
+              ].map((item) => (
+                <li key={item}>
+                  <a
+                    href="#"
+                    className="text-fine text-ink-muted-48 hover:text-prisma-blue transition-colors"
+                  >
+                    {item}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-caption-strong text-ink-muted-48 mb-4 uppercase tracking-wider">
+              Empresa
+            </h4>
+            <ul className="space-y-2">
+              {[
+                "Sobre nós",
+                "Trabalhe Conosco",
+                "Parcerias",
+                "Podcast",
+                "Blog",
+              ].map((item) => (
+                <li key={item}>
+                  <a
+                    href="#"
+                    className="text-fine text-ink-muted-48 hover:text-prisma-blue transition-colors"
+                  >
+                    {item}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-caption-strong text-ink-muted-48 mb-4 uppercase tracking-wider">
+              Legal
+            </h4>
+            <ul className="space-y-2">
+              {["Termos de Uso", "Política de Privacidade", "Canal de Denúncias"].map(
+                (item) => (
+                  <li key={item}>
+                    <a
+                      href="#"
+                      className="text-fine text-ink-muted-48 hover:text-prisma-blue transition-colors"
+                    >
+                      {item}
+                    </a>
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-caption-strong text-ink-muted-48 mb-4 uppercase tracking-wider">
+              Ajuda
+            </h4>
+            <ul className="space-y-2">
+              {["Central de Ajuda", "WhatsApp", "contato@prismaplayer.com.br"].map(
+                (item) => (
+                  <li key={item}>
+                    <a
+                      href="#"
+                      className="text-fine text-ink-muted-48 hover:text-prisma-blue transition-colors"
+                    >
+                      {item}
+                    </a>
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-hairline pt-6">
+          <p className="text-fine text-ink-muted-48 text-center">
+            &copy; Prisma Player Ltda {new Date().getFullYear()}. Todos os direitos
+            reservados.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
