@@ -22,8 +22,11 @@ export default function VideoPlayer({
   onTimeUpdate,
   onLoadedMetadata,
   onEnded,
+  onPause,
+  onPlay,
   startTime = 0,
   restartWithSoundSignal = 0,
+  resumePlaybackSignal = 0,
   controlVisibility,
   textTracks = [],
   className = "",
@@ -60,6 +63,11 @@ export default function VideoPlayer({
   }, [restartWithSoundSignal]);
 
   useEffect(() => {
+    if (resumePlaybackSignal <= 0) return;
+    void mediaRef.current?.play().catch(() => undefined);
+  }, [resumePlaybackSignal]);
+
+  useEffect(() => {
     const media = mediaRef.current;
     if (!media || !pauseWhenHidden) return;
     const handleVisibility = () => {
@@ -92,6 +100,8 @@ export default function VideoPlayer({
             }}
             onTimeUpdate={(event) => onTimeUpdate?.(event.currentTarget.currentTime)}
             onEnded={onEnded}
+            onPause={onPause}
+            onPlay={onPlay}
           >
             {textTracks.map((track) => (
               <track key={`${track.src}-${track.srclang}`} src={track.src} kind={track.kind} label={track.label} srcLang={track.srclang} default={track.default} />
