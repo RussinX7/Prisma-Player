@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthErrorMessage, oauthEnabled, withAuthTimeout } from "@/lib/supabase/auth-errors";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -17,16 +18,28 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
-    setMessage(error ? "Não foi possível criar a conta. Verifique os dados." : data.session ? "Conta criada. Redirecionando…" : "Confira seu e-mail para confirmar a conta.");
-    if (data.session) window.location.assign("/dashboard/videos");
-    setLoading(false);
+    try {
+      const supabase = createClient();
+      const { data, error } = await withAuthTimeout(
+        supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } }),
+      );
+      if (error) throw error;
+      setMessage(data.session ? "Conta criada. Redirecionando…" : "Cadastro recebido. Confira seu e-mail para confirmar a conta.");
+      if (data.session) window.location.assign("/dashboard/videos");
+    } catch (error) {
+      setMessage(getAuthErrorMessage(error, "Não foi possível criar a conta. Tente novamente."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signUpWith(provider: "google" | "apple") {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
+    if (!oauthEnabled(provider)) { setMessage(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
+      if (error) throw error;
+    } catch (error) { setMessage(getAuthErrorMessage(error, "Não foi possível abrir o provedor de acesso.")); }
   }
 
   return (
@@ -169,7 +182,7 @@ export default function SignupPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => signUpWith("google")} className="h-[44px] flex items-center justify-center gap-2 bg-surface-tile-1 border border-white/10 rounded-pill text-caption text-body-muted transition-all hover:bg-surface-tile-2 active:scale-[0.98]">
+            <button type="button" onClick={() => signUpWith("google")} aria-disabled={!oauthEnabled("google")} className="h-[44px] flex items-center justify-center gap-2 bg-surface-tile-1 border border-white/10 rounded-pill text-caption text-body-muted transition-all hover:bg-surface-tile-2 active:scale-[0.98] aria-disabled:opacity-40">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#cccccc">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -178,7 +191,7 @@ export default function SignupPage() {
               </svg>
               Google
             </button>
-            <button type="button" onClick={() => signUpWith("apple")} className="h-[44px] flex items-center justify-center gap-2 bg-white text-ink border border-white/10 rounded-pill text-caption transition-all hover:opacity-90 active:scale-[0.98]">
+            <button type="button" onClick={() => signUpWith("apple")} aria-disabled={!oauthEnabled("apple")} className="h-[44px] flex items-center justify-center gap-2 bg-white text-ink border border-white/10 rounded-pill text-caption transition-all hover:opacity-90 active:scale-[0.98] aria-disabled:opacity-40">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="#1d1d1f">
                 <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
               </svg>

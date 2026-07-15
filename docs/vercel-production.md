@@ -12,9 +12,27 @@ SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY
 SUPABASE_JWKS_URL
 NEXT_PUBLIC_SITE_URL
+NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED
+NEXT_PUBLIC_SUPABASE_APPLE_ENABLED
 ```
 
 Somente URL e publishable key podem usar `NEXT_PUBLIC_`. A secret key nunca entra no Git, no bundle, em logs ou em respostas da API.
+
+Valores do projeto Prisma Player:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://jghtmqzgyyonelfmjdxb.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_55e6DybK7f5sZwqlnCEHJw_Eju40F6L
+SUPABASE_URL=https://jghtmqzgyyonelfmjdxb.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_55e6DybK7f5sZwqlnCEHJw_Eju40F6L
+SUPABASE_SECRET_KEY=<cole a secret key completa somente na Vercel>
+SUPABASE_JWKS_URL=https://jghtmqzgyyonelfmjdxb.supabase.co/auth/v1/.well-known/jwks.json
+NEXT_PUBLIC_SITE_URL=https://prisma-player.vercel.app
+NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED=false
+NEXT_PUBLIC_SUPABASE_APPLE_ENABLED=false
+```
+
+As duas flags de OAuth só devem virar `true` depois de configurar cada provedor no painel do Supabase. Depois de alterar qualquer variável `NEXT_PUBLIC_`, faça um novo deploy, pois o valor é incorporado ao bundle durante o build.
 
 ## Banco e Storage
 
@@ -27,7 +45,8 @@ Somente URL e publishable key podem usar `NEXT_PUBLIC_`. A secret key nunca entr
 
 ## Auth
 
-- Cadastre `https://SEU-DOMINIO/auth/callback` nas redirect URLs do Supabase.
+- Defina o Site URL como `https://prisma-player.vercel.app`.
+- Cadastre `https://prisma-player.vercel.app/auth/callback` nas redirect URLs do Supabase.
 - Ative os provedores Google/Apple antes de exibir OAuth em produção.
 - Configure SMTP próprio para confirmação e recuperação de senha.
 - Mantenha a expiração de JWT curta e use MFA para operações administrativas.
