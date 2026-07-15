@@ -27,6 +27,7 @@ export interface VideoPlayerProps {
   onLoadedMetadata?: (metadata: { duration: number; width: number; height: number }) => void;
   onEnded?: () => void;
   startTime?: number;
+  restartWithSoundSignal?: number;
   controlVisibility?: Partial<Record<"progressControl" | "currentTimeDisplay" | "durationDisplay" | "volumePanel" | "fullscreenToggle" | "playbackRateMenuButton" | "pictureInPictureToggle", boolean>>;
   className?: string;
 }

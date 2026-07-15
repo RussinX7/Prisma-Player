@@ -20,11 +20,40 @@
   background: var(--player-accent, #0066cc);
 }
 
-.prisma-video-player .media-time-controls .media-slider {
+.prisma-video-player .media-time-controls .media-slider__track {
+  height: var(--player-progress-height, 6px);
   min-height: var(--player-progress-height, 6px);
 }
 
+.prisma-video-player .media-controls {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* A navegação de ±10s não faz parte da experiência VSL do Prisma. */
+.prisma-video-player .media-button--seek {
+  display: none !important;
+}
+
+.prisma-player--smart-progress .media-controls:not([data-visible]) {
+  opacity: 1 !important;
+  scale: 1 !important;
+}
+
+.prisma-player--smart-progress .media-controls:not([data-visible]) > .media-button-group,
+.prisma-player--smart-progress .media-controls:not([data-visible]) .media-time {
+  opacity: 0 !important;
+}
+
+.prisma-player--smart-progress .media-time-controls {
+  min-width: 100%;
+  padding-inline: 0 !important;
+}
+
 .prisma-player--controls-hidden .media-controls,
+.prisma-player--play-pause-hidden .media-button--play,
 .prisma-player--big-play-hidden .media-input-feedback-bubble,
 .prisma-player--progress-hidden .media-time-controls .media-slider,
 .prisma-player--time-hidden .media-time,

@@ -23,6 +23,7 @@ export default function VideoPlayer({
   onLoadedMetadata,
   onEnded,
   startTime = 0,
+  restartWithSoundSignal = 0,
   controlVisibility,
   textTracks = [],
   className = "",
@@ -48,6 +49,15 @@ export default function VideoPlayer({
     const media = mediaRef.current;
     if (media && Number.isFinite(startTime) && Math.abs(media.currentTime - startTime) > 1) media.currentTime = startTime;
   }, [startTime]);
+
+  useEffect(() => {
+    if (restartWithSoundSignal <= 0) return;
+    const media = mediaRef.current;
+    if (!media) return;
+    media.currentTime = 0;
+    media.muted = false;
+    void media.play().catch(() => undefined);
+  }, [restartWithSoundSignal]);
 
   useEffect(() => {
     const media = mediaRef.current;
