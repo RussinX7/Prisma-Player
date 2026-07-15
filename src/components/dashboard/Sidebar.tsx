@@ -2,36 +2,32 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import BrandLogo from "@/components/BrandLogo";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   Video,
-  PlaySquare,
-  BarChart3,
+  FlaskConical,
+  Shield,
+  Target,
   Settings,
   LifeBuoy,
-  ChevronLeft,
   Menu,
+  X,
 } from "lucide-react";
 
 const menuItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Vídeos", href: "/dashboard/videos", icon: Video },
-  { label: "Players", href: "/dashboard/players", icon: PlaySquare },
-  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { label: "Meus vídeos", href: "/dashboard/videos", icon: Video },
+  { label: "Testes A/B", href: "/dashboard/ab-tests", icon: FlaskConical },
+  { label: "Segurança", href: "/dashboard/security", icon: Shield },
+  { label: "Conversões", href: "/dashboard/conversions", icon: Target },
   { label: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   function isActive(href: string) {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
     return pathname.startsWith(href);
   }
 
@@ -40,51 +36,41 @@ export default function Sidebar() {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Abrir menu"
-        className="lg:hidden fixed top-4 left-4 z-50 w-9 h-9 flex items-center justify-center rounded-full themeable-bg-surface-pearl border themeable-border-hairline themeable-text-ink transition-all active:scale-90"
+        className="fixed left-4 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-full border themeable-bg-surface-pearl themeable-border-hairline themeable-text-ink transition-transform active:scale-95 lg:hidden"
       >
         <Menu size={18} />
       </button>
 
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-dvh
+          fixed left-0 top-0 z-40 h-dvh w-64
           themeable-bg-canvas border-r themeable-border-hairline
           flex flex-col transition-all duration-300 ease-out
-          ${collapsed ? "w-16" : "w-64"}
           ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b themeable-border-hairline">
+        <div className="flex h-16 items-center justify-between border-b px-4 themeable-border-hairline">
           <Link
-            href="/dashboard"
-            className={`flex min-w-0 items-center ${collapsed ? "justify-center w-full" : ""}`}
+            href="/dashboard/videos"
+            className="flex min-w-0 items-center"
             aria-label="Prisma Player"
+            onClick={() => setMobileOpen(false)}
           >
-            <Image
-              src="/assets/logo.png"
-              alt="Prisma Player"
-              width={154}
-              height={35}
-              priority
-              className={collapsed ? "h-7 w-7 object-cover object-left" : "h-8 w-auto max-w-[154px] object-contain"}
-            />
+            <BrandLogo className="h-8 w-[154px]" priority />
           </Link>
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-            className="hidden lg:flex w-7 h-7 items-center justify-center rounded-full themeable-text-ink-muted-48 hover:themeable-bg-surface-pearl transition-all active:scale-90"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fechar menu"
+            className="flex h-11 w-11 items-center justify-center rounded-full themeable-text-ink-muted-48 transition-transform active:scale-95 lg:hidden"
           >
-            <ChevronLeft
-              size={14}
-              className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
-            />
+            <X size={20} />
           </button>
         </div>
 
@@ -98,7 +84,7 @@ export default function Sidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={`
                   flex items-center gap-3 rounded-lg transition-all active:scale-[0.98]
-                  ${collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"}
+                  min-h-11 px-3 py-2.5
                   ${
                     active
                       ? "bg-prisma-blue text-white"
@@ -110,11 +96,7 @@ export default function Sidebar() {
                   size={20}
                   className={`flex-shrink-0 ${active ? "text-white" : ""}`}
                 />
-                {!collapsed && (
-                  <span className="text-[15px] font-medium tracking-[-0.2px]">
-                    {item.label}
-                  </span>
-                )}
+                <span className="text-[15px] font-semibold tracking-[-0.2px]">{item.label}</span>
               </Link>
             );
           })}
@@ -126,13 +108,11 @@ export default function Sidebar() {
             className={`
               flex items-center gap-3 rounded-lg transition-all active:scale-[0.98]
               themeable-text-ink-muted-48 hover:themeable-bg-surface-pearl hover:themeable-text-ink
-              ${collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"}
+              min-h-11 px-3 py-2.5
             `}
           >
             <LifeBuoy size={20} className="flex-shrink-0" />
-            {!collapsed && (
-              <span className="text-[15px] font-medium tracking-[-0.2px]">Ajuda</span>
-            )}
+            <span className="text-[15px] font-semibold tracking-[-0.2px]">Ajuda</span>
           </Link>
         </div>
       </aside>

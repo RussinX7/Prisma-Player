@@ -30,13 +30,13 @@
 }
 
 .dark {
-  --color-canvas: #000000;
+  --color-canvas: #272729;
   --color-canvas-parchment: #1d1d1f;
   --color-ink: #f5f5f7;
-  --color-body: #f5f5f7;
-  --color-body-muted: #86868b;
-  --color-ink-muted-80: #a1a1a6;
-  --color-ink-muted-48: #6e6e73;
+  --color-body: #ffffff;
+  --color-body-muted: #cccccc;
+  --color-ink-muted-80: #cccccc;
+  --color-ink-muted-48: #a1a1a6;
   --color-divider-soft: rgba(255, 255, 255, 0.06);
   --color-hairline: rgba(255, 255, 255, 0.12);
   --color-surface-pearl: #2a2a2c;
@@ -166,3 +166,51 @@ body {
 .themeable-text-on-dark { color: var(--color-on-dark); }
 .themeable-border-hairline { border-color: var(--color-hairline); }
 .themeable-border-divider-soft { border-color: var(--color-divider-soft); }
+
+.dashboard-content {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 20px 16px 0;
+}
+
+@media (min-width: 640px) {
+  .dashboard-content {
+    padding: 24px 24px 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-content {
+    padding-inline: 32px;
+  }
+}
+
+.brand-logo-stack {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.brand-logo-light-text {
+  opacity: 0;
+  filter: brightness(0) invert(1);
+  clip-path: inset(0 0 0 19%);
+  transition: opacity 180ms ease;
+}
+
+.brand-logo-stack-dark .brand-logo-light-text,
+.dark .brand-logo-stack .brand-logo-light-text {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

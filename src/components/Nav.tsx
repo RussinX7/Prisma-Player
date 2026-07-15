@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "./BrandLogo";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Nav() {
@@ -8,14 +8,7 @@ export default function Nav() {
       <div className="container-section h-full flex items-center justify-between px-5 max-w-[1440px] mx-auto">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex shrink-0 items-center" aria-label="Prisma Player">
-            <Image
-              src="/assets/logo.png"
-              alt="Prisma Player"
-              width={154}
-              height={35}
-              priority
-              className="h-[26px] w-auto object-contain"
-            />
+            <BrandLogo className="h-[26px] w-[132px]" priority darkSurface />
           </Link>
           <div className="hidden md:flex items-center gap-5">
             {[
@@ -35,7 +28,7 @@ export default function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <ThemeToggle />
+          <ThemeToggle onDarkSurface />
           <a
             href="/login"
             className="text-white/80 hover:text-white text-xs tracking-[-0.12px] transition-colors hidden sm:block"

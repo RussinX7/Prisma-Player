@@ -52,7 +52,7 @@ export default function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-prisma-blue/10 flex items-center justify-center">
             <div className="text-prisma-blue">{icon}</div>
@@ -61,13 +61,13 @@ export default function PageHeader({
             {title}
           </h2>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {actions.map((action, i) => (
             <button
               key={i}
               onClick={action.onClick}
               className={`
-                flex items-center gap-1.5 rounded-full transition-all active:scale-[0.97] text-[13px] font-medium tracking-[-0.2px]
+                flex min-h-11 items-center justify-center gap-1.5 rounded-full text-[13px] font-normal tracking-[-0.2px] transition-transform active:scale-95
                 ${
                   action.primary
                     ? "bg-prisma-blue text-white px-4 py-2 hover:opacity-90"
@@ -76,7 +76,7 @@ export default function PageHeader({
               `}
             >
               {action.icon}
-              <span className="hidden sm:inline">{action.label}</span>
+              <span>{action.label}</span>
             </button>
           ))}
         </div>

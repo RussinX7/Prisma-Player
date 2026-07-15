@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,14 +24,7 @@ export default function LoginPage() {
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="text-center mb-10">
             <Link href="/" className="inline-flex items-center mb-7" aria-label="Voltar para o início">
-              <Image
-                src="/assets/logo.png"
-                alt="Prisma Player"
-                width={246}
-                height={56}
-                priority
-                className="h-12 w-auto object-contain"
-              />
+              <BrandLogo className="h-12 w-[246px]" priority />
             </Link>
             <h1 className="text-display-lg themeable-text-ink mb-2">
               Entrar

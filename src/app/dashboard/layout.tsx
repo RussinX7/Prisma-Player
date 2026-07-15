@@ -12,10 +12,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-dvh themeable-bg-canvas-parchment flex">
+    <div className="min-h-dvh themeable-bg-canvas-parchment">
       <Sidebar />
-      <main className="flex-1 flex flex-col min-h-dvh lg:ml-64">
-        <div className="flex-1 flex flex-col pb-8">{children}</div>
+      <main className="flex min-h-dvh min-w-0 flex-col lg:pl-64">
+        <div className="flex min-w-0 flex-1 flex-col pb-6 sm:pb-8">{children}</div>
       </main>
     </div>
   );

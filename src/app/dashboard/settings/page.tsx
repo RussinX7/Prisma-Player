@@ -7,8 +7,8 @@ import { Settings } from "lucide-react";
 export default function SettingsPage() {
   return (
     <>
-      <Header />
-      <div className="flex-1 flex flex-col px-6 lg:px-8 mt-6">
+      <Header title="Configurações" description="Gerencie sua conta e seu plano" />
+      <div className="dashboard-content flex flex-1 flex-col">
         <PageHeader
           icon={<Settings size={20} />}
           title="Configurações"
@@ -21,7 +21,7 @@ export default function SettingsPage() {
           ]}
         />
 
-        <div className="flex-1 mt-6 rounded-2xl themeable-bg-canvas border themeable-border-hairline p-6 lg:p-8 space-y-8">
+        <div className="mt-5 flex-1 space-y-8 rounded-[18px] border p-4 themeable-bg-canvas themeable-border-hairline sm:mt-6 sm:p-6 lg:p-8">
           <section>
             <h3 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink mb-4">
               Perfil
@@ -54,7 +54,7 @@ export default function SettingsPage() {
             <h3 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink mb-4">
               Plano
             </h3>
-            <div className="p-5 rounded-xl themeable-bg-surface-pearl border themeable-border-hairline flex items-center justify-between">
+            <div className="flex flex-col gap-4 rounded-[11px] border p-5 themeable-bg-surface-pearl themeable-border-hairline sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[15px] font-semibold tracking-[-0.2px] themeable-text-ink">
                   Plano Essential
@@ -63,7 +63,7 @@ export default function SettingsPage() {
                   3 vídeos ativos · 1 player · Suporte padrão
                 </p>
               </div>
-              <button className="px-4 py-2 bg-prisma-blue text-white rounded-full text-[13px] font-medium tracking-[-0.2px] hover:opacity-90 transition-all active:scale-[0.97]">
+              <button className="min-h-11 rounded-full bg-prisma-blue px-4 py-2 text-[13px] font-normal tracking-[-0.2px] text-white transition-transform active:scale-95">
                 Fazer upgrade
               </button>
             </div>

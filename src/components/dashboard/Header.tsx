@@ -3,11 +3,19 @@
 import ThemeToggle from "@/components/ThemeToggle";
 import { Bell } from "lucide-react";
 
-export default function Header() {
+interface HeaderProps {
+  title?: string;
+  description?: string;
+}
+
+export default function Header({
+  title = "Meus vídeos",
+  description = "Gerencie seus vídeos e players",
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 themeable-bg-canvas/80 backdrop-blur-xl border-b themeable-border-hairline">
-      <div className="flex items-center justify-between h-16 px-6 lg:px-8">
-        <div className="flex items-center gap-3 lg:pl-0">
+      <div className="flex min-h-16 items-center justify-between gap-3 px-4 pl-16 sm:px-6 sm:pl-16 lg:px-8 lg:pl-8">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-prisma-blue/10 flex items-center justify-center">
             <svg
               width="20"
@@ -25,15 +33,15 @@ export default function Header() {
           </div>
           <div>
             <h1 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink leading-tight">
-              Meus Vídeos
+              {title}
             </h1>
             <p className="text-[12px] tracking-[-0.12px] themeable-text-ink-muted-48">
-              Gerencie seus vídeos e players
+              {description}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="hidden sm:flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg themeable-bg-surface-pearl">
               <span className="text-[12px] tracking-[-0.12px] themeable-text-ink-muted-48">
@@ -65,7 +73,7 @@ export default function Header() {
             </span>
           </button>
 
-          <div className="w-9 h-9 rounded-full bg-prisma-blue flex items-center justify-center text-white text-[13px] font-semibold cursor-pointer transition-all active:scale-90">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-prisma-blue text-[13px] font-semibold text-white">
             R
           </div>
         </div>
