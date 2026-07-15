@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
   --color-prisma-blue: #0066cc;
   --color-prisma-blue-focus: #0071e3;
@@ -25,6 +27,20 @@
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
   --radius-pill: 9999px;
+}
+
+.dark {
+  --color-canvas: #000000;
+  --color-canvas-parchment: #1d1d1f;
+  --color-ink: #f5f5f7;
+  --color-body: #f5f5f7;
+  --color-body-muted: #86868b;
+  --color-body-on-dark: #ffffff;
+  --color-ink-muted-80: #a1a1a6;
+  --color-ink-muted-48: #6e6e73;
+  --color-divider-soft: rgba(255, 255, 255, 0.06);
+  --color-hairline: rgba(255, 255, 255, 0.12);
+  --color-surface-pearl: #2a2a2c;
 }
 
 * {
@@ -121,6 +137,10 @@ body {
 
 @utility product-shadow {
   box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
+}
+
+.dark .product-shadow {
+  box-shadow: rgba(0, 0, 0, 0.5) 3px 5px 30px 0;
 }
 
 @keyframes fade-in {

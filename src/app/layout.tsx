@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import ThemeScript from "@/components/ThemeScript";
 import "./globals.css";
 
 const inter = Inter({
@@ -73,6 +74,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
       <head>
+        <ThemeScript />
         <link rel="canonical" href={siteUrl} />
         <script
           type="application/ld+json"

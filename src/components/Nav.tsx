@@ -1,4 +1,5 @@
 import Image from "next/image";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Nav() {
   return (
@@ -11,7 +12,7 @@ export default function Nav() {
               alt="Prisma Player"
               width={20}
               height={20}
-              className="rounded-sm"
+              className="rounded-sm brightness-0 invert"
             />
             <span className="text-white text-xs font-semibold tracking-[-0.12px]">
               Prisma
@@ -34,7 +35,8 @@ export default function Nav() {
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle />
           <a
             href="/login"
             className="text-white/80 hover:text-white text-xs tracking-[-0.12px] transition-colors hidden sm:block"

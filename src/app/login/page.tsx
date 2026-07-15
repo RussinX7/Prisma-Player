@@ -27,7 +27,7 @@ export default function LoginPage() {
                 alt="Prisma Player"
                 width={28}
                 height={28}
-                className="rounded-sm"
+                className="rounded-sm dark:brightness-0 dark:invert"
               />
             </Link>
             <h1 className="text-display-lg text-ink mb-2">

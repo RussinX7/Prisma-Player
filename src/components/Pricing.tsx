@@ -68,11 +68,11 @@ export default function Pricing() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-lg p-8 text-left flex flex-col ${
-                plan.highlighted
-                  ? "bg-canvas text-ink ring-2 ring-prisma-blue scale-105 md:scale-105"
-                  : "bg-surface-tile-1 text-on-dark"
-              }`}
+  className={`rounded-lg p-8 text-left flex flex-col ${
+    plan.highlighted
+      ? "bg-canvas dark:bg-surface-tile-2 text-ink dark:text-on-dark ring-2 ring-prisma-blue scale-105 md:scale-105"
+      : "bg-surface-tile-1 text-on-dark"
+  }`}
             >
               <h3
                 className={`text-tagline mb-1 ${
