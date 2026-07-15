@@ -174,6 +174,39 @@ body {
   padding: 20px 16px 0;
 }
 
+.editor-label {
+  display: block;
+  color: var(--color-ink-muted-80);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.editor-label > span {
+  float: right;
+  color: var(--color-ink-muted-48);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.editor-input,
+.editor-textarea {
+  width: 100%;
+  border: 1px solid var(--color-hairline);
+  border-radius: 11px;
+  background: transparent;
+  padding: 11px 14px;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+}
+
+.editor-input:focus,
+.editor-textarea:focus {
+  border-color: var(--color-prisma-blue);
+  outline: 2px solid color-mix(in srgb, var(--color-prisma-blue) 18%, transparent);
+}
+
 @media (min-width: 640px) {
   .dashboard-content {
     padding: 24px 24px 0;

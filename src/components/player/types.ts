@@ -8,5 +8,6 @@ export interface VideoPlayerProps {
   poster?: string;
   autoplay?: boolean;
   muted?: boolean;
+  controls?: boolean;
   className?: string;
 }

@@ -12,6 +12,7 @@ export default function VideoPlayer({
   poster,
   autoplay = false,
   muted = false,
+  controls = true,
   className = "",
 }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +26,7 @@ export default function VideoPlayer({
     containerRef.current.appendChild(videoElement);
 
     playerRef.current = videojs(videoElement, {
-      controls: true,
+      controls,
       responsive: true,
       fluid: true,
       preload: "metadata",
@@ -42,7 +43,7 @@ export default function VideoPlayer({
       if (player && !player.isDisposed()) player.dispose();
       playerRef.current = null;
     };
-  }, []);
+  }, [controls]);
 
   useEffect(() => {
     const player = playerRef.current;

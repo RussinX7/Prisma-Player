@@ -1,6 +1,7 @@
 "use client";
 
 import ThemeToggle from "@/components/ThemeToggle";
+import AccountMenu from "./AccountMenu";
 import { Bell } from "lucide-react";
 
 interface HeaderProps {
@@ -31,7 +32,7 @@ export default function Header({
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
           </div>
-          <div>
+          <div className="hidden min-w-0 sm:block">
             <h1 className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink leading-tight">
               {title}
             </h1>
@@ -65,7 +66,7 @@ export default function Header({
 
           <button
             aria-label="Notificações"
-            className="w-9 h-9 flex items-center justify-center rounded-full themeable-bg-surface-pearl themeable-text-ink-muted-48 hover:themeable-text-ink transition-all active:scale-90 relative"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full themeable-bg-surface-pearl themeable-text-ink-muted-48 transition-transform active:scale-95"
           >
             <Bell size={16} />
             <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-prisma-blue text-white text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -73,9 +74,7 @@ export default function Header({
             </span>
           </button>
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-prisma-blue text-[13px] font-semibold text-white">
-            R
-          </div>
+          <AccountMenu />
         </div>
       </div>
     </header>

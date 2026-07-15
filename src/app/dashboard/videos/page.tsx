@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Upload, Video } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { FileVideo2, Plus, Upload, Video } from "lucide-react";
 import Header from "@/components/dashboard/Header";
 import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
 import { VideoPlayer } from "@/components/player";
+import Dialog from "@/components/ui/Dialog";
 
 const tabs = [
   { id: "all", label: "Todos", count: 0 },
@@ -24,18 +26,13 @@ interface LocalVideo {
 export default function VideosPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [localVideo, setLocalVideo] = useState<LocalVideo | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sources = useMemo(
     () => (localVideo ? [{ src: localVideo.src, type: localVideo.type }] : []),
     [localVideo],
   );
-
-  useEffect(() => {
-    return () => {
-      if (localVideo) URL.revokeObjectURL(localVideo.src);
-    };
-  }, [localVideo]);
 
   function openFilePicker() {
     fileInputRef.current?.click();
@@ -44,11 +41,15 @@ export default function VideosPage() {
   function handleFile(file?: File) {
     if (!file || !file.type.startsWith("video/")) return;
 
-    setLocalVideo({
+    if (localVideo) URL.revokeObjectURL(localVideo.src);
+    const nextVideo = {
       name: file.name,
       src: URL.createObjectURL(file),
       type: file.type,
-    });
+    };
+    setLocalVideo(nextVideo);
+    sessionStorage.setItem("prisma-mvp-video", JSON.stringify(nextVideo));
+    setImportOpen(false);
   }
 
   const actions = [
@@ -56,13 +57,13 @@ export default function VideosPage() {
       label: "Upload",
       icon: <Upload size={16} />,
       primary: false,
-      onClick: openFilePicker,
+      onClick: () => setImportOpen(true),
     },
     {
       label: "Adicionar vídeo",
       icon: <Plus size={16} />,
       primary: true,
-      onClick: openFilePicker,
+      onClick: () => setImportOpen(true),
     },
   ];
 
@@ -104,6 +105,9 @@ export default function VideosPage() {
                 >
                   Trocar vídeo
                 </button>
+                <Link href="/dashboard/videos/editor" className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full bg-prisma-blue px-4 text-[14px] text-white transition-transform active:scale-95">
+                  Personalizar VSL
+                </Link>
               </aside>
             </div>
           ) : (
@@ -111,11 +115,20 @@ export default function VideosPage() {
               title="Nenhum vídeo encontrado"
               description="Seus vídeos aparecerão aqui após o primeiro upload. Para testar o MVP, selecione um arquivo do seu dispositivo."
               actionLabel="Adicionar primeiro vídeo"
-              onAction={openFilePicker}
+              onAction={() => setImportOpen(true)}
             />
           )}
         </div>
       </section>
+
+      <Dialog open={importOpen} onClose={() => setImportOpen(false)} title="Importar vídeo" description="Nesta fase o arquivo permanece somente no navegador." size="lg">
+        <button type="button" onClick={openFilePicker} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-[18px] border border-dashed border-prisma-blue bg-prisma-blue/5 px-6 py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-prisma-blue text-white"><Upload size={26} /></div>
+          <h3 className="mt-6 text-[22px] font-semibold tracking-[-0.35px] themeable-text-ink">Solte seu vídeo aqui</h3>
+          <p className="mt-2 max-w-md text-[15px] leading-relaxed themeable-text-ink-muted-48">Arraste um arquivo ou clique para navegar no dispositivo. MP4, WebM, MOV ou uma fonte compatível com o navegador.</p>
+          <span className="mt-6 flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] text-white"><FileVideo2 size={16} />Escolher arquivo</span>
+        </button>
+      </Dialog>
     </>
   );
 }
