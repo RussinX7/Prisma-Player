@@ -1,13 +1,13 @@
 export default function Hero() {
   return (
-    <section className="pt-28 pb-20 md:pt-32 md:pb-24 bg-canvas overflow-hidden">
+    <section className="pt-28 pb-20 md:pt-32 md:pb-24 themeable-bg-canvas overflow-hidden">
       <div className="container-section text-center max-w-[980px] mx-auto px-6">
-        <h1 className="text-hero mb-4 text-ink">
+        <h1 className="text-hero mb-4 themeable-text-ink">
           Transforme qualquer vídeo
           <br />
           em uma <span className="text-prisma-blue">máquina de vendas</span>
         </h1>
-        <p className="text-lead text-ink-muted-48 max-w-[700px] mx-auto mb-8">
+        <p className="text-lead themeable-text-ink-muted-48 max-w-[700px] mx-auto mb-8">
           O Prisma Player é o único player de vídeo do mundo construído para um
           único propósito: fazer seu vídeo de vendas converter mais. VSLs,
           webinários, CPLs — todos vendem mais no Prisma.
@@ -45,7 +45,7 @@ export default function Hero() {
                 />
               </svg>
             </div>
-            <p className="text-body-muted text-sm">
+            <p className="themeable-text-body-muted text-sm">
               Veja o Prisma Player em ação
             </p>
           </div>

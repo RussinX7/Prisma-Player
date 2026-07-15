@@ -17,7 +17,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas-parchment flex flex-col">
+    <div className="min-h-dvh themeable-bg-canvas-parchment flex flex-col">
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] animate-fade-in">
           <div className="text-center mb-10">
@@ -30,10 +30,10 @@ export default function LoginPage() {
                 className="rounded-sm dark:brightness-0 dark:invert"
               />
             </Link>
-            <h1 className="text-display-lg text-ink mb-2">
+            <h1 className="text-display-lg themeable-text-ink mb-2">
               Entrar
             </h1>
-            <p className="text-body text-ink-muted-48">
+            <p className="text-body themeable-text-ink-muted-48">
               Acesse sua conta do Prisma Player
             </p>
           </div>
@@ -42,7 +42,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-caption text-ink-muted-80 mb-1.5 font-medium"
+                className="block text-caption themeable-text-ink-muted-80 mb-1.5 font-medium"
               >
                 E-mail
               </label>
@@ -53,7 +53,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
-                className="w-full h-[44px] px-4 bg-canvas border border-hairline rounded-pill text-[17px] text-ink placeholder:text-ink-muted-48 outline-none transition-colors focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue"
+                className="w-full h-[44px] px-4 themeable-bg-canvas border themeable-border-hairline rounded-pill text-[17px] themeable-text-ink placeholder:themeable-text-ink-muted-48 outline-none transition-colors focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue"
               />
             </div>
 
@@ -61,7 +61,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between mb-1.5">
                 <label
                   htmlFor="password"
-                  className="block text-caption text-ink-muted-80 font-medium"
+                  className="block text-caption themeable-text-ink-muted-80 font-medium"
                 >
                   Senha
                 </label>
@@ -79,7 +79,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Sua senha"
                 required
-                className="w-full h-[44px] px-4 bg-canvas border border-hairline rounded-pill text-[17px] text-ink placeholder:text-ink-muted-48 outline-none transition-colors focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue"
+                className="w-full h-[44px] px-4 themeable-bg-canvas border themeable-border-hairline rounded-pill text-[17px] themeable-text-ink placeholder:themeable-text-ink-muted-48 outline-none transition-colors focus:border-prisma-blue focus:ring-1 focus:ring-prisma-blue"
               />
             </div>
 
@@ -117,17 +117,17 @@ export default function LoginPage() {
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-hairline" />
+              <div className="w-full border-t themeable-border-hairline" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-4 bg-canvas-parchment text-caption text-ink-muted-48">
+              <span className="px-4 themeable-bg-canvas-parchment text-caption themeable-text-ink-muted-48">
                 ou continue com
               </span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button className="h-[44px] flex items-center justify-center gap-2 bg-canvas border border-hairline rounded-pill text-caption text-ink transition-all hover:bg-canvas-parchment active:scale-[0.98]">
+            <button className="h-[44px] flex items-center justify-center gap-2 themeable-bg-canvas border themeable-border-hairline rounded-pill text-caption themeable-text-ink transition-all hover:themeable-bg-canvas-parchment active:scale-[0.98]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -144,7 +144,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <p className="text-center mt-8 text-caption text-ink-muted-48">
+          <p className="text-center mt-8 text-caption themeable-text-ink-muted-48">
             Ainda não tem conta?{" "}
             <Link
               href="/signup"

@@ -35,7 +35,6 @@
   --color-ink: #f5f5f7;
   --color-body: #f5f5f7;
   --color-body-muted: #86868b;
-  --color-body-on-dark: #ffffff;
   --color-ink-muted-80: #a1a1a6;
   --color-ink-muted-48: #6e6e73;
   --color-divider-soft: rgba(255, 255, 255, 0.06);
@@ -118,21 +117,15 @@ body {
 }
 
 @media (max-width: 1068px) {
-  .text-hero {
-    font-size: 40px;
-  }
+  .text-hero { font-size: 40px; }
 }
 
 @media (max-width: 640px) {
-  .text-hero {
-    font-size: 34px;
-  }
+  .text-hero { font-size: 34px; }
 }
 
 @media (max-width: 419px) {
-  .text-hero {
-    font-size: 28px;
-  }
+  .text-hero { font-size: 28px; }
 }
 
 @utility product-shadow {
@@ -161,3 +154,15 @@ body {
   animation: fade-in 0.8s ease-out 0.4s forwards;
   opacity: 0;
 }
+
+.themeable-bg-canvas { background-color: var(--color-canvas); }
+.themeable-bg-canvas-parchment { background-color: var(--color-canvas-parchment); }
+.themeable-bg-surface-pearl { background-color: var(--color-surface-pearl); }
+.themeable-text-ink { color: var(--color-ink); }
+.themeable-text-ink-muted-80 { color: var(--color-ink-muted-80); }
+.themeable-text-ink-muted-48 { color: var(--color-ink-muted-48); }
+.themeable-text-body { color: var(--color-body); }
+.themeable-text-body-muted { color: var(--color-body-muted); }
+.themeable-text-on-dark { color: var(--color-on-dark); }
+.themeable-border-hairline { border-color: var(--color-hairline); }
+.themeable-border-divider-soft { border-color: var(--color-divider-soft); }

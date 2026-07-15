@@ -1,11 +1,11 @@
 export default function CTA() {
   return (
-    <section className="py-section bg-canvas-parchment">
+    <section className="py-section themeable-bg-canvas-parchment">
       <div className="container-section max-w-[700px] mx-auto px-6 text-center">
-        <h2 className="text-display-lg text-ink mb-4">
+        <h2 className="text-display-lg themeable-text-ink mb-4">
           Experimente o Prisma Player de graça
         </h2>
-        <p className="text-lead text-ink-muted-48 mb-8">
+        <p className="text-lead themeable-text-ink-muted-48 mb-8">
           Teste sem riscos por 14 dias e descubra como aumentar
           instantaneamente as conversões do seu vídeo de vendas.
         </p>

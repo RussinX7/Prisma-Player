@@ -21,12 +21,12 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="py-section bg-canvas">
+    <section className="py-section themeable-bg-canvas">
       <div className="container-section max-w-[980px] mx-auto px-6">
-        <h2 className="text-display-lg text-center mb-3 text-ink">
+        <h2 className="text-display-lg text-center mb-3 themeable-text-ink">
           Veja o que nossos clientes estão falando
         </h2>
-        <p className="text-lead text-ink-muted-48 text-center mb-16 max-w-[650px] mx-auto">
+        <p className="text-lead themeable-text-ink-muted-48 text-center mb-16 max-w-[650px] mx-auto">
           Ouça de quem já confia no Prisma Player para aumentar sua conversão
         </p>
 
@@ -34,7 +34,7 @@ export default function Testimonials() {
           {testimonials.map((t) => (
             <div
               key={t.name}
-              className="bg-canvas-parchment rounded-lg p-6 flex flex-col"
+              className="themeable-bg-canvas-parchment rounded-lg p-6 flex flex-col"
             >
               <div className="flex items-center gap-1 mb-4">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -49,12 +49,12 @@ export default function Testimonials() {
                   </svg>
                 ))}
               </div>
-              <p className="text-body text-ink-muted-80 flex-1 mb-6 leading-relaxed">
+              <p className="text-body themeable-text-ink-muted-80 flex-1 mb-6 leading-relaxed">
                 &ldquo;{t.quote}&rdquo;
               </p>
               <div>
-                <p className="text-body-strong text-ink">{t.name}</p>
-                <p className="text-caption text-ink-muted-48">{t.role}</p>
+                <p className="text-body-strong themeable-text-ink">{t.name}</p>
+                <p className="text-caption themeable-text-ink-muted-48">{t.role}</p>
               </div>
             </div>
           ))}

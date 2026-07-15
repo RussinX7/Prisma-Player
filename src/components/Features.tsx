@@ -164,34 +164,34 @@ export default function Features() {
         <div
           key={feature.id}
           className={`py-section ${
-            feature.light ? "bg-canvas" : "bg-surface-tile-1"
+            feature.light ? "themeable-bg-canvas" : "bg-surface-tile-1"
           }`}
         >
           <div className="container-section max-w-[980px] mx-auto px-6">
             <span
               className={`text-caption font-semibold tracking-wider uppercase mb-2 block ${
-                feature.light ? "text-ink-muted-48" : "text-body-muted"
+                feature.light ? "themeable-text-ink-muted-48" : "themeable-text-body-muted"
               }`}
             >
               Feature {String(index + 1).padStart(2, "0")}
             </span>
             <h2
               className={`text-display-lg mb-2 ${
-                feature.light ? "text-ink" : "text-on-dark"
+                feature.light ? "themeable-text-ink" : "text-on-dark"
               }`}
             >
               {feature.title}
             </h2>
             <p
               className={`text-tagline mb-6 ${
-                feature.light ? "text-ink-muted-80" : "text-body-muted"
+                feature.light ? "themeable-text-ink-muted-80" : "themeable-text-body-muted"
               }`}
             >
               {feature.tagline}
             </p>
             <p
               className={`text-body mb-8 max-w-[680px] leading-relaxed ${
-                feature.light ? "text-ink-muted-80" : "text-body-muted"
+                feature.light ? "themeable-text-ink-muted-80" : "themeable-text-body-muted"
               }`}
             >
               {feature.description}
@@ -202,7 +202,7 @@ export default function Features() {
                 <li
                   key={i}
                   className={`flex items-start gap-3 ${
-                    feature.light ? "text-ink-muted-80" : "text-body-muted"
+                    feature.light ? "themeable-text-ink-muted-80" : "themeable-text-body-muted"
                   }`}
                 >
                   <svg

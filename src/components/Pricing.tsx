@@ -60,7 +60,7 @@ export default function Pricing() {
         <h2 className="text-display-lg text-on-dark mb-3">
           Planos & Preços
         </h2>
-        <p className="text-lead text-body-muted mb-16 max-w-[650px] mx-auto">
+        <p className="text-lead themeable-text-body-muted mb-16 max-w-[650px] mx-auto">
           Aumente sua conversão sem limites. Nenhum plano tem restrição de players.
         </p>
 
@@ -70,13 +70,13 @@ export default function Pricing() {
               key={plan.name}
   className={`rounded-lg p-8 text-left flex flex-col ${
     plan.highlighted
-      ? "bg-canvas dark:bg-surface-tile-2 text-ink dark:text-on-dark ring-2 ring-prisma-blue scale-105 md:scale-105"
+      ? "themeable-bg-canvas dark:bg-surface-tile-2 themeable-text-ink dark:text-on-dark ring-2 ring-prisma-blue scale-105 md:scale-105"
       : "bg-surface-tile-1 text-on-dark"
   }`}
             >
               <h3
                 className={`text-tagline mb-1 ${
-                  plan.highlighted ? "text-ink" : "text-on-dark"
+                  plan.highlighted ? "themeable-text-ink" : "text-on-dark"
                 }`}
               >
                 {plan.name}
@@ -88,7 +88,7 @@ export default function Pricing() {
                 {plan.period && (
                   <span
                     className={`text-caption ${
-                      plan.highlighted ? "text-ink-muted-48" : "text-body-muted"
+                      plan.highlighted ? "themeable-text-ink-muted-48" : "themeable-text-body-muted"
                     }`}
                   >
                     {plan.period}
@@ -97,7 +97,7 @@ export default function Pricing() {
               </div>
               <p
                 className={`text-sm mb-8 ${
-                  plan.highlighted ? "text-ink-muted-80" : "text-body-muted"
+                  plan.highlighted ? "themeable-text-ink-muted-80" : "themeable-text-body-muted"
                 }`}
               >
                 {plan.description}
@@ -140,7 +140,7 @@ export default function Pricing() {
           ))}
         </div>
 
-        <p className="text-fine text-body-muted mt-8">
+        <p className="text-fine themeable-text-body-muted mt-8">
           Todos os planos incluem 14 dias de teste grátis. Sem compromisso.
           Sem limite de players no Pro e Enterprise.
         </p>
