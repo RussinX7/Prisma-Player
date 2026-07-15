@@ -1,5 +1,10 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Architecture decisions
+
+- [Video.js integration](./docs/videojs-integration.md)
+- [Clerk authentication with Supabase data services](./docs/auth-and-data-architecture.md)
+
 ## Getting Started
 
 First, run the development server:
