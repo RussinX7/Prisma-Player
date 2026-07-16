@@ -18,6 +18,11 @@
 
 .prisma-video-player.prisma-player--embed video {
   max-height: none;
+  background: transparent;
+}
+
+.prisma-video-player.prisma-player--embed {
+  background: transparent;
 }
 
 .prisma-video-player .media-slider__fill {
