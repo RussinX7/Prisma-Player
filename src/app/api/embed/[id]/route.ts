@@ -19,11 +19,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const supabase = createAdminClient();
   const fields = "id,video_id,config,allowed_domains,published";
   const byPlayerId = await supabase.from("player_configs").select(fields).eq("id", id).eq("published", true).maybeSingle();
-  if (byPlayerId.error) return NextResponse.json({ error: "player_lookup_failed" }, { status: 503 });
+  if (byPlayerId.error) {
+    console.error("embed player lookup failed", { code: byPlayerId.error.code, message: byPlayerId.error.message });
+    return NextResponse.json({ error: "player_lookup_failed", code: byPlayerId.error.code || "supabase_rejected" }, { status: 503 });
+  }
   let playerConfig = byPlayerId.data;
   if (!playerConfig) {
     const byVideoId = await supabase.from("player_configs").select(fields).eq("video_id", id).eq("published", true).maybeSingle();
-    if (byVideoId.error) return NextResponse.json({ error: "player_lookup_failed" }, { status: 503 });
+    if (byVideoId.error) {
+      console.error("embed video config lookup failed", { code: byVideoId.error.code, message: byVideoId.error.message });
+      return NextResponse.json({ error: "player_lookup_failed", code: byVideoId.error.code || "supabase_rejected" }, { status: 503 });
+    }
     playerConfig = byVideoId.data;
   }
 
