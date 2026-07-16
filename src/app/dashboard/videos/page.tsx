@@ -82,8 +82,9 @@ export default function VideosPage() {
   function notify(message: string) { setFeedback(message); window.setTimeout(() => setFeedback(""), 2400); }
   async function copyEmbed(video: StoredVideo) {
     if (!video.player_id || !video.published) return notify("Publique e salve o player antes de copiar o embed");
-    const url = `${window.location.origin}/embed/${video.player_id}`;
-    await navigator.clipboard.writeText(`<iframe src="${url}" title="${video.title.replace(/"/g, "&quot;")}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;border:0;aspect-ratio:16/9"></iframe>`);
+    const origin = window.location.origin;
+    const title = video.title.replace(/"/g, "&quot;");
+    await navigator.clipboard.writeText(`<prisma-player data-prisma-player="${video.player_id}" data-title="${title}" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:56.25%;background:#000;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${video.player_id}" data-prisma-loader="${video.player_id}"></script>`);
     notify("Código de embed copiado"); setMenuVideo(null);
   }
   async function renameVideo(video: StoredVideo) {

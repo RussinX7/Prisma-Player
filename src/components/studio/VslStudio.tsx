@@ -247,8 +247,9 @@ function EmbedDialog({ open, onClose, playerId, videoId, ratio }: { open: boolea
   const origin = typeof window === "undefined" ? "https://prisma-player.vercel.app" : window.location.origin;
   const padding = `${(100 / Math.max(ratio, 0.1)).toFixed(4)}%`;
   const iframe = `<iframe src="${origin}/embed/${id}" title="Prisma Player" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:${ratio.toFixed(4)};border:0;display:block"></iframe>`;
-  const javascript = `<div id="prisma-player-${id}" style="width:100%;position:relative;padding-top:${padding}"></div>\n<script>(function(){var f=document.createElement('iframe');f.src='${origin}/embed/${id}';f.title='Prisma Player';f.allow='autoplay; fullscreen; picture-in-picture';f.allowFullscreen=true;f.style='position:absolute;inset:0;width:100%;height:100%;border:0';document.getElementById('prisma-player-${id}').appendChild(f)}())</script>`;
-  const responsiveCode = responsive && mobileId ? javascript.replace(`f.src='${origin}/embed/${id}'`, `f.src=window.matchMedia('(max-width: 767px)').matches?'${origin}/embed/${mobileId}':'${origin}/embed/${id}'`) : javascript;
+  const mobileAttribute = responsive && mobileId ? ` data-mobile-player="${mobileId}"` : "";
+  const javascript = `<prisma-player data-prisma-player="${id}"${mobileAttribute} data-title="Prisma Player" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:${padding};background:#000;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${id}" data-prisma-loader="${id}"></script>`;
+  const responsiveCode = javascript;
   const embedCode = format === "iframe" ? iframe : responsiveCode;
   const speedCode = `<link rel="preconnect" href="${origin}" crossorigin>\n<link rel="dns-prefetch" href="${origin}">`;
   const copy = async (value: string, kind: "embed" | "speed") => { await navigator.clipboard.writeText(value); setCopied(kind); setTimeout(() => setCopied(null), 1500); };
