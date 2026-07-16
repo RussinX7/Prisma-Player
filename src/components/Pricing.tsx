@@ -1,150 +1,21 @@
-const plans = [
-  {
-    name: "Essential",
-    price: "R$ 49",
-    period: "/mês",
-    description: "Perfeito para quem está começando a vender com vídeo.",
-    features: [
-      "1 player de vídeo",
-      "Teste A/B",
-      "Analytics básico",
-      "Botões de Ação",
-      "Suporte por e-mail",
-    ],
-    cta: "Começar teste grátis",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "R$ 99",
-    period: "/mês",
-    description: "Para profissionais que levam a sério a conversão.",
-    features: [
-      "Players ilimitados",
-      "Headlines AI",
-      "Smart Autoplay",
-      "Turbo Playback",
-      "Thumbnail de Recuperação",
-      "Mini-Gancho",
-      "Analytics avançado",
-      "Pixel & Remarketing",
-      "Suporte prioritário",
-    ],
-    cta: "Começar teste grátis",
-    highlighted: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Sob consulta",
-    period: "",
-    description: "Para grandes operações que exigem o melhor.",
-    features: [
-      "Players ilimitados",
-      "Todas as funcionalidades Pro",
-      "Progresso Inteligente",
-      "Continuar Assistindo",
-      "Personalização total de estilo",
-      "Gerente de conta dedicado",
-      "SLA garantido",
-      "Onboarding personalizado",
-    ],
-    cta: "Falar com vendas",
-    highlighted: false,
-  },
+import Link from "next/link";
+
+const features = [
+  "Vídeos e plays sem limite artificial", "Player totalmente personalizado", "Smart Autoplay e Progresso Inteligente",
+  "CTA, Headlines e thumbnails", "Teste A/B e Analytics avançado", "Proteção por domínio", "Todas as funcionalidades atuais e futuras",
 ];
 
 export default function Pricing() {
-  return (
-    <section id="pricing" className="py-section bg-surface-black">
-      <div className="container-section max-w-[980px] mx-auto px-6 text-center">
-        <h2 className="text-display-lg text-on-dark mb-3">
-          Planos & Preços
-        </h2>
-        <p className="text-lead themeable-text-body-muted mb-16 max-w-[650px] mx-auto">
-          Aumente sua conversão sem limites. Nenhum plano tem restrição de players.
-        </p>
-
-        <div className="grid md:grid-cols-3 gap-6 max-w-[980px] mx-auto">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-  className={`rounded-lg p-8 text-left flex flex-col ${
-    plan.highlighted
-      ? "themeable-bg-canvas dark:bg-surface-tile-2 themeable-text-ink dark:text-on-dark ring-2 ring-prisma-blue scale-105 md:scale-105"
-      : "bg-surface-tile-1 text-on-dark"
-  }`}
-            >
-              <h3
-                className={`text-tagline mb-1 ${
-                  plan.highlighted ? "themeable-text-ink" : "text-on-dark"
-                }`}
-              >
-                {plan.name}
-              </h3>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-hero text-inherit">
-                  {plan.price}
-                </span>
-                {plan.period && (
-                  <span
-                    className={`text-caption ${
-                      plan.highlighted ? "themeable-text-ink-muted-48" : "themeable-text-body-muted"
-                    }`}
-                  >
-                    {plan.period}
-                  </span>
-                )}
-              </div>
-              <p
-                className={`text-sm mb-8 ${
-                  plan.highlighted ? "themeable-text-ink-muted-80" : "themeable-text-body-muted"
-                }`}
-              >
-                {plan.description}
-              </p>
-
-              <ul className="space-y-3 mb-10 flex-1">
-                {plan.features.map((feat) => (
-                  <li key={feat} className="flex items-start gap-3">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 18 18"
-                      fill="none"
-                      className="mt-0.5 shrink-0"
-                    >
-                      <path
-                        d="M15 5L7.1 13L3 9"
-                        stroke={plan.highlighted ? "#0066cc" : "#2997ff"}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span className="text-sm">{feat}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <a
-                href="#"
-                className={`block w-full text-center py-3 px-6 rounded-pill text-sm font-normal transition-all active:scale-95 ${
-                  plan.highlighted
-                    ? "bg-prisma-blue text-white hover:opacity-90"
-                    : "bg-white/10 text-on-dark hover:bg-white/20"
-                }`}
-              >
-                {plan.cta}
-              </a>
-            </div>
-          ))}
-        </div>
-
-        <p className="text-fine themeable-text-body-muted mt-8">
-          Todos os planos incluem 14 dias de teste grátis. Sem compromisso.
-          Sem limite de players no Pro e Enterprise.
-        </p>
-      </div>
-    </section>
-  );
+  return <section id="pricing" className="bg-surface-black py-section"><div className="container-section mx-auto max-w-[760px] px-6 text-center">
+    <span className="text-[13px] font-semibold uppercase tracking-[0.16em] text-prisma-blue">Um plano. Tudo incluído.</span>
+    <h2 className="mt-3 text-display-lg text-on-dark">Prisma Completo</h2>
+    <p className="mx-auto mb-10 mt-3 max-w-[600px] text-lead themeable-text-body-muted">Sem cobrar por play, quantidade de vídeos ou funcionalidade. Você escolhe o melhor player para sua operação.</p>
+    <div className="mx-auto max-w-[560px] rounded-[28px] border border-white/10 bg-surface-tile-1 p-7 text-left text-on-dark shadow-2xl sm:p-10">
+      <div className="flex flex-wrap items-end justify-between gap-5"><div><h3 className="text-[22px] font-semibold">Plano Completo</h3><p className="mt-1 text-[14px] text-white/60">Cobrança mensal via PIX pela SyncPay</p></div><div><strong className="text-[48px] font-semibold tracking-[-2px]">R$ 97</strong><span className="text-white/55">/mês</span></div></div>
+      <div className="my-7 h-px bg-white/10" />
+      <ul className="grid gap-3 sm:grid-cols-2">{features.map((feature) => <li key={feature} className="flex gap-2 text-[14px] text-white/85"><span className="text-prisma-blue">✓</span>{feature}</li>)}</ul>
+      <Link href="/checkout" className="mt-8 block min-h-12 rounded-full bg-prisma-blue px-6 py-3 text-center text-[15px] font-semibold text-white transition hover:brightness-110 active:scale-[.99]">Assinar Prisma Completo</Link>
+    </div>
+    <p className="mt-6 text-[12px] text-white/45">Cancele quando quiser. O acesso é liberado somente após a confirmação segura do pagamento.</p>
+  </div></section>;
 }

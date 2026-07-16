@@ -87,15 +87,7 @@ export default function RootLayout({
               operatingSystem: "Web",
               description:
                 "Player de vídeo focado em conversão de vendas. Aumente play rate, engajamento e vendas.",
-              offers: {
-                "@type": "AggregateOffer",
-                offerCount: "3",
-                offers: [
-                  { "@type": "Offer", name: "Essential", price: "49", priceCurrency: "BRL" },
-                  { "@type": "Offer", name: "Pro", price: "99", priceCurrency: "BRL" },
-                  { "@type": "Offer", name: "Enterprise" },
-                ],
-              },
+              offers: { "@type": "Offer", name: "Prisma Completo", price: "97", priceCurrency: "BRL", url: `${siteUrl}/checkout` },
             }),
           }}
         />
