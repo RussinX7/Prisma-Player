@@ -87,6 +87,15 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     };
   }, []);
 
+  useEffect(() => {
+    if (window.parent === window) return;
+    const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.ceil(document.documentElement.scrollHeight) }, "*");
+    const observer = new ResizeObserver(publishSize);
+    observer.observe(document.body);
+    publishSize();
+    return () => observer.disconnect();
+  }, [playerId]);
+
   if (error) return <main className="grid min-h-dvh place-items-center bg-black p-6 text-center text-sm text-white/70">{error}</main>;
   if (!payload) return <main className="grid min-h-dvh place-items-center bg-black text-white/60"><span className="animate-pulse">Carregando player…</span></main>;
 
@@ -104,13 +113,13 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const playerClasses = `prisma-player--embed ${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
 
   const responsiveStyle = videoRatio
-    ? { ...style, width: `min(100%, calc(100dvh * ${videoRatio}))`, aspectRatio: String(videoRatio) }
+    ? { ...style, width: `min(100%, calc(100dvh * ${videoRatio}))` }
     : style;
 
-  return <main className="grid min-h-dvh select-none place-items-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
+  return <main className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
     <div className="w-full" style={responsiveStyle}>
       {Boolean(c.headlineEnabled) && <h1 className="mb-4 text-center text-[clamp(18px,4vw,30px)] font-semibold text-white">{String(c.headline ?? "")}</h1>}
-      <div className="relative overflow-hidden" style={{ borderRadius: `${Number(c.radius ?? 0)}px` }}>
+      <div className="relative overflow-hidden" style={{ borderRadius: `${Number(c.radius ?? 0)}px`, aspectRatio: videoRatio ? String(videoRatio) : undefined }}>
         <VideoPlayer className={playerClasses} sources={[{ src: payload.source, type: payload.type }]} poster={thumbnailEnabled && !smartAutoplay ? assetUrls.thumbnailStart : undefined} textTracks={Boolean(c.captionsEnabled) && assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: String(c.captionName || "Legendas"), srclang: "pt-BR", default: true }] : []} autoplay={smartAutoplay && resumeChecked && resumePoint === null && !autoplayActivated} muted={Boolean(c.muted) || (smartAutoplay && !autoplayActivated)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} onPlay={() => { track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); setThumbnailOverlay(null); }} onPause={() => { if (thumbnailEnabled && assetUrls.thumbnailPause && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onEnded={() => { track("complete", 100, duration); trackAnalytics("complete", 100, duration); if (!Boolean(c.loop)) localStorage.removeItem(resumeStorageKey); if (thumbnailEnabled && assetUrls.thumbnailEnd) setThumbnailOverlay("end"); }} onTimeUpdate={(time) => { setCurrentTime(time); if (resumeEnabled && time > 0) localStorage.setItem(resumeStorageKey, String(Math.floor(time))); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => { setDuration(metadata.duration); if (metadata.width > 0 && metadata.height > 0) setVideoRatio(metadata.width / metadata.height); if (resumeEnabled) { const saved = Number(localStorage.getItem(resumeStorageKey)); if (Number.isFinite(saved) && saved >= 5 && saved < metadata.duration - 5) setResumePoint(saved); } setResumeChecked(true); }} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
         {resumePoint !== null && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{String(c.resumeMessage || "Você já começou a assistir este vídeo")}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); setResumePlaybackSignal((value) => value + 1); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); setAutoplayActivated(true); setRestartWithSoundSignal((value) => value + 1); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
         {smartAutoplay && resumeChecked && !autoplayActivated && resumePoint === null && <button type="button" onClick={() => { setStartTime(0); setAutoplayActivated(true); setRestartWithSoundSignal((value) => value + 1); }} className="absolute left-1/2 top-1/2 z-30 w-[min(240px,80%)] -translate-x-1/2 -translate-y-1/2 rounded-[11px] border border-white/40 px-5 py-3 text-center text-[13px] font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `${String(c.accent ?? "#0066cc")}dd` }}>{String(c.autoplayMessage || "Seu vídeo já começou. Clique para ouvir.")}</button>}

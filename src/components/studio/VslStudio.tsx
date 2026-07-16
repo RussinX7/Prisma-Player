@@ -251,7 +251,7 @@ function EmbedDialog({ open, onClose, playerId, ratio }: { open: boolean; onClos
   const padding = `${(100 / Math.max(ratio, 0.1)).toFixed(4)}%`;
   const iframe = `<iframe src="${origin}/embed/${id}" title="Prisma Player" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:${ratio.toFixed(4)};border:0;display:block"></iframe>`;
   const mobileAttribute = responsive && mobileId ? ` data-mobile-player="${mobileId}"` : "";
-  const javascript = `<prisma-player data-prisma-player="${id}"${mobileAttribute} data-title="Prisma Player" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:${padding};background:#000;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${id}" data-prisma-loader="${id}"></script>`;
+  const javascript = `<prisma-player data-prisma-player="${id}"${mobileAttribute} data-title="Prisma Player" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:${padding};background:transparent;border:0;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${id}?v=2" data-prisma-loader="${id}"></script>`;
   const responsiveCode = javascript;
   const embedCode = format === "iframe" ? iframe : responsiveCode;
   const speedCode = `<link rel="preconnect" href="${origin}" crossorigin>\n<link rel="dns-prefetch" href="${origin}">`;
