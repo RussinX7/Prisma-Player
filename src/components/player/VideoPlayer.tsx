@@ -50,6 +50,13 @@ export default function VideoPlayer({
 
   useEffect(() => {
     const media = mediaRef.current;
+    if (!media || !autoplay) return;
+    media.muted = muted;
+    void media.play().catch(() => undefined);
+  }, [autoplay, muted]);
+
+  useEffect(() => {
+    const media = mediaRef.current;
     if (media && Number.isFinite(startTime) && Math.abs(media.currentTime - startTime) > 1) media.currentTime = startTime;
   }, [startTime]);
 
