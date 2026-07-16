@@ -10,6 +10,11 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data, error } = await supabase.from("player_configs").select("id, config, allowed_domains, published, updated_at").eq("video_id", videoId).eq("user_id", userId).maybeSingle();
   if (error) return NextResponse.json({ error: "config_load_failed" }, { status: 400 });
+  if (data && data.config && typeof data.config === "object" && Number((data.config as Record<string, unknown>).radius) === 12) {
+    const config = { ...(data.config as Record<string, unknown>), radius: 0 };
+    await supabase.from("player_configs").update({ config, updated_at: new Date().toISOString() }).eq("id", data.id).eq("user_id", userId);
+    return NextResponse.json({ playerConfig: { ...data, config } });
+  }
   return NextResponse.json({ playerConfig: data });
 }
 

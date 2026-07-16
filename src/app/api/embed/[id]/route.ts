@@ -56,6 +56,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (error || !signed) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });
 
   const config = playerConfig.config && typeof playerConfig.config === "object" ? { ...playerConfig.config } as Record<string, unknown> : {};
+  if (Number(config.radius) === 12) config.radius = 0;
   const assets = config.assets && typeof config.assets === "object" ? config.assets as Record<string, unknown> : {};
   const assetUrls: Record<string, string> = {};
   await Promise.all(Object.entries(assets).map(async ([kind, path]) => {
