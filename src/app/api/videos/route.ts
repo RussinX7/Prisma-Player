@@ -6,11 +6,21 @@ export async function GET(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const cursor = new URL(request.url).searchParams.get("cursor");
+  const params = new URL(request.url).searchParams;
+  const folderId = params.get("folderId");
+  const status = params.get("status");
   const supabase = await createClient();
   let query = supabase.from("videos").select("id,title,folder_id,object_path,mime_type,size_bytes,status,duration_seconds,created_at").order("created_at", { ascending: false }).order("id", { ascending: false }).limit(30);
   if (cursor) query = query.lt("created_at", cursor);
+  if (folderId) query = query.eq("folder_id", folderId);
+  if (status && ["draft", "processing", "ready"].includes(status)) query = query.eq("status", status);
   const { data, error } = await query;
-  return error ? NextResponse.json({ error: "videos_load_failed" }, { status: 500 }) : NextResponse.json({ videos: data, nextCursor: data?.at(-1)?.created_at ?? null });
+  if (error) return NextResponse.json({ error: "videos_load_failed" }, { status: 500 });
+  const videos = await Promise.all((data ?? []).map(async (video) => {
+    const { data: signed } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 3600);
+    return { ...video, signed_url: signed?.signedUrl ?? null };
+  }));
+  return NextResponse.json({ videos, nextCursor: data?.at(-1)?.created_at ?? null });
 }
 
 export async function POST(request: Request) {

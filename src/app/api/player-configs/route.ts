@@ -23,5 +23,7 @@ export async function PUT(request: Request) {
   if (!ownedVideo) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const domains = Array.isArray(body.domains) ? body.domains.filter((item): item is string => typeof item === "string").slice(0, 100) : [];
   const { data, error } = await supabase.from("player_configs").upsert({ user_id: userId, video_id: body.videoId, config: body.config, allowed_domains: domains, published: true, updated_at: new Date().toISOString() }, { onConflict: "video_id" }).select().single();
-  return error ? NextResponse.json({ error: "config_save_failed" }, { status: 400 }) : NextResponse.json({ playerConfig: data });
+  if (error) return NextResponse.json({ error: "config_save_failed" }, { status: 400 });
+  await supabase.from("videos").update({ status: "ready", updated_at: new Date().toISOString() }).eq("id", body.videoId).eq("user_id", userId);
+  return NextResponse.json({ playerConfig: data });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Globe2, Plus, Shield, Trash2 } from "lucide-react";
 import Header from "@/components/dashboard/Header";
 
@@ -8,6 +8,8 @@ export default function SecurityPage() {
   const [domains, setDomains] = useState<string[]>([]);
   const [domain, setDomain] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { void fetch("/api/dashboard-security", { cache: "no-store" }).then((response) => response.json()).then((data) => setDomains(data.domains ?? [])); }, []);
 
   function addDomain() {
     const clean = domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -15,6 +17,12 @@ export default function SecurityPage() {
     setDomains((items) => [...items, clean]);
     setDomain("");
     setSaved(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    const response = await fetch("/api/dashboard-security", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ domains }) });
+    setSaving(false); setSaved(response.ok); if (response.ok) setTimeout(() => setSaved(false), 1800);
   }
 
   return (
@@ -33,7 +41,7 @@ export default function SecurityPage() {
             <div className="mt-6 space-y-2">
               {domains.length === 0 ? <div className="rounded-[11px] border border-dashed p-6 text-center text-[14px] themeable-border-hairline themeable-text-ink-muted-48">Nenhum domínio cadastrado. Enquanto a lista estiver vazia, o MVP não bloqueia embeds.</div> : domains.map((item) => <div key={item} className="flex min-h-12 items-center gap-3 rounded-[11px] themeable-bg-surface-pearl px-4"><Globe2 size={16} className="text-prisma-blue" /><span className="min-w-0 flex-1 truncate text-[14px] themeable-text-ink">{item}</span><button type="button" onClick={() => setDomains((values) => values.filter((value) => value !== item))} aria-label={`Remover ${item}`} className="flex h-11 w-11 items-center justify-center themeable-text-ink-muted-48"><Trash2 size={16} /></button></div>)}
             </div>
-            <div className="mt-8 border-t pt-6 themeable-border-hairline"><button type="button" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 1800); }} className="min-h-11 rounded-full bg-prisma-blue px-6 text-[14px] text-white">{saved ? "Alterações salvas" : "Salvar alterações"}</button></div>
+            <div className="mt-8 border-t pt-6 themeable-border-hairline"><button type="button" onClick={() => void save()} disabled={saving} className="min-h-11 rounded-full bg-prisma-blue px-6 text-[14px] text-white disabled:opacity-50">{saving ? "Salvando…" : saved ? "Alterações salvas" : "Salvar alterações"}</button></div>
           </div>
         </div>
       </section>
