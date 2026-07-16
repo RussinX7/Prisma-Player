@@ -42,7 +42,7 @@ const modules: Array<{ id: ModuleId; label: string; icon: typeof Palette; status
 ];
 
 const initialConfig: StudioConfig = {
-  accent: "#0066cc", background: "#000000", radius: 12, bigPlay: true, playPause: true, progressBar: true, time: true, volume: true, fullscreen: true, pictureInPicture: true, speedControl: true,
+  accent: "#0066cc", background: "#000000", radius: 0, bigPlay: true, playPause: true, progressBar: true, time: true, volume: true, fullscreen: true, pictureInPicture: true, speedControl: true,
   smartProgress: true, progressColor: "#0066cc", progressHeight: 6, smartAutoplay: true, autoplayMessage: "Seu vídeo já começou. Clique para ouvir.", playbackRate: 1,
   headlineEnabled: true, headline: "Descubra a maneira mais simples de transformar atenção em vendas", trafficEnabled: false, domains: [], blockVpn: true, accessToken: false,
   miniHooksEnabled: false, miniHookText: "Continue assistindo — a parte mais importante está chegando.", miniHookStart: 30, miniHookDuration: 6,

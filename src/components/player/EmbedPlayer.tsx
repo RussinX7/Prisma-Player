@@ -89,12 +89,14 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
 
   useEffect(() => {
     if (window.parent === window) return;
-    const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.ceil(document.documentElement.scrollHeight) }, "*");
+    const content = document.querySelector<HTMLElement>("main[data-prisma-embed]");
+    if (!content) return;
+    const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.max(1, Math.ceil(content.getBoundingClientRect().height)) }, "*");
     const observer = new ResizeObserver(publishSize);
-    observer.observe(document.body);
+    observer.observe(content);
     publishSize();
     return () => observer.disconnect();
-  }, [playerId]);
+  }, [playerId, payload]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("background", "transparent", "important");
@@ -119,7 +121,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
 
   const responsiveStyle = { ...style, width: "100%" };
 
-  return <main className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
+  return <main data-prisma-embed className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
     <div className="w-full" style={responsiveStyle}>
       {Boolean(c.headlineEnabled) && <h1 className="mb-4 text-center text-[clamp(18px,4vw,30px)] font-semibold" style={{ color: String(c.headlineColor ?? "#1d1d1f") }}>{String(c.headline ?? "")}</h1>}
       <div className="relative overflow-hidden" style={{ borderRadius: `${Number(c.radius ?? 0)}px`, aspectRatio: videoRatio ? String(videoRatio) : undefined }}>

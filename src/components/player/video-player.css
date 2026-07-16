@@ -23,6 +23,11 @@
 
 .prisma-video-player.prisma-player--embed {
   background: transparent;
+  border-radius: inherit;
+}
+
+.prisma-video-player.prisma-player--embed :is(video, .media-player, .media-provider, .media-poster) {
+  border-radius: inherit;
 }
 
 .prisma-video-player .media-slider__fill {
