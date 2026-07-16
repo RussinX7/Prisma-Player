@@ -40,5 +40,5 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }));
   config.assetUrls = assetUrls;
 
-  return NextResponse.json({ id, title: video.title, source: signed.signedUrl, type: video.mime_type, config }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
+  return NextResponse.json({ id, videoId: playerConfig.video_id, title: video.title, source: signed.signedUrl, type: video.mime_type, config }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
 }

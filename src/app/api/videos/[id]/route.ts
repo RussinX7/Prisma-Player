@@ -2,6 +2,23 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const userId = await getCurrentUserId();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { id } = await context.params;
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof body?.title === "string") {
+    const title = body.title.trim().slice(0, 200);
+    if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 400 });
+    updates.title = title;
+  }
+  if (body && "folderId" in body) updates.folder_id = typeof body.folderId === "string" ? body.folderId : null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("videos").update(updates).eq("id", id).eq("user_id", userId).select("id,title,folder_id").maybeSingle();
+  return error || !data ? NextResponse.json({ error: "video_update_failed" }, { status: 400 }) : NextResponse.json({ video: data });
+}
+
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });

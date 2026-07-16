@@ -16,9 +16,16 @@ export async function GET(request: Request) {
   if (status && ["draft", "processing", "ready"].includes(status)) query = query.eq("status", status);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "videos_load_failed" }, { status: 500 });
+  const ids = (data ?? []).map((video) => video.id);
+  const [{ data: playEvents }, { data: configs }] = ids.length ? await Promise.all([
+    supabase.from("video_events").select("video_id,session_id").in("video_id", ids).eq("event_type", "play"),
+    supabase.from("player_configs").select("id,video_id,published").in("video_id", ids),
+  ]) : [{ data: [] }, { data: [] }];
   const videos = await Promise.all((data ?? []).map(async (video) => {
     const { data: signed } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 3600);
-    return { ...video, signed_url: signed?.signedUrl ?? null };
+    const plays = new Set((playEvents ?? []).filter((event) => event.video_id === video.id).map((event) => event.session_id)).size;
+    const player = (configs ?? []).find((config) => config.video_id === video.id);
+    return { ...video, signed_url: signed?.signedUrl ?? null, plays, player_id: player?.id ?? null, published: Boolean(player?.published) };
   }));
   return NextResponse.json({ videos, nextCursor: data?.at(-1)?.created_at ?? null });
 }

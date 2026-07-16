@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import VideoPlayer from "./VideoPlayer";
 
-interface Payload { title: string; source: string; type: string; config: Record<string, unknown> }
+interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown> }
 
 interface Tracking { testId: string; variantId: string; sessionId: string }
 
@@ -13,6 +13,8 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const sentEvents = useRef(new Set<string>());
+  const analyticsEvents = useRef(new Set<string>());
+  const sessionId = useRef("");
   const trackingTestId = tracking?.testId;
   const trackingVariantId = tracking?.variantId;
   const trackingSessionId = tracking?.sessionId;
@@ -25,12 +27,30 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...tracking, eventType, progressPercent, watchedSeconds }) });
   };
 
+  const trackAnalytics = (eventType: "impression" | "play" | "progress" | "complete", progressPercent = 0, watchedSeconds = 0) => {
+    if (!payload?.videoId || !sessionId.current) return;
+    const key = `${eventType}:${progressPercent}`;
+    if (analyticsEvents.current.has(key)) return;
+    analyticsEvents.current.add(key);
+    void fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer }) });
+  };
+
   useEffect(() => {
+    const key = `prisma-player-session:${playerId}`;
+    let stored = window.localStorage.getItem(key);
+    if (!stored) { stored = crypto.randomUUID(); window.localStorage.setItem(key, stored); }
+    sessionId.current = stored;
     fetch(`/api/embed/${encodeURIComponent(playerId)}?site=${encodeURIComponent(document.referrer)}`, { cache: "no-store" })
       .then(async (response) => { if (!response.ok) throw new Error(String(response.status)); return response.json() as Promise<Payload>; })
       .then(setPayload)
       .catch((reason: Error) => setError(reason.message === "403" ? "Este domínio não está autorizado a exibir o player." : "Player não encontrado ou ainda não publicado."));
   }, [playerId]);
+
+  useEffect(() => {
+    if (payload) trackAnalytics("impression");
+  // trackAnalytics intentionally follows payload availability once per embed session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload]);
 
   useEffect(() => {
     if (!payload || !trackingTestId || !trackingVariantId || !trackingSessionId || sentEvents.current.has("impression:0")) return;
@@ -71,7 +91,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     <div className="w-full" style={style}>
       {Boolean(c.headlineEnabled) && <h1 className="mb-4 text-center text-[clamp(18px,4vw,30px)] font-semibold text-white">{String(c.headline ?? "")}</h1>}
       <div className="relative overflow-hidden" style={{ borderRadius: `${Number(c.radius ?? 0)}px` }}>
-        <VideoPlayer sources={[{ src: payload.source, type: payload.type }]} poster={Boolean(c.thumbnailEnabled) && !Boolean(c.smartAutoplay) ? assetUrls.thumbnailStart : undefined} textTracks={assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: "Legendas", srclang: "pt-BR", default: true }] : []} autoplay={Boolean(c.smartAutoplay)} muted={Boolean(c.smartAutoplay) || Boolean(c.muted)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} onPlay={() => track("play", 0, currentTime)} onEnded={() => track("complete", 100, duration)} onTimeUpdate={(time) => { setCurrentTime(time); if (duration > 0) [25, 50, 75].forEach((point) => { if (time / duration * 100 >= point) track("progress", point, time); }); }} onLoadedMetadata={(metadata) => setDuration(metadata.duration)} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
+        <VideoPlayer sources={[{ src: payload.source, type: payload.type }]} poster={Boolean(c.thumbnailEnabled) && !Boolean(c.smartAutoplay) ? assetUrls.thumbnailStart : undefined} textTracks={assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: "Legendas", srclang: "pt-BR", default: true }] : []} autoplay={Boolean(c.smartAutoplay)} muted={Boolean(c.smartAutoplay) || Boolean(c.muted)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} onPlay={() => { track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); }} onEnded={() => { track("complete", 100, duration); trackAnalytics("complete", 100, duration); }} onTimeUpdate={(time) => { setCurrentTime(time); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => setDuration(metadata.duration)} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
         {Boolean(c.smartProgress) && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-transparent" style={{ height: `${Math.max(Number(c.progressHeight ?? 6), 4)}px` }}><div className="h-full transition-[width] duration-300 ease-out" style={{ width: `${smartProgress}%`, backgroundColor: String(c.progressColor ?? c.accent ?? "#0066cc") }} /></div>}
       </div>
     </div>

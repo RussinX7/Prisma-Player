@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileVideo2, Folder, FolderPlus, Plus, Trash2, Upload, Video } from "lucide-react";
+import { BarChart3, Code2, Copy, Download, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/dashboard/Header";
 import EmptyState from "@/components/dashboard/EmptyState";
@@ -10,7 +10,7 @@ import Tabs from "@/components/dashboard/Tabs";
 import Dialog from "@/components/ui/Dialog";
 import { createClient } from "@/lib/supabase/client";
 
-interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready"; signed_url: string | null; created_at: string }
+interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
 interface VideoFolder { id: string; name: string }
 const statusByTab: Record<string, StoredVideo["status"] | undefined> = { published: "ready", drafts: "draft", processing: "processing" };
 
@@ -27,6 +27,7 @@ export default function VideosPage() {
   const [pendingDelete, setPendingDelete] = useState<StoredVideo | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [menuVideo, setMenuVideo] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -78,6 +79,22 @@ export default function VideosPage() {
     setDeleting(false);
     if (response.ok) { setPendingDelete(null); setFeedback("VSL excluída definitivamente"); window.setTimeout(() => setFeedback(""), 2400); await load(); }
   }
+  function notify(message: string) { setFeedback(message); window.setTimeout(() => setFeedback(""), 2400); }
+  async function copyEmbed(video: StoredVideo) {
+    if (!video.player_id || !video.published) return notify("Publique e salve o player antes de copiar o embed");
+    const url = `${window.location.origin}/embed/${video.player_id}`;
+    await navigator.clipboard.writeText(`<iframe src="${url}" title="${video.title.replace(/"/g, "&quot;")}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;border:0;aspect-ratio:16/9"></iframe>`);
+    notify("Código de embed copiado"); setMenuVideo(null);
+  }
+  async function renameVideo(video: StoredVideo) {
+    const title = window.prompt("Novo nome da VSL", video.title)?.trim(); if (!title || title === video.title) return;
+    const response = await fetch(`/api/videos/${video.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
+    if (response.ok) { notify("VSL renomeada"); await load(); }
+  }
+  async function duplicateVideo(video: StoredVideo) {
+    notify("Duplicando VSL…"); const response = await fetch(`/api/videos/${video.id}/duplicate`, { method: "POST" });
+    if (response.ok) { notify("VSL duplicada"); await load(); } else notify("Não foi possível duplicar a VSL");
+  }
 
   const actions = [{ label: "Upload", icon: <Upload size={16} />, primary: false, onClick: () => setImportOpen(true) }, { label: "Nova pasta", icon: <FolderPlus size={16} />, primary: false, onClick: () => setFolderOpen(true) }, { label: "Adicionar vídeo", icon: <Plus size={16} />, primary: true, onClick: () => setImportOpen(true) }];
   return <>
@@ -90,7 +107,9 @@ export default function VideosPage() {
         {folders.map((folder) => <div key={folder.id} className={`flex min-h-11 shrink-0 items-center rounded-full border themeable-border-hairline ${selectedFolder === folder.id ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><button type="button" onClick={() => setSelectedFolder(folder.id)} className="flex h-full items-center gap-2 pl-4 pr-2"><Folder size={15} />{folder.name}</button><button type="button" onClick={() => void removeFolder(folder.id)} aria-label={`Excluir ${folder.name}`} className="flex h-10 w-10 items-center justify-center"><Trash2 size={14} /></button></div>)}
       </div>
       <div className="mt-5 min-h-[360px] flex-1 rounded-[18px] border p-4 themeable-bg-canvas themeable-border-hairline sm:p-6">
-        {visibleVideos.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visibleVideos.map((item) => <article key={item.id} className="group overflow-hidden rounded-[14px] border themeable-border-hairline"><button type="button" onClick={() => edit(item)} className="block w-full text-left"><div className="aspect-video bg-black">{item.signed_url && <video src={item.signed_url} preload="metadata" muted controlsList="nodownload" onContextMenu={(event) => event.preventDefault()} className="h-full w-full object-contain" />}</div></button><div className="flex items-center gap-3 p-4"><button type="button" onClick={() => edit(item)} className="min-w-0 flex-1 text-left"><h3 className="truncate font-semibold themeable-text-ink">{item.title}</h3><p className="mt-1 text-[12px] capitalize themeable-text-ink-muted-48">{item.status === "ready" ? "Publicado" : item.status}</p></button><button type="button" onClick={() => setPendingDelete(item)} title="Apagar VSL definitivamente" aria-label={`Apagar ${item.title}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-500/10"><Trash2 size={17} /></button></div></article>)}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
+        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => <article key={item.id} className="relative grid gap-3 border-b py-4 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left"><span className="grid h-12 w-20 shrink-0 place-items-center rounded-[9px] bg-black text-white"><Play size={18} fill="currentColor" /></span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block capitalize themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status}</small></span></button><span className="text-[13px] themeable-text-ink-muted-48">{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink">{item.plays ?? 0}</span><div className="flex justify-end gap-1"><button onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><BarChart3 size={17} /></button><button onClick={() => void copyEmbed(item)} title="Copiar embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><Code2 size={17} /></button><button onClick={() => setMenuVideo(menuVideo === item.id ? null : item.id)} aria-label="Mais ações" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><MoreHorizontal size={18} /></button></div>{menuVideo === item.id && <div className="absolute right-2 top-[72px] z-30 w-[230px] rounded-[16px] border p-1.5 shadow-2xl themeable-bg-canvas themeable-border-hairline md:top-[62px]">{[
+          { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) }, { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) }, { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) }, { label: "Abrir player", icon: ExternalLink, action: () => item.player_id && window.open(`/embed/${item.player_id}`, "_blank", "noopener,noreferrer") }, { label: "Renomear", icon: Pencil, action: () => void renameVideo(item) }, { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) }, { label: "Download do original", icon: Download, action: () => item.signed_url && window.open(item.signed_url, "_blank", "noopener,noreferrer") }, { label: "Remover definitivamente", icon: Trash2, danger: true, action: () => { setPendingDelete(item); setMenuVideo(null); } },
+        ].map((action) => { const Icon = action.icon; return <button key={action.label} onClick={action.action} className={`flex min-h-10 w-full items-center gap-3 rounded-[11px] px-3 text-left text-[13px] hover:bg-prisma-blue/10 ${action.danger ? "text-red-500" : "themeable-text-ink"}`}><Icon size={16} />{action.label}</button>; })}</div>}</article>)}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
       </div>
     </section>
     <Dialog open={importOpen} onClose={() => setImportOpen(false)} title="Importar vídeo" description={selectedFolder ? "O vídeo será salvo dentro da pasta selecionada." : "O vídeo será salvo em Todos."} size="lg"><button type="button" onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-[18px] border border-dashed border-prisma-blue bg-prisma-blue/5 px-6"><FileVideo2 size={36} className="text-prisma-blue" /><h3 className="mt-5 text-[21px] font-semibold themeable-text-ink">Solte seus vídeos aqui</h3><span className="mt-5 rounded-full bg-prisma-blue px-5 py-3 text-white">{uploading ? "Enviando…" : "Escolher arquivo"}</span></button></Dialog>
