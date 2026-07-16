@@ -101,7 +101,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const smartAutoplay = Boolean(c.smartAutoplay);
   const resumeEnabled = Boolean(c.resumeEnabled);
   const thumbnailEnabled = Boolean(c.thumbnailEnabled);
-  const playerClasses = `${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
+  const playerClasses = `prisma-player--embed ${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
 
   const responsiveStyle = videoRatio
     ? { ...style, width: `min(100%, calc(100dvh * ${videoRatio}))`, aspectRatio: String(videoRatio) }

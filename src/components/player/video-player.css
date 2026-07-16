@@ -16,6 +16,10 @@
   object-fit: contain;
 }
 
+.prisma-video-player.prisma-player--embed video {
+  max-height: none;
+}
+
 .prisma-video-player .media-slider__fill {
   background: var(--player-accent, #0066cc);
 }
