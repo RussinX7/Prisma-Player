@@ -69,10 +69,12 @@ export default function VslStudio() {
   const [restartWithSoundSignal, setRestartWithSoundSignal] = useState(0);
   const [resumePlaybackSignal, setResumePlaybackSignal] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const [playerId, setPlayerId] = useState<string>();
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string>();
   const [pausePosterUrl, setPausePosterUrl] = useState<string>();
   const [endPosterUrl, setEndPosterUrl] = useState<string>();
@@ -131,20 +133,22 @@ export default function VslStudio() {
   }, [video?.id]);
 
   async function save() {
+    if (saving) return;
+    setSaving(true);
     setSaveError("");
     let persistedConfig = config;
     if (video?.id) {
       if (Object.keys(assetFiles).length > 0) {
         const supabase = createClient();
         const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) { setSaveError("Sua sessão expirou."); return; }
+        if (!userData.user) { setSaveError("Sua sessão expirou."); setSaving(false); return; }
         const assets = { ...config.assets };
         for (const [kind, file] of Object.entries(assetFiles)) {
           if (!file) continue;
           const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
           const path = `${userData.user.id}/${video.id}/${kind}-${crypto.randomUUID()}.${extension}`;
           const { data, error } = await supabase.storage.from("player-assets").upload(path, file, { contentType: file.type || undefined, cacheControl: "31536000", upsert: false });
-          if (error || !data) { setSaveError(`Não foi possível enviar ${file.name}.`); return; }
+          if (error || !data) { setSaveError(`Não foi possível enviar ${file.name}.`); setSaving(false); return; }
           assets[kind] = data.path;
         }
         persistedConfig = { ...config, assets };
@@ -152,20 +156,23 @@ export default function VslStudio() {
         setAssetFiles({});
       }
       const response = await fetch("/api/player-configs", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id, config: persistedConfig, domains: persistedConfig.domains }) });
-      if (!response.ok) { setSaveError("Não foi possível salvar no Supabase."); return; }
+      if (!response.ok) { setSaveError("Não foi possível salvar no Supabase."); setSaving(false); return; }
       const payload = await response.json() as { playerConfig?: { id?: string } };
       if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
     }
     localStorage.setItem("prisma-studio-config", JSON.stringify(persistedConfig));
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
   }
 
   async function removeVsl() {
-    if (!video?.id || deleting || !confirm(`Apagar definitivamente “${video.name}”? O vídeo, o player e todas as thumbnails serão removidos sem possibilidade de recuperação.`)) return;
+    if (!video?.id || deleting) return;
+    if (!deleteConfirmOpen) { setDeleteConfirmOpen(true); return; }
     setDeleting(true);
     const response = await fetch(`/api/videos/${video.id}`, { method: "DELETE" });
     if (!response.ok) { setDeleting(false); setSaveError("Não foi possível apagar a VSL."); return; }
+    setDeleteConfirmOpen(false);
     sessionStorage.removeItem("prisma-mvp-video");
     router.replace("/dashboard/videos");
   }
@@ -223,6 +230,8 @@ export default function VslStudio() {
         </div>
       </main>
     </div>
+    <Dialog open={deleteConfirmOpen} onClose={() => { if (!deleting) setDeleteConfirmOpen(false); }} title="Excluir esta VSL definitivamente?" description="Confirme apenas se você realmente deseja remover todo o conteúdo." size="sm" footer={<><button type="button" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting} className="min-h-11 rounded-full border px-5 themeable-border-hairline themeable-text-ink">Cancelar</button><button type="button" onClick={() => void removeVsl()} disabled={deleting} className="min-h-11 rounded-full bg-red-600 px-5 text-white disabled:opacity-60">{deleting ? "Excluindo…" : "Sim, excluir tudo"}</button></>}><div className="rounded-[14px] bg-red-500/10 p-4 text-[14px] leading-relaxed text-red-600">O vídeo original, o player publicado, as thumbnails, legendas e todas as configurações serão removidos sem possibilidade de recuperação.</div></Dialog>
+    {(saving || saved || deleting) && <div role="status" className="fixed bottom-5 left-1/2 z-[120] -translate-x-1/2 animate-status-pop rounded-full bg-white px-5 py-3 text-[14px] font-semibold text-[#1d1d1f] shadow-2xl dark:bg-[#2c2c2e] dark:text-white">{deleting ? "Excluindo VSL…" : saving ? "Salvando alterações…" : "VSL salva com sucesso"}</div>}
     <EmbedDialog open={embedOpen} onClose={() => setEmbedOpen(false)} playerId={playerId} videoId={video?.id} ratio={previewRatio} />
   </div>;
 }

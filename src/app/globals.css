@@ -155,6 +155,14 @@ body {
   opacity: 0;
 }
 
+@keyframes dialog-backdrop { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-panel { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes status-pop { 0% { opacity: 0; transform: translate(-50%, 14px) scale(0.96); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+
+@utility animate-dialog-backdrop { animation: dialog-backdrop 160ms ease-out both; }
+@utility animate-dialog-panel { animation: dialog-panel 220ms cubic-bezier(.2,.8,.2,1) both; }
+@utility animate-status-pop { animation: status-pop 220ms cubic-bezier(.2,.8,.2,1) both; }
+
 .themeable-bg-canvas { background-color: var(--color-canvas); }
 .themeable-bg-canvas-parchment { background-color: var(--color-canvas-parchment); }
 .themeable-bg-surface-pearl { background-color: var(--color-surface-pearl); }

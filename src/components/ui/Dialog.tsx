@@ -44,12 +44,12 @@ export default function Dialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[80] flex animate-dialog-backdrop items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={onClose}>
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
-        className={`flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[18px] border themeable-bg-canvas themeable-border-hairline sm:rounded-[18px] ${sizes[size]}`}
+        className={`flex max-h-[92dvh] w-full animate-dialog-panel flex-col overflow-hidden rounded-t-[18px] border themeable-bg-canvas themeable-border-hairline sm:rounded-[18px] ${sizes[size]}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b px-5 py-4 themeable-border-hairline sm:px-6">

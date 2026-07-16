@@ -90,6 +90,10 @@ export default function VideoPlayer({
             muted={muted}
             loop={loop}
             playsInline
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture={controlVisibility?.pictureInPictureToggle === false}
+            onContextMenu={(event) => event.preventDefault()}
+            draggable={false}
             preload="metadata"
             crossOrigin="anonymous"
             onLoadedMetadata={(event) => {
