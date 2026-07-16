@@ -49,7 +49,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((domain) => domain.trim()).filter(Boolean) : [];
   if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
-  const { data: loadedVideo } = fallbackVideo ? { data: fallbackVideo } : await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", playerConfig.video_id).maybeSingle();
+  const { data: loadedVideo } = fallbackVideo ? { data: fallbackVideo } : await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
   const video = loadedVideo;
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const { data: signed, error } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 900);

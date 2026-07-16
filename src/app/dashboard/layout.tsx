@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import { VideoUploadProvider } from "@/components/uploads/VideoUploadProvider";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -11,5 +12,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  return <VideoUploadProvider><DashboardShell>{children}</DashboardShell></VideoUploadProvider>;
 }

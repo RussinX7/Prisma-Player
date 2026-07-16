@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
   const { data: video } = await supabase.from("videos").select("id,user_id,status").eq("id", videoId).maybeSingle();
-  if (!video || video.status === "archived") return NextResponse.json({ error: "video_not_found" }, { status: 404 });
+  if (!video || video.status !== "ready") return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const context = clientContext(request);
   const country = (request.headers.get("x-vercel-ip-country") ?? "XX").toUpperCase().slice(0, 2);
   const { error } = await supabase.from("video_events").upsert({

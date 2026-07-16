@@ -15,6 +15,11 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
   const { data: variant } = await supabase.from("ab_test_variants").select("user_id,video_id,test_id").eq("id", variantId).eq("test_id", testId).maybeSingle();
   if (!variant) return NextResponse.json({ error: "variant_not_found" }, { status: 404 });
+  const [{ data: test }, { data: video }] = await Promise.all([
+    supabase.from("ab_tests").select("status").eq("id", testId).eq("user_id", variant.user_id).maybeSingle(),
+    supabase.from("videos").select("status").eq("id", variant.video_id).eq("user_id", variant.user_id).maybeSingle(),
+  ]);
+  if (test?.status !== "active" || video?.status !== "ready") return NextResponse.json({ error: "test_not_active" }, { status: 409 });
   const { error } = await supabase.from("player_events").upsert({ user_id: variant.user_id, video_id: variant.video_id, test_id: testId, variant_id: variantId, session_id: sessionId, event_type: eventType, progress_percent: progressPercent, watched_seconds: watchedSeconds }, { onConflict: "test_id,variant_id,session_id,event_type,progress_percent", ignoreDuplicates: true });
   return error ? NextResponse.json({ error: "event_failed" }, { status: 500 }) : NextResponse.json({ ok: true }, { status: 202 });
 }

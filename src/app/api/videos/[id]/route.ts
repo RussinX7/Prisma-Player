@@ -15,8 +15,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   if (body && "folderId" in body) updates.folder_id = typeof body.folderId === "string" ? body.folderId : null;
   const supabase = await createClient();
+  if (body?.status === "ready" || body?.status === "failed") {
+    const { data: current } = await supabase.from("videos").select("object_path,status").eq("id", id).eq("user_id", userId).maybeSingle();
+    if (!current || current.status !== "processing") return NextResponse.json({ error: "invalid_status_transition" }, { status: 409 });
+    if (body.status === "ready") {
+      const separator = current.object_path.lastIndexOf("/");
+      const folder = current.object_path.slice(0, separator);
+      const fileName = current.object_path.slice(separator + 1);
+      const { data: objects, error: storageError } = await supabase.storage.from("videos").list(folder, { search: fileName, limit: 2 });
+      if (storageError || !objects?.some((object) => object.name === fileName)) return NextResponse.json({ error: "uploaded_file_not_found" }, { status: 409 });
+      updates.status = "ready";
+      const duration = Number(body.durationSeconds);
+      if (Number.isFinite(duration) && duration > 0) updates.duration_seconds = duration;
+    } else updates.status = "failed";
+  }
   const { data, error } = await supabase.from("videos").update(updates).eq("id", id).eq("user_id", userId).select("id,title,folder_id").maybeSingle();
-  return error || !data ? NextResponse.json({ error: "video_update_failed" }, { status: 400 }) : NextResponse.json({ video: data });
+  if (error || !data) return NextResponse.json({ error: "video_update_failed" }, { status: 400 });
+  if (body?.status === "ready") await supabase.from("player_configs").upsert({ user_id: userId, video_id: id, config: {}, allowed_domains: [], published: true }, { onConflict: "video_id", ignoreDuplicates: true });
+  return NextResponse.json({ video: data });
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {

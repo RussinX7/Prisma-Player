@@ -8,14 +8,15 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
 import Dialog from "@/components/ui/Dialog";
-import { createClient } from "@/lib/supabase/client";
+import { useVideoUploads } from "@/components/uploads/VideoUploadProvider";
 
-interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
+interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready" | "failed"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
 interface VideoFolder { id: string; name: string }
 const statusByTab: Record<string, StoredVideo["status"] | undefined> = { published: "ready", drafts: "draft", processing: "processing" };
 
 export default function VideosPage() {
   const router = useRouter();
+  const { tasks, startUpload } = useVideoUploads();
   const [activeTab, setActiveTab] = useState("all");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [videos, setVideos] = useState<StoredVideo[]>([]);
@@ -23,7 +24,7 @@ export default function VideosPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [preparingUpload, setPreparingUpload] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<StoredVideo | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -40,7 +41,12 @@ export default function VideosPage() {
     if (videosResponse.ok) setVideos(videosData.videos ?? []);
     if (foldersResponse.ok) setFolders(foldersData.folders ?? []);
   }, []);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    const refresh = () => void load();
+    window.addEventListener("prisma:videos-changed", refresh);
+    return () => { window.clearTimeout(timer); window.removeEventListener("prisma:videos-changed", refresh); };
+  }, [load]);
 
   const visibleVideos = useMemo(() => videos.filter((item) => (!selectedFolder || item.folder_id === selectedFolder) && (!statusByTab[activeTab] || item.status === statusByTab[activeTab])), [activeTab, selectedFolder, videos]);
   const tabs = useMemo(() => [
@@ -51,18 +57,20 @@ export default function VideosPage() {
   ], [videos]);
 
   async function handleFile(file?: File) {
-    if (!file || !file.type.startsWith("video/")) return;
-    setUploading(true);
-    const supabase = createClient();
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return setUploading(false);
-    const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-150);
-    const objectPath = `${auth.user.id}/${crypto.randomUUID()}-${safeName}`;
-    const { error } = await supabase.storage.from("videos").upload(objectPath, file, { contentType: file.type, upsert: false });
-    if (error) return setUploading(false);
-    const response = await fetch("/api/videos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: file.name, objectPath, mimeType: file.type, sizeBytes: file.size, folderId: selectedFolder }) });
-    if (!response.ok) await supabase.storage.from("videos").remove([objectPath]);
-    setImportOpen(false); setUploading(false); await load();
+    if (!file || !file.type.startsWith("video/")) { notify("Escolha um arquivo de vídeo válido"); return; }
+    if (file.size > 5 * 1024 ** 3) { notify("O limite por vídeo é 5 GB"); return; }
+    setPreparingUpload(true);
+    try {
+      const video = await startUpload(file, selectedFolder);
+      setVideos((current) => [{ ...video, signed_url: null, plays: 0, player_id: null, published: false }, ...current.filter((item) => item.id !== video.id)]);
+      setImportOpen(false);
+      setActiveTab("processing");
+      notify("Upload iniciado. Você pode continuar usando a dashboard.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Não foi possível iniciar o upload");
+    } finally {
+      setPreparingUpload(false);
+    }
   }
 
   async function createFolder() {
@@ -97,7 +105,7 @@ export default function VideosPage() {
     const playerId = await ensurePlayer(video); if (!playerId) return;
     const origin = window.location.origin;
     const title = video.title.replace(/"/g, "&quot;");
-    await navigator.clipboard.writeText(`<prisma-player data-prisma-player="${playerId}" data-title="${title}" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:56.25%;background:#000;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${playerId}" data-prisma-loader="${playerId}"></script>`);
+    await navigator.clipboard.writeText(`<prisma-player data-prisma-player="${playerId}" data-title="${title}" style="display:block;margin:0 auto;width:100%;height:1px;position:relative;background:transparent;border:0;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${playerId}?v=3" data-prisma-loader="${playerId}"></script>`);
     notify("Código de embed copiado"); setMenuVideo(null);
   }
   async function openPlayer(video: StoredVideo) {
@@ -132,12 +140,12 @@ export default function VideosPage() {
         {folders.map((folder) => <div key={folder.id} className={`flex min-h-11 shrink-0 items-center rounded-full border themeable-border-hairline ${selectedFolder === folder.id ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><button type="button" onClick={() => setSelectedFolder(folder.id)} className="flex h-full items-center gap-2 pl-4 pr-2"><Folder size={15} />{folder.name}</button><button type="button" onClick={() => void removeFolder(folder.id)} aria-label={`Excluir ${folder.name}`} className="flex h-10 w-10 items-center justify-center"><Trash2 size={14} /></button></div>)}
       </div>
       <div className="mt-5 min-h-[360px] flex-1 rounded-[18px] border p-4 themeable-bg-canvas themeable-border-hairline sm:p-6">
-        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => <article key={item.id} className="relative grid gap-3 border-b py-4 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left"><span className="grid h-12 w-20 shrink-0 place-items-center rounded-[9px] bg-black text-white"><Play size={18} fill="currentColor" /></span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block capitalize themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status}</small></span></button><span className="text-[13px] themeable-text-ink-muted-48">{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink">{item.plays ?? 0}</span><div className="flex justify-end gap-1"><button onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><BarChart3 size={17} /></button><button onClick={() => void copyEmbed(item)} title="Copiar embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><Code2 size={17} /></button><button onClick={() => setMenuVideo(menuVideo === item.id ? null : item.id)} aria-label="Mais ações" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 themeable-text-ink"><MoreHorizontal size={18} /></button></div>{menuVideo === item.id && <div className="absolute right-2 top-[72px] z-30 w-[230px] rounded-[16px] border p-1.5 shadow-2xl themeable-bg-canvas themeable-border-hairline md:top-[62px]">{[
+        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-3 border-b py-4 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-[9px] bg-black text-white"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><span className="text-[13px] themeable-text-ink-muted-48">{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink">{item.plays ?? 0}</span><div className="flex justify-end gap-1"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button><button disabled={item.status === "processing"} onClick={() => setMenuVideo(menuVideo === item.id ? null : item.id)} aria-label="Mais ações" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><MoreHorizontal size={18} /></button></div>{menuVideo === item.id && <div className="absolute right-2 top-[72px] z-30 w-[230px] rounded-[16px] border p-1.5 shadow-2xl themeable-bg-canvas themeable-border-hairline md:top-[62px]">{[
           { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) }, { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) }, { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) }, { label: "Abrir player", icon: ExternalLink, action: () => void openPlayer(item) }, { label: "Renomear", icon: Pencil, action: () => startManage(item, "rename") }, { label: "Mover para pasta", icon: Folder, action: () => startManage(item, "move") }, { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) }, { label: "Download do original", icon: Download, action: () => item.signed_url && window.open(item.signed_url, "_blank", "noopener,noreferrer") }, { label: "Remover definitivamente", icon: Trash2, danger: true, action: () => { setPendingDelete(item); setMenuVideo(null); } },
-        ].map((action) => { const Icon = action.icon; return <button key={action.label} onClick={action.action} className={`flex min-h-10 w-full items-center gap-3 rounded-[11px] px-3 text-left text-[13px] hover:bg-prisma-blue/10 ${action.danger ? "text-red-500" : "themeable-text-ink"}`}><Icon size={16} />{action.label}</button>; })}</div>}</article>)}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
+        ].map((action) => { const Icon = action.icon; return <button key={action.label} onClick={action.action} className={`flex min-h-10 w-full items-center gap-3 rounded-[11px] px-3 text-left text-[13px] hover:bg-prisma-blue/10 ${action.danger ? "text-red-500" : "themeable-text-ink"}`}><Icon size={16} />{action.label}</button>; })}</div>}</article>; })}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
       </div>
     </section>
-    <Dialog open={importOpen} onClose={() => setImportOpen(false)} title="Importar vídeo" description={selectedFolder ? "O vídeo será salvo dentro da pasta selecionada." : "O vídeo será salvo em Todos."} size="lg"><button type="button" onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-[18px] border border-dashed border-prisma-blue bg-prisma-blue/5 px-6"><FileVideo2 size={36} className="text-prisma-blue" /><h3 className="mt-5 text-[21px] font-semibold themeable-text-ink">Solte seus vídeos aqui</h3><span className="mt-5 rounded-full bg-prisma-blue px-5 py-3 text-white">{uploading ? "Enviando…" : "Escolher arquivo"}</span></button></Dialog>
+    <Dialog open={importOpen} onClose={() => { if (!preparingUpload) setImportOpen(false); }} title="Importar vídeo" description="Depois de escolher o arquivo, o envio continua em segundo plano e aparece em Processando." size="lg"><button type="button" disabled={preparingUpload} onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-[18px] border border-dashed border-prisma-blue bg-prisma-blue/5 px-6 disabled:cursor-wait disabled:opacity-70"><FileVideo2 size={36} className="text-prisma-blue" /><h3 className="mt-5 text-[21px] font-semibold themeable-text-ink">Solte seu vídeo aqui</h3><p className="mt-2 max-w-md text-center text-[13px] themeable-text-ink-muted-48">Uploads grandes são retomáveis e vão direto para o Storage. Limite de 5 GB por arquivo.</p><span className="mt-5 rounded-full bg-prisma-blue px-5 py-3 text-white">{preparingUpload ? "Preparando upload…" : "Escolher arquivo"}</span></button></Dialog>
     <Dialog open={folderOpen} onClose={() => setFolderOpen(false)} title="Criar nova pasta" description="A pasta ficará clicável e poderá receber seus próprios vídeos." size="sm" footer={<button type="button" onClick={() => void createFolder()} disabled={!folderName.trim()} className="min-h-11 rounded-full bg-prisma-blue px-5 text-white disabled:opacity-40">Criar pasta</button>}><label className="block text-[14px] font-semibold themeable-text-ink">Nome da pasta<input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-11 w-full rounded-full border bg-transparent px-4 outline-none themeable-border-hairline themeable-text-ink" /></label></Dialog>
     <Dialog open={Boolean(manageVideo)} onClose={() => setManageVideo(null)} title={manageMode === "rename" ? "Renomear VSL" : "Mover VSL"} description={manageMode === "rename" ? "Escolha um nome claro para encontrar este vídeo depois." : "Selecione a pasta de destino. O vídeo e seu player serão preservados."} size="sm" footer={<><button type="button" onClick={() => setManageVideo(null)} className="min-h-11 rounded-full border px-5 themeable-border-hairline themeable-text-ink">Cancelar</button><button type="button" onClick={() => void saveManage()} disabled={manageMode === "rename" && !manageTitle.trim()} className="min-h-11 rounded-full bg-prisma-blue px-5 text-white disabled:opacity-40">{manageMode === "rename" ? "Salvar nome" : "Mover vídeo"}</button></>}>
       {manageMode === "rename" ? <label className="block text-[14px] font-semibold themeable-text-ink">Nome do vídeo<input autoFocus value={manageTitle} maxLength={200} onChange={(event) => setManageTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void saveManage(); }} className="mt-2 h-11 w-full rounded-full border bg-transparent px-4 outline-none themeable-border-hairline themeable-text-ink" /></label> : <label className="block text-[14px] font-semibold themeable-text-ink">Pasta de destino<select value={manageFolder} onChange={(event) => setManageFolder(event.target.value)} className="mt-2 h-11 w-full rounded-full border bg-transparent px-4 outline-none themeable-border-hairline themeable-text-ink"><option value="">Todos os vídeos (sem pasta)</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}

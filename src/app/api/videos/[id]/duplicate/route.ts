@@ -7,7 +7,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await context.params;
   const supabase = await createClient();
-  const { data: original } = await supabase.from("videos").select("title,folder_id,object_path,mime_type,size_bytes,duration_seconds").eq("id", id).eq("user_id", userId).maybeSingle();
+  const { data: original } = await supabase.from("videos").select("title,folder_id,object_path,mime_type,size_bytes,duration_seconds").eq("id", id).eq("user_id", userId).eq("status", "ready").maybeSingle();
   if (!original) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const extension = original.object_path.includes(".") ? `.${original.object_path.split(".").pop()}` : "";
   const objectPath = `${userId}/${crypto.randomUUID()}-copy${extension}`;
@@ -15,5 +15,11 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   if (copyError) return NextResponse.json({ error: "video_copy_failed" }, { status: 500 });
   const { data, error } = await supabase.from("videos").insert({ user_id: userId, title: `${original.title} (cópia)`.slice(0, 200), folder_id: original.folder_id, object_path: objectPath, mime_type: original.mime_type, size_bytes: original.size_bytes, duration_seconds: original.duration_seconds, status: "ready" }).select("id").single();
   if (error) { await supabase.storage.from("videos").remove([objectPath]); return NextResponse.json({ error: "video_duplicate_failed" }, { status: 500 }); }
+  const { error: playerError } = await supabase.from("player_configs").insert({ user_id: userId, video_id: data.id, config: {}, allowed_domains: [], published: true });
+  if (playerError) {
+    await supabase.from("videos").delete().eq("id", data.id).eq("user_id", userId);
+    await supabase.storage.from("videos").remove([objectPath]);
+    return NextResponse.json({ error: "player_duplicate_failed" }, { status: 500 });
+  }
   return NextResponse.json({ video: data }, { status: 201 });
 }

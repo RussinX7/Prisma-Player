@@ -22,7 +22,9 @@ export async function GET(request: Request) {
     supabase.from("player_configs").select("id,video_id,published").in("video_id", ids),
   ]) : [{ data: [] }, { data: [] }];
   const videos = await Promise.all((data ?? []).map(async (video) => {
-    const { data: signed } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 3600);
+    const signed = video.status === "ready"
+      ? (await supabase.storage.from("videos").createSignedUrl(video.object_path, 3600)).data
+      : null;
     const plays = new Set((playEvents ?? []).filter((event) => event.video_id === video.id).map((event) => event.session_id)).size;
     const player = (configs ?? []).find((config) => config.video_id === video.id);
     return { ...video, signed_url: signed?.signedUrl ?? null, plays, player_id: player?.id ?? null, published: Boolean(player?.published) };
@@ -36,9 +38,18 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || typeof body.objectPath !== "string" || !body.objectPath.startsWith(`${userId}/`)) return NextResponse.json({ error: "invalid_object_path" }, { status: 400 });
   const supabase = await createClient();
-  const { data, error } = await supabase.from("videos").insert({ user_id: userId, folder_id: typeof body.folderId === "string" ? body.folderId : null, title: String(body.title ?? "Vídeo").trim().slice(0, 200), object_path: body.objectPath, mime_type: String(body.mimeType ?? "video/mp4"), size_bytes: Number(body.sizeBytes), status: "ready" }).select().single();
+  const sizeBytes = Number(body.sizeBytes);
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > 5 * 1024 ** 3) return NextResponse.json({ error: "invalid_file_size" }, { status: 422 });
+  const title = String(body.title ?? "Vídeo").trim().slice(0, 200);
+  const mimeType = String(body.mimeType || "video/mp4").trim().toLowerCase();
+  const supportedMime = mimeType.startsWith("video/") || mimeType === "application/vnd.apple.mpegurl";
+  if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 422 });
+  if (!supportedMime || mimeType.length > 100) return NextResponse.json({ error: "invalid_mime_type" }, { status: 415 });
+  const requestedStatus = body.status === "processing" ? "processing" : "ready";
+  const { data, error } = await supabase.from("videos").insert({ user_id: userId, folder_id: typeof body.folderId === "string" ? body.folderId : null, title, object_path: body.objectPath, mime_type: mimeType, size_bytes: sizeBytes, status: requestedStatus }).select().single();
   if (error || !data) return NextResponse.json({ error: "video_create_failed" }, { status: 400 });
+  if (requestedStatus === "processing") return NextResponse.json({ video: data }, { status: 201, headers: { Location: `/api/videos/${data.id}` } });
   const { data: player, error: playerError } = await supabase.from("player_configs").insert({ user_id: userId, video_id: data.id, config: {}, allowed_domains: [], published: true }).select("id").single();
   if (playerError) return NextResponse.json({ video: data, warning: "player_create_failed" }, { status: 201 });
-  return NextResponse.json({ video: { ...data, player_id: player.id, published: true } }, { status: 201 });
+  return NextResponse.json({ video: { ...data, player_id: player.id, published: true } }, { status: 201, headers: { Location: `/api/videos/${data.id}` } });
 }
