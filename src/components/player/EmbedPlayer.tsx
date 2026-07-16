@@ -12,6 +12,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const [error, setError] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoRatio, setVideoRatio] = useState<number | null>(null);
   const sentEvents = useRef(new Set<string>());
   const analyticsEvents = useRef(new Set<string>());
   const sessionId = useRef("");
@@ -90,11 +91,15 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const rawCtaUrl = String(c.ctaUrl ?? "");
   const safeCtaUrl = /^https?:\/\//i.test(rawCtaUrl) ? rawCtaUrl : "";
 
+  const responsiveStyle = videoRatio
+    ? { ...style, width: `min(100%, calc(100dvh * ${videoRatio}))`, aspectRatio: String(videoRatio) }
+    : style;
+
   return <main className="grid min-h-dvh select-none place-items-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
-    <div className="w-full" style={style}>
+    <div className="w-full" style={responsiveStyle}>
       {Boolean(c.headlineEnabled) && <h1 className="mb-4 text-center text-[clamp(18px,4vw,30px)] font-semibold text-white">{String(c.headline ?? "")}</h1>}
       <div className="relative overflow-hidden" style={{ borderRadius: `${Number(c.radius ?? 0)}px` }}>
-        <VideoPlayer sources={[{ src: payload.source, type: payload.type }]} poster={Boolean(c.thumbnailEnabled) && !Boolean(c.smartAutoplay) ? assetUrls.thumbnailStart : undefined} textTracks={assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: "Legendas", srclang: "pt-BR", default: true }] : []} autoplay={Boolean(c.smartAutoplay)} muted={Boolean(c.smartAutoplay) || Boolean(c.muted)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} onPlay={() => { track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); }} onEnded={() => { track("complete", 100, duration); trackAnalytics("complete", 100, duration); }} onTimeUpdate={(time) => { setCurrentTime(time); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => setDuration(metadata.duration)} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
+        <VideoPlayer sources={[{ src: payload.source, type: payload.type }]} poster={Boolean(c.thumbnailEnabled) && !Boolean(c.smartAutoplay) ? assetUrls.thumbnailStart : undefined} textTracks={assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: "Legendas", srclang: "pt-BR", default: true }] : []} autoplay={Boolean(c.smartAutoplay)} muted={Boolean(c.smartAutoplay) || Boolean(c.muted)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} onPlay={() => { track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); }} onEnded={() => { track("complete", 100, duration); trackAnalytics("complete", 100, duration); }} onTimeUpdate={(time) => { setCurrentTime(time); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => { setDuration(metadata.duration); if (metadata.width > 0 && metadata.height > 0) setVideoRatio(metadata.width / metadata.height); }} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
         {Boolean(c.smartProgress) && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-transparent" style={{ height: `${Math.max(Number(c.progressHeight ?? 6), 4)}px` }}><div className="h-full transition-[width] duration-300 ease-out" style={{ width: `${smartProgress}%`, backgroundColor: String(c.progressColor ?? c.accent ?? "#0066cc") }} /></div>}
       </div>
       {Boolean(c.ctaEnabled) && currentTime >= Number(c.ctaStart ?? 0) && safeCtaUrl && <a href={safeCtaUrl} target="_blank" rel="noopener noreferrer" onClick={() => trackAnalytics("cta_click", 0, currentTime)} className="mx-auto mt-4 flex min-h-12 w-fit items-center justify-center rounded-full px-7 text-[16px] font-semibold text-white shadow-lg transition-transform hover:scale-[1.02]" style={{ backgroundColor: String(c.accent ?? "#0066cc") }}>{String(c.ctaText ?? "Quero aproveitar agora")}</a>}
