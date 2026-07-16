@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { ArrowLeft, Captions, Check, ChevronRight, Code2, Gauge, Globe2, Heading, ImageIcon, MousePointerClick, Palette, Play, Radio, RotateCcw, Save, Shield, Subtitles, TimerReset, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Captions, Check, ChevronRight, Code2, Gauge, Globe2, Heading, ImageIcon, MousePointerClick, Palette, Play, Radio, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/components/player";
@@ -51,8 +52,9 @@ const initialConfig: StudioConfig = {
 };
 
 export default function VslStudio() {
+  const router = useRouter();
   const [video] = useState<StoredVideo | null>(() => { if (typeof window === "undefined") return null; try { return JSON.parse(sessionStorage.getItem("prisma-mvp-video") ?? "null") as StoredVideo | null; } catch { return null; } });
-  const [active, setActive] = useState<ModuleId | null>(null);
+  const [active, setActiveState] = useState<ModuleId | null>(null);
   const [config, setConfig] = useState<StudioConfig>(() => {
     if (typeof window === "undefined") return initialConfig;
     try { return { ...initialConfig, ...JSON.parse(localStorage.getItem("prisma-studio-config") ?? "{}") as Partial<StudioConfig> }; }
@@ -70,6 +72,7 @@ export default function VslStudio() {
   const [embedOpen, setEmbedOpen] = useState(false);
   const [playerId, setPlayerId] = useState<string>();
   const [saveError, setSaveError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string>();
   const [pausePosterUrl, setPausePosterUrl] = useState<string>();
   const [endPosterUrl, setEndPosterUrl] = useState<string>();
@@ -82,12 +85,22 @@ export default function VslStudio() {
   const playerStyle = { "--player-accent": config.smartProgress ? config.progressColor : config.accent, "--player-progress-height": `${config.progressHeight}px`, borderRadius: `${config.radius}px`, backgroundColor: config.background } as CSSProperties;
   const resumeStorageKey = `prisma-resume:${video?.id ?? video?.name ?? "preview"}`;
   const lastPersistedSecond = useRef(-1);
+  const injectedResumePreview = useRef(false);
   const previewRatio = videoSize.width > 0 && videoSize.height > 0 ? videoSize.width / videoSize.height : 16 / 9;
   const previewStyle = { ...playerStyle, aspectRatio: `${videoSize.width} / ${videoSize.height}`, width: `min(100%, calc(62dvh * ${previewRatio}))`, maxWidth: "680px" } as CSSProperties;
   const actualProgress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   // Avança rapidamente no início e desacelera perto do fim, sem nunca concluir antes do vídeo.
   const smartProgress = actualProgress >= 1 ? 100 : Math.min(99.5, (1 - Math.pow(1 - actualProgress, 2.4)) * 100);
   const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => setConfig((current) => ({ ...current, [key]: value }));
+  const setActive = (module: ModuleId | null) => {
+    setActiveState(module);
+    setThumbnailOverlay(null);
+    if (module === "autoplay") setAutoplayActivated(false);
+    if (module === "resume" && config.resumeEnabled && resumePoint === null) { injectedResumePreview.current = true; setResumePoint(Math.max(5, Math.min(duration * 0.35 || 15, Math.max(duration - 1, 15)))); }
+    else if (injectedResumePreview.current) { injectedResumePreview.current = false; setResumePoint(null); }
+    if (module === "hooks") setStartTime(config.miniHookStart);
+    if (module === "actions") setStartTime(config.ctaStart);
+  };
 
   useEffect(() => {
     if (!video?.id) return;
@@ -148,6 +161,16 @@ export default function VslStudio() {
     setTimeout(() => setSaved(false), 1400);
   }
 
+  async function removeVsl() {
+    if (!video?.id || deleting || !confirm(`Apagar definitivamente “${video.name}”? O vídeo, o player e todas as thumbnails serão removidos sem possibilidade de recuperação.`)) return;
+    setDeleting(true);
+    const response = await fetch(`/api/videos/${video.id}`, { method: "DELETE" });
+    if (!response.ok) { setDeleting(false); setSaveError("Não foi possível apagar a VSL."); return; }
+    sessionStorage.removeItem("prisma-mvp-video");
+    router.replace("/dashboard/videos");
+  }
+
+
   function handleMetadata(metadata: { duration: number; width: number; height: number }) {
     setDuration(metadata.duration);
     if (metadata.width > 0 && metadata.height > 0) setVideoSize({ width: metadata.width, height: metadata.height });
@@ -168,7 +191,7 @@ export default function VslStudio() {
   return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
     <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-4 border-b border-black/10 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-black/85 sm:px-6">
       <div className="flex min-w-0 items-center gap-4"><BrandLogo className="hidden h-8 w-[154px] sm:inline-block" /><div className="hidden h-7 w-px bg-black/10 dark:bg-white/10 sm:block" /><div className="min-w-0"><p className="text-[12px] text-[#7a7a7a]">Studio Prisma</p><h1 className="truncate text-[15px] font-semibold">{video?.name ?? "Personalizador de VSL"}</h1></div></div>
-      <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}<button type="button" onClick={() => setEmbedOpen(true)} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">Embed</span></button><button type="button" onClick={save} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
+      <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}{video?.id && <button type="button" onClick={() => void removeVsl()} disabled={deleting} title="Apagar VSL definitivamente" className="flex min-h-11 items-center gap-2 rounded-full px-3 text-red-500 hover:bg-red-500/10 disabled:opacity-40"><Trash2 size={17} /><span className="hidden xl:inline">{deleting ? "Apagando…" : "Apagar"}</span></button>}<button type="button" onClick={() => setEmbedOpen(true)} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">Embed</span></button><button type="button" onClick={save} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
     </header>
 
     <div className="grid min-h-[calc(100dvh-64px)] lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -184,17 +207,17 @@ export default function VslStudio() {
 
       <main className="flex min-w-0 flex-col bg-[#000] p-4 sm:p-6 lg:p-8">
         <div className="mb-4 flex items-center justify-between text-white"><div><p className="text-[12px] text-white/50">Prévia ao vivo</p><p className="text-[14px] font-semibold">{active ? modules.find((item) => item.id === active)?.label : "Visão geral"}</p></div><span className="rounded-full bg-white/10 px-3 py-2 text-[12px]">{config.playbackRate.toFixed(2)}x</span></div>
-        <div className="flex flex-1 items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-[#252527] p-4 sm:p-8">
+        <div className="flex flex-1 items-center justify-center overflow-hidden bg-transparent p-4 sm:p-8">
           <div className="w-full">
             {config.headlineEnabled && <h2 className="mx-auto mb-4 max-w-2xl text-center text-[clamp(18px,2.6vw,30px)] font-semibold leading-tight text-white">{config.headline}</h2>}
-            {video ? <div style={previewStyle} className="relative mx-auto max-h-[62dvh] overflow-hidden"><VideoPlayer key={posterUrl ?? "video-without-poster"} className={`${config.smartProgress ? "prisma-player--smart-progress" : ""} ${config.playPause ? "" : "prisma-player--play-pause-hidden"} ${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null && !posterPreviewActive} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => { if (config.thumbnailEnabled && pausePosterUrl && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onPlay={() => setThumbnailOverlay(null)} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); if (config.thumbnailEnabled && endPosterUrl) setThumbnailOverlay("end"); }} />
+            {video ? <div style={previewStyle} className="relative mx-auto max-h-[62dvh] overflow-hidden"><VideoPlayer key={`${posterUrl ?? "video-without-poster"}-${config.smartAutoplay}-${active === "thumbnail"}`} className={`${config.smartProgress ? "prisma-player--smart-progress" : ""} ${config.playPause ? "" : "prisma-player--play-pause-hidden"} ${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled && !config.smartAutoplay ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null && !posterPreviewActive} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => { if (config.thumbnailEnabled && pausePosterUrl && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onPlay={() => setThumbnailOverlay(null)} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); if (config.thumbnailEnabled && endPosterUrl) setThumbnailOverlay("end"); }} />
               {resumePoint !== null && <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{config.resumeMessage}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
               {config.smartAutoplay && !autoplayActivated && resumePoint === null && <button type="button" onClick={() => { setStartTime(0); setPosterPreviewActive(false); setAutoplayActivated(true); setRestartWithSoundSignal((value) => value + 1); }} className="absolute left-1/2 top-1/2 z-10 w-[min(240px,80%)] -translate-x-1/2 -translate-y-1/2 rounded-[11px] border border-white/40 px-5 py-3 text-center text-[13px] font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `${config.accent}dd` }}>{config.autoplayMessage}</button>}
-              {config.smartProgress && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-white/25 shadow-[0_-1px_0_rgba(0,0,0,0.18)]" style={{ height: `${Math.max(config.progressHeight, 4)}px` }} aria-hidden="true"><div className="h-full transition-[width] duration-300 ease-out" style={{ width: `${smartProgress}%`, backgroundColor: config.progressColor }} /></div>}
-              {config.miniHooksEnabled && currentTime >= config.miniHookStart && currentTime < config.miniHookStart + config.miniHookDuration && <div className="pointer-events-none absolute inset-x-4 top-4 z-20 mx-auto max-w-[520px] rounded-[11px] border border-white/20 bg-black/70 px-4 py-3 text-center text-[14px] font-semibold text-white shadow-lg backdrop-blur-md">{config.miniHookText}</div>}
+              {config.smartProgress && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-transparent" style={{ height: `${Math.max(config.progressHeight, 4)}px` }} aria-hidden="true"><div className="h-full transition-[width] duration-300 ease-out" style={{ width: `${smartProgress}%`, backgroundColor: config.progressColor }} /></div>}
+              {config.miniHooksEnabled && (active === "hooks" || (currentTime >= config.miniHookStart && currentTime < config.miniHookStart + config.miniHookDuration)) && <div className="pointer-events-none absolute inset-x-4 top-4 z-20 mx-auto max-w-[520px] rounded-[11px] bg-black/70 px-4 py-3 text-center text-[14px] font-semibold text-white shadow-lg backdrop-blur-md">{config.miniHookText}</div>}
               {thumbnailOverlay && <button type="button" onClick={() => { const wasPaused = thumbnailOverlay === "pause"; setThumbnailOverlay(null); if (wasPaused) setResumePlaybackSignal((value) => value + 1); else setRestartWithSoundSignal((value) => value + 1); }} className="absolute inset-0 z-40 bg-cover bg-center" style={{ backgroundImage: `url(${thumbnailOverlay === "pause" ? pausePosterUrl : endPosterUrl})` }} aria-label={thumbnailOverlay === "pause" ? "Continuar vídeo" : "Assistir novamente"}><span className="absolute inset-0 grid place-items-center bg-black/20"><span className="rounded-full bg-black/70 px-5 py-3 text-[13px] font-semibold text-white backdrop-blur-md">{thumbnailOverlay === "pause" ? "Continuar assistindo" : "Assistir novamente"}</span></span></button>}
             </div> : <div style={playerStyle} className="mx-auto flex aspect-video max-w-[680px] items-center justify-center text-center text-white/50"><div><Play size={36} className="mx-auto mb-3" /><p>Importe um vídeo para testar o Studio</p></div></div>}
-            {config.ctaEnabled && currentTime >= config.ctaStart && <a href={config.ctaUrl} target="_blank" rel="noreferrer" className="mx-auto mt-5 flex min-h-12 w-fit items-center rounded-full px-7 text-[16px] text-white" style={{ backgroundColor: config.accent }}>{config.ctaText}</a>}
+            {config.ctaEnabled && (active === "actions" || currentTime >= config.ctaStart) && <a href={config.ctaUrl} target="_blank" rel="noreferrer" className="mx-auto mt-5 flex min-h-12 w-fit items-center rounded-full px-7 text-[16px] text-white" style={{ backgroundColor: config.accent }}>{config.ctaText}</a>}
             {video && <p className="mt-3 text-center text-[11px] text-white/40">{videoSize.width}×{videoSize.height} · {duration ? `${Math.floor(duration / 60)}:${String(Math.floor(duration % 60)).padStart(2, "0")}` : "Lendo metadados"}</p>}
           </div>
         </div>
