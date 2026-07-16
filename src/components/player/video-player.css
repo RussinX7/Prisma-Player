@@ -32,6 +32,22 @@
   backdrop-filter: none !important;
 }
 
+/* O skin cria o contorno translúcido em .media-surface e em seu pseudo-elemento. */
+.prisma-video-player .media-controls.media-surface,
+.prisma-video-player .media-surface:has(.media-button--play) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.prisma-video-player .media-controls.media-surface::after,
+.prisma-video-player .media-surface:has(.media-button--play)::after {
+  display: none !important;
+  content: none !important;
+  box-shadow: none !important;
+}
+
 .prisma-video-player .media-overlay {
   background: transparent !important;
   box-shadow: none !important;
