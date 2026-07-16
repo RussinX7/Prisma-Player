@@ -101,11 +101,11 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     document.body.style.setProperty("background", "transparent", "important");
   }, []);
 
-  if (error) return <main className="grid min-h-dvh place-items-center bg-black p-6 text-center text-sm text-white/70">{error}</main>;
-  if (!payload) return <main className="grid min-h-dvh place-items-center bg-black text-white/60"><span className="animate-pulse">Carregando player…</span></main>;
+  if (error) return <main className="grid min-h-dvh place-items-center bg-transparent p-6 text-center text-sm text-[#7a7a7a]">{error}</main>;
+  if (!payload) return <main className="grid min-h-dvh place-items-center bg-transparent text-[#7a7a7a]"><span className="animate-pulse">Carregando player…</span></main>;
 
   const c = payload.config;
-  const style = { "--player-accent": String(c.progressColor ?? c.accent ?? "#0066cc"), "--player-progress-height": `${Number(c.progressHeight ?? 6)}px`, borderRadius: `${Number(c.radius ?? 0)}px` } as CSSProperties;
+  const style = { "--player-accent": String(c.progressColor ?? c.accent ?? "#0066cc"), "--player-progress-height": `${Number(c.progressHeight ?? 6)}px` } as CSSProperties;
   const assetUrls = c.assetUrls && typeof c.assetUrls === "object" ? c.assetUrls as Record<string, string> : {};
   const actualProgress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   const smartProgress = actualProgress >= 1 ? 100 : Math.min(99.5, (1 - Math.pow(1 - actualProgress, 2.4)) * 100);
@@ -117,9 +117,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const thumbnailEnabled = Boolean(c.thumbnailEnabled);
   const playerClasses = `prisma-player--embed ${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
 
-  const responsiveStyle = videoRatio
-    ? { ...style, width: `min(100%, calc(100dvh * ${videoRatio}))` }
-    : style;
+  const responsiveStyle = { ...style, width: "100%" };
 
   return <main className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
     <div className="w-full" style={responsiveStyle}>
