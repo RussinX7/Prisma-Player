@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Sidebar from "@/components/dashboard/Sidebar";
+import DashboardShell from "@/components/dashboard/DashboardShell";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -11,12 +11,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-dvh themeable-bg-canvas-parchment">
-      <Sidebar />
-      <main className="flex min-h-dvh min-w-0 flex-col lg:pl-64">
-        <div className="flex min-w-0 flex-1 flex-col pb-6 sm:pb-8">{children}</div>
-      </main>
-    </div>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }

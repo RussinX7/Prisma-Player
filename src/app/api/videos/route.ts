@@ -37,5 +37,8 @@ export async function POST(request: Request) {
   if (!body || typeof body.objectPath !== "string" || !body.objectPath.startsWith(`${userId}/`)) return NextResponse.json({ error: "invalid_object_path" }, { status: 400 });
   const supabase = await createClient();
   const { data, error } = await supabase.from("videos").insert({ user_id: userId, folder_id: typeof body.folderId === "string" ? body.folderId : null, title: String(body.title ?? "Vídeo").trim().slice(0, 200), object_path: body.objectPath, mime_type: String(body.mimeType ?? "video/mp4"), size_bytes: Number(body.sizeBytes), status: "ready" }).select().single();
-  return error ? NextResponse.json({ error: "video_create_failed" }, { status: 400 }) : NextResponse.json({ video: data }, { status: 201 });
+  if (error || !data) return NextResponse.json({ error: "video_create_failed" }, { status: 400 });
+  const { data: player, error: playerError } = await supabase.from("player_configs").insert({ user_id: userId, video_id: data.id, config: {}, allowed_domains: [], published: true }).select("id").single();
+  if (playerError) return NextResponse.json({ video: data, warning: "player_create_failed" }, { status: 201 });
+  return NextResponse.json({ video: { ...data, player_id: player.id, published: true } }, { status: 201 });
 }

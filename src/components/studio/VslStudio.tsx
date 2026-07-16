@@ -134,10 +134,11 @@ export default function VslStudio() {
     return () => { activeRequest = false; };
   }, [video?.id]);
 
-  async function save() {
-    if (saving) return;
+  async function save(): Promise<string | undefined> {
+    if (saving) return playerId;
     setSaving(true);
     setSaveError("");
+    let publishedPlayerId = playerId;
     let persistedConfig = config;
     if (video?.id) {
       if (Object.keys(assetFiles).length > 0) {
@@ -160,12 +161,13 @@ export default function VslStudio() {
       const response = await fetch("/api/player-configs", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id, config: persistedConfig, domains: persistedConfig.domains }) });
       if (!response.ok) { setSaveError("Não foi possível salvar no Supabase."); setSaving(false); return; }
       const payload = await response.json() as { playerConfig?: { id?: string } };
-      if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
+      if (payload.playerConfig?.id) { publishedPlayerId = payload.playerConfig.id; setPlayerId(payload.playerConfig.id); }
     }
     localStorage.setItem("prisma-studio-config", JSON.stringify(persistedConfig));
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
+    return publishedPlayerId;
   }
 
   async function removeVsl() {
@@ -200,7 +202,7 @@ export default function VslStudio() {
   return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
     <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-4 border-b border-black/10 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-black/85 sm:px-6">
       <div className="flex min-w-0 items-center gap-4"><BrandLogo className="hidden h-8 w-[154px] sm:inline-block" /><div className="hidden h-7 w-px bg-black/10 dark:bg-white/10 sm:block" /><div className="min-w-0"><p className="text-[12px] text-[#7a7a7a]">Studio Prisma</p><h1 className="truncate text-[15px] font-semibold">{video?.name ?? "Personalizador de VSL"}</h1></div></div>
-      <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}{video?.id && <button type="button" onClick={() => void removeVsl()} disabled={deleting} title="Apagar VSL definitivamente" className="flex min-h-11 items-center gap-2 rounded-full px-3 text-red-500 hover:bg-red-500/10 disabled:opacity-40"><Trash2 size={17} /><span className="hidden xl:inline">{deleting ? "Apagando…" : "Apagar"}</span></button>}<button type="button" onClick={() => setEmbedOpen(true)} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">Embed</span></button><button type="button" onClick={save} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
+      <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}{video?.id && <button type="button" onClick={() => void removeVsl()} disabled={deleting} title="Apagar VSL definitivamente" className="flex min-h-11 items-center gap-2 rounded-full px-3 text-red-500 hover:bg-red-500/10 disabled:opacity-40"><Trash2 size={17} /><span className="hidden xl:inline">{deleting ? "Apagando…" : "Apagar"}</span></button>}<button type="button" disabled={saving} onClick={() => void save().then((id) => { if (id) setEmbedOpen(true); else setSaveError("Não foi possível publicar o player."); })} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] disabled:opacity-50 dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">{saving ? "Publicando…" : "Embed"}</span></button><button type="button" onClick={() => void save()} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
     </header>
 
     <div className="grid min-h-[calc(100dvh-64px)] lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -234,16 +236,16 @@ export default function VslStudio() {
     </div>
     <Dialog open={deleteConfirmOpen} onClose={() => { if (!deleting) setDeleteConfirmOpen(false); }} title="Excluir esta VSL definitivamente?" description="Confirme apenas se você realmente deseja remover todo o conteúdo." size="sm" footer={<><button type="button" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting} className="min-h-11 rounded-full border px-5 themeable-border-hairline themeable-text-ink">Cancelar</button><button type="button" onClick={() => void removeVsl()} disabled={deleting} className="min-h-11 rounded-full bg-red-600 px-5 text-white disabled:opacity-60">{deleting ? "Excluindo…" : "Sim, excluir tudo"}</button></>}><div className="rounded-[14px] bg-red-500/10 p-4 text-[14px] leading-relaxed text-red-600">O vídeo original, o player publicado, as thumbnails, legendas e todas as configurações serão removidos sem possibilidade de recuperação.</div></Dialog>
     {(saving || saved || deleting) && <div role="status" className="fixed bottom-5 left-1/2 z-[120] -translate-x-1/2 animate-status-pop rounded-full bg-white px-5 py-3 text-[14px] font-semibold text-[#1d1d1f] shadow-2xl dark:bg-[#2c2c2e] dark:text-white">{deleting ? "Excluindo VSL…" : saving ? "Salvando alterações…" : "VSL salva com sucesso"}</div>}
-    <EmbedDialog open={embedOpen} onClose={() => setEmbedOpen(false)} playerId={playerId} videoId={video?.id} ratio={previewRatio} />
+    <EmbedDialog open={embedOpen} onClose={() => setEmbedOpen(false)} playerId={playerId} ratio={previewRatio} />
   </div>;
 }
 
-function EmbedDialog({ open, onClose, playerId, videoId, ratio }: { open: boolean; onClose: () => void; playerId?: string; videoId?: string; ratio: number }) {
+function EmbedDialog({ open, onClose, playerId, ratio }: { open: boolean; onClose: () => void; playerId?: string; ratio: number }) {
   const [format, setFormat] = useState<"javascript" | "iframe">("javascript");
   const [responsive, setResponsive] = useState(false);
   const [mobileId, setMobileId] = useState("");
   const [copied, setCopied] = useState<"embed" | "speed" | null>(null);
-  const id = playerId ?? videoId ?? "salve-o-player-primeiro";
+  const id = playerId ?? "player-nao-publicado";
   const origin = typeof window === "undefined" ? "https://prisma-player.vercel.app" : window.location.origin;
   const padding = `${(100 / Math.max(ratio, 0.1)).toFixed(4)}%`;
   const iframe = `<iframe src="${origin}/embed/${id}" title="Prisma Player" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:${ratio.toFixed(4)};border:0;display:block"></iframe>`;

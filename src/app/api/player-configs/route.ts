@@ -27,3 +27,20 @@ export async function PUT(request: Request) {
   await supabase.from("videos").update({ status: "ready", updated_at: new Date().toISOString() }).eq("id", body.videoId).eq("user_id", userId);
   return NextResponse.json({ playerConfig: data });
 }
+
+export async function POST(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const body = await request.json().catch(() => null) as { videoId?: unknown } | null;
+  if (typeof body?.videoId !== "string") return NextResponse.json({ error: "invalid_video_id" }, { status: 400 });
+  const supabase = await createClient();
+  const { data: ownedVideo } = await supabase.from("videos").select("id").eq("id", body.videoId).eq("user_id", userId).maybeSingle();
+  if (!ownedVideo) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
+  const { data: existing } = await supabase.from("player_configs").select("id,published").eq("video_id", body.videoId).eq("user_id", userId).maybeSingle();
+  if (existing) {
+    if (!existing.published) await supabase.from("player_configs").update({ published: true, updated_at: new Date().toISOString() }).eq("id", existing.id).eq("user_id", userId);
+    return NextResponse.json({ playerConfig: { ...existing, published: true } });
+  }
+  const { data, error } = await supabase.from("player_configs").insert({ user_id: userId, video_id: body.videoId, config: {}, allowed_domains: [], published: true }).select("id,published").single();
+  return error ? NextResponse.json({ error: "player_create_failed" }, { status: 400 }) : NextResponse.json({ playerConfig: data }, { status: 201 });
+}
