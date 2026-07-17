@@ -174,8 +174,21 @@ function Pricing() {
   );
 }
 
+function OrganicSectionTransition() {
+  return <div className="organic-section-transition" aria-hidden="true"><svg viewBox="0 0 1600 150" preserveAspectRatio="none"><path className="organic-wave organic-wave-back" d="M0 72C193 36 342 47 520 67C727 91 829 104 1028 64C1227 23 1390 31 1600 60V150H0Z" /><path className="organic-wave organic-wave-front" d="M0 88C214 62 377 55 564 79C765 105 913 111 1109 75C1307 38 1434 51 1600 68V150H0Z" /></svg></div>;
+}
+
 export default function MarketingLanding({ account }: { account: { firstName: string } | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const sections = document.querySelectorAll<HTMLElement>(".landing-page main > section");
+    sections.forEach((section) => section.classList.add("landing-reveal"));
+    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); }
+    }), { rootMargin: "0px 0px -12%", threshold: 0.08 });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
   return (
     <div className="landing-page bg-white text-[#1d1d1f]">
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3">
@@ -208,6 +221,7 @@ export default function MarketingLanding({ account }: { account: { firstName: st
         <section id="produto" className="landing-section overflow-hidden bg-white"><div className="mx-auto max-w-[1240px] px-5 md:px-10"><div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20"><div><span className="landing-kicker text-blue-700"><Target size={14} /> Uma operação, não apenas um player</span><h2 className="landing-section-title mt-6">Veja a jornada inteira.<br />Melhore o ponto certo.</h2><p className="landing-section-copy mt-6 text-slate-500">A Prisma conecta vídeo, comportamento, mídia e conversão. Você deixa de olhar métricas isoladas e passa a enxergar a decisão do lead por inteiro.</p><div className="mt-8 grid gap-3 sm:grid-cols-2">{[["Impressão → Play", CirclePlay], ["Play → Pitch", Gauge], ["Pitch → CTA", MousePointerClick], ["CTA → Compra", TrendingUp]].map(([label, ItemIcon]) => <div key={label as string} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm font-semibold"><span className="grid size-9 place-items-center rounded-xl bg-white text-blue-600 shadow-sm"><ItemIcon size={17} /></span>{label as string}</div>)}</div></div><ProductVisual label="Arte do funil e analytics Prisma" compact /></div></div></section>
 
         <StickyFeatures />
+        <OrganicSectionTransition />
 
         <section className="landing-section bg-white"><div className="mx-auto max-w-[1240px] px-5 md:px-10"><div className="grid gap-5 md:grid-cols-12"><article className="landing-bento bg-[#eaf2ff] md:col-span-7"><span className="landing-kicker text-blue-700"><Bot size={14} /> Prisma IA</span><h2 className="mt-6 max-w-xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Pergunte aos seus dados.<br />Receba uma próxima ação.</h2><p className="mt-5 max-w-xl text-base leading-7 text-slate-600">Sem relatório genérico. A IA interpreta a sua retenção, seu tráfego e seu funil dentro do contexto da sua própria operação.</p><div className="mt-10"><ProductVisual label="Arte do chat Prisma IA" compact /></div></article><article className="landing-bento bg-[#10131b] text-white md:col-span-5"><span className="landing-kicker text-emerald-300"><ShieldCheck size={14} /> Operação saudável</span><h3 className="mt-6 text-3xl font-semibold tracking-[-0.04em]">Se a página parar, você descobre antes da campanha.</h3><p className="mt-5 text-base leading-7 text-white/50">Monitoramento da embed, alertas de indisponibilidade e checagem periódica da página de vendas.</p><div className="mt-10 space-y-3">{["Embed respondendo", "Domínio autorizado", "Eventos chegando", "Player carregando rápido"].map((item, i) => <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm"><span>{item}</span><span className={`size-2 rounded-full ${i < 3 ? "bg-emerald-400" : "bg-amber-300"}`} /></div>)}</div></article><article className="landing-bento bg-[#f4f5f8] md:col-span-5"><span className="landing-kicker text-violet-700"><LockKeyhole size={14} /> Segurança</span><h3 className="mt-6 text-3xl font-semibold tracking-[-0.04em]">Sua VSL no lugar certo. Para a pessoa certa.</h3><p className="mt-5 text-base leading-7 text-slate-500">Domínios permitidos, links temporários e sinais de fraude protegem a operação sem criar atrito para o lead.</p></article><article className="landing-bento bg-gradient-to-br from-blue-600 to-blue-800 text-white md:col-span-7"><span className="landing-kicker text-blue-100"><BarChart3 size={14} /> Benchmark privado</span><h3 className="mt-6 max-w-xl text-3xl font-semibold tracking-[-0.04em]">Compare sua operação com ela mesma — e saiba se hoje foi melhor que ontem.</h3><p className="mt-5 max-w-xl text-base leading-7 text-blue-100/70">Sem expor seus dados e sem misturar negócios. A Prisma identifica evolução, regressão e padrões dentro do seu histórico.</p></article></div></div></section>
 

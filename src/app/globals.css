@@ -301,6 +301,23 @@ html { scroll-behavior: smooth; }
 .pricing-card { position: relative; border: 1px solid #e0e0e0; border-radius: 18px; background: white; padding: 1.75rem; box-shadow: none; }
 .pricing-card.is-featured { border-color: #0066cc; box-shadow: none; }
 .landing-cta-glow { display: none; }
+.organic-section-transition { position: relative; z-index: 2; height: clamp(84px,10vw,150px); margin-top: -1px; overflow: hidden; background: #272729; }
+.organic-section-transition svg { display: block; width: 104%; height: 100%; margin-left: -2%; }
+.organic-wave { transform-box: fill-box; transform-origin: center; animation: organic-wave-drift 9s ease-in-out infinite alternate; }
+.organic-wave-back { fill: #e8e8ed; opacity: .65; }
+.organic-wave-front { fill: #fff; animation-delay: -3s; animation-duration: 12s; }
+.landing-reveal { opacity: 0; transform: translateY(42px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); }
+.landing-reveal.is-visible { opacity: 1; transform: translateY(0); }
+.landing-reveal.is-visible > div { animation: landing-content-settle .85s cubic-bezier(.2,.7,.2,1) both; }
+
+@keyframes organic-wave-drift {
+  from { transform: translate3d(-1.5%,2px,0) scaleX(1.02); }
+  to { transform: translate3d(1.5%,-3px,0) scaleX(1.04); }
+}
+@keyframes landing-content-settle {
+  from { opacity: .72; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 1023px) {
   .feature-scroll-step { min-height: auto; padding-block: 4rem; border-bottom: 1px solid rgba(255,255,255,.08); opacity: 1; }
@@ -313,4 +330,10 @@ html { scroll-behavior: smooth; }
   .landing-art-slot { min-height: 290px; padding: 2rem; }
   .landing-bento { border-radius: 24px; }
   .pricing-card { border-radius: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .organic-wave { animation: none !important; }
+  .landing-reveal, .landing-reveal.is-visible { opacity: 1; transform: none; transition: none; }
+  .landing-reveal.is-visible > div { animation: none; }
 }
