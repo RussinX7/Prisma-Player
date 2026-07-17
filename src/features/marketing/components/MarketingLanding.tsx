@@ -90,10 +90,10 @@ function StickyFeatures() {
   const Icon = current.icon;
 
   return (
-    <section id="funcionalidades" className="bg-[#080a0f] text-white">
+    <section id="funcionalidades" className="bg-[#272729] text-white">
       <div className="mx-auto max-w-[1440px] px-5 py-24 md:px-10 lg:px-16 lg:py-32">
         <div className="mb-20 max-w-3xl">
-          <span className="landing-kicker text-blue-300"><Sparkles size={14} /> Da atenção à conversão</span>
+          <span className="landing-kicker text-[#2997ff]"><Sparkles size={14} /> Da atenção à conversão</span>
           <h2 className="landing-section-title mt-6">Uma VSL não precisa apenas rodar.<br />Ela precisa <span className="text-gradient-blue">evoluir.</span></h2>
           <p className="landing-section-copy mt-6 text-white/55">Cada recurso da Prisma atua em uma etapa da decisão: começar, continuar, acreditar e agir.</p>
         </div>
@@ -108,7 +108,7 @@ function StickyFeatures() {
                   data-index={index}
                   className={`feature-scroll-step ${active === index ? "is-active" : ""}`}
                 >
-                  <div className="mb-6 flex items-center gap-3 text-sm text-blue-300"><FeatureIcon size={18} /><span>{String(index + 1).padStart(2, "0")}</span><span className="h-px w-8 bg-blue-400/40" /><span>{feature.eyebrow}</span></div>
+                  <div className="mb-6 flex items-center gap-3 text-sm text-[#2997ff]"><FeatureIcon size={18} /><span>{String(index + 1).padStart(2, "0")}</span><span className="h-px w-8 bg-[#2997ff]/40" /><span>{feature.eyebrow}</span></div>
                   <h3 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">{feature.title}</h3>
                   <p className="mt-5 max-w-xl text-base leading-7 text-white/55 md:text-lg">{feature.text}</p>
                   <p className="mt-6 flex items-center gap-2 text-sm font-semibold text-white/90"><TrendingUp size={16} className="text-emerald-400" />{feature.result}</p>
@@ -118,7 +118,7 @@ function StickyFeatures() {
             })}
           </div>
           <div className="hidden lg:block">
-            <div className="sticky top-20 h-[calc(100vh-7rem)] max-h-[760px] min-h-[600px] overflow-hidden rounded-[34px] border border-white/10 bg-[#10131b] p-5 shadow-2xl shadow-blue-950/20">
+            <div className="sticky top-20 h-[calc(100vh-7rem)] max-h-[760px] min-h-[600px] overflow-hidden rounded-[18px] bg-[#2a2a2c] p-5">
               <div className="flex items-center justify-between px-2 pb-5 text-xs text-white/40"><span>Prisma Player · {current.eyebrow}</span><span>{active + 1} / {features.length}</span></div>
               <div className="relative h-[calc(100%-42px)] overflow-hidden rounded-[24px]">
                 <ProductVisual label={`Arte: ${current.title}`} />
@@ -138,7 +138,7 @@ function Pricing() {
   const [annual, setAnnual] = useState(false);
   const formatted = useMemo(() => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }), []);
   return (
-    <section id="planos" className="landing-section bg-[#f4f6fb] text-[#10131b]">
+    <section id="planos" className="landing-section bg-[#f5f5f7] text-[#1d1d1f]">
       <div className="mx-auto max-w-[1240px] px-5 md:px-10">
         <div className="mx-auto max-w-3xl text-center">
           <span className="landing-kicker justify-center text-blue-700"><Zap size={14} /> Comece pequeno. Escale sem trocar de ferramenta.</span>
@@ -155,20 +155,20 @@ function Pricing() {
             const annualTotal = monthlyEquivalent * 12;
             return (
               <article key={plan.name} className={`pricing-card ${plan.featured ? "is-featured" : ""}`}>
-                {plan.featured && <span className="absolute right-5 top-5 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white">Mais escolhido</span>}
+                {plan.featured && <span className="absolute right-5 top-5 rounded-full bg-[#0066cc] px-3 py-1 text-[11px] font-semibold text-white">Mais escolhido</span>}
                 <p className="text-lg font-semibold">{plan.name}</p>
                 <p className="mt-3 min-h-12 text-sm leading-6 text-slate-500">{plan.description}</p>
                 <div className="mt-8 flex items-end gap-1"><span className="text-4xl font-semibold tracking-[-0.05em]">{formatted.format(annual ? monthlyEquivalent : plan.monthly)}</span><span className="pb-1.5 text-sm text-slate-400">/mês</span></div>
                 {annual ? <p className="mt-2 text-xs text-slate-500">{formatted.format(annualTotal)} cobrados uma vez por ano</p> : <p className="mt-2 text-xs text-slate-500">Cobrança mensal. Cancele quando quiser.</p>}
-                <Link href="/signup" className={`mt-8 flex h-12 items-center justify-center rounded-full text-sm font-semibold transition hover:-translate-y-0.5 ${plan.featured ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "border border-slate-200 bg-white hover:border-blue-300"}`}>Começar 14 dias grátis <ArrowRight className="ml-2" size={16} /></Link>
+                <Link href="/signup" className={`mt-8 flex h-12 items-center justify-center rounded-full text-sm font-semibold transition active:scale-[.98] ${plan.featured ? "bg-[#0066cc] text-white" : "border border-[#e0e0e0] bg-white text-[#0066cc]"}`}>Começar 14 dias grátis <ArrowRight className="ml-2" size={16} /></Link>
                 <div className="my-7 h-px bg-slate-100" />
                 <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Capacidade incluída</p>
-                <ul className="space-y-3 text-sm">{plan.benefits.map((item) => <li key={item} className="flex gap-2.5"><Check size={17} className="shrink-0 text-blue-600" />{item}</li>)}</ul>
+                <ul className="space-y-3 text-sm">{plan.benefits.map((item) => <li key={item} className="flex gap-2.5"><Check size={17} className="shrink-0 text-[#0066cc]" />{item}</li>)}</ul>
               </article>
             );
           })}
         </div>
-        <div className="mt-7 flex flex-col items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-6 py-5 text-sm sm:flex-row"><p><strong>Precisou de mais tráfego?</strong> Use plays excedentes ou compre 10 mil plays por R$ 69.</p><Link href="/signup" className="font-semibold text-blue-700">Criar minha conta <ArrowRight className="ml-1 inline" size={15} /></Link></div>
+        <div className="mt-7 flex flex-col items-center justify-between gap-3 rounded-[18px] border border-[#e0e0e0] bg-white px-6 py-5 text-sm sm:flex-row"><p><strong>Precisou de mais tráfego?</strong> Use plays excedentes ou compre 10 mil plays por R$ 69.</p><Link href="/signup" className="font-semibold text-[#0066cc]">Criar minha conta <ArrowRight className="ml-1 inline" size={15} /></Link></div>
       </div>
     </section>
   );
@@ -177,12 +177,12 @@ function Pricing() {
 export default function MarketingLanding({ account }: { account: { firstName: string } | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="landing-page bg-white text-[#0b1020]">
+    <div className="landing-page bg-white text-[#1d1d1f]">
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3">
         <nav className="mx-auto flex h-16 max-w-[1240px] items-center justify-between rounded-2xl border border-white/60 bg-white/80 px-4 shadow-[0_10px_40px_rgba(17,35,70,.08)] backdrop-blur-xl md:px-6">
           <Link href="/" className="relative h-8 w-[154px]" aria-label="Prisma Player"><Image src="/assets/logo.png" alt="Prisma Player" fill priority className="object-contain object-left" /></Link>
           <div className="hidden items-center gap-7 lg:flex">{[["Produto", "#produto"], ["Funcionalidades", "#funcionalidades"], ["Resultados", "#resultados"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]].map(([name, href]) => <a key={name} href={href} className="text-sm font-medium text-slate-600 transition hover:text-blue-600">{name}</a>)}</div>
-          <div className="hidden items-center gap-2 sm:flex">{account ? <Link href="/dashboard/videos" className="rounded-full bg-[#0b1020] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-600">{account.firstName} · Dashboard</Link> : <><Link href="/login" className="px-4 py-2 text-sm font-semibold text-slate-700">Entrar</Link><Link href="/signup" className="rounded-full bg-[#0b1020] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-600">Teste grátis</Link></>}</div>
+          <div className="hidden items-center gap-2 sm:flex">{account ? <Link href="/dashboard/videos" className="rounded-full bg-[#0066cc] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-[.98]">{account.firstName} · Dashboard</Link> : <><Link href="/login" className="px-4 py-2 text-sm font-semibold text-[#333333]">Entrar</Link><Link href="/signup" className="rounded-full bg-[#0066cc] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-[.98]">Teste grátis</Link></>}</div>
           <button onClick={() => setMenuOpen(!menuOpen)} className="grid size-10 place-items-center rounded-full bg-slate-100 lg:hidden" aria-label="Abrir menu">{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
         </nav>
         {menuOpen && <div className="mx-auto mt-2 max-w-[1240px] rounded-2xl border border-slate-100 bg-white p-4 shadow-xl lg:hidden">{[["Produto", "#produto"], ["Funcionalidades", "#funcionalidades"], ["Resultados", "#resultados"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]].map(([name, href]) => <a key={name} href={href} onClick={() => setMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-medium hover:bg-slate-50">{name}</a>)}<div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">{account ? <Link href="/dashboard/videos" className="col-span-2 rounded-full bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white">{account.firstName} · Dashboard</Link> : <><Link href="/login" className="rounded-full border px-4 py-3 text-center text-sm font-semibold">Entrar</Link><Link href="/signup" className="rounded-full bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white">Teste grátis</Link></>}</div></div>}
@@ -199,7 +199,7 @@ export default function MarketingLanding({ account }: { account: { firstName: st
             <p className="mt-5 text-xs text-slate-400">Configure em minutos · Cole uma única embed · Cancele quando quiser</p>
           </div>
           <div className="relative z-10 mx-auto mt-16 max-w-[1220px] px-4 md:mt-20 md:px-8">
-            <div className="rounded-[28px] border border-slate-200/70 bg-white/70 p-2 shadow-[0_40px_100px_rgba(31,74,153,.16)] backdrop-blur-xl md:rounded-[38px] md:p-3"><div className="overflow-hidden rounded-[22px] border border-slate-100 bg-[#0b0e15] md:rounded-[30px]"><div className="flex h-11 items-center gap-2 border-b border-white/5 px-5"><span className="size-2.5 rounded-full bg-red-400/70" /><span className="size-2.5 rounded-full bg-amber-400/70" /><span className="size-2.5 rounded-full bg-emerald-400/70" /><span className="ml-4 text-[11px] text-white/30">app.prismaplayer.com.br</span></div><ProductVisual label="Arte principal do dashboard / player" /></div></div>
+            <div className="rounded-[18px] border border-[#e0e0e0] bg-white p-2 md:p-3"><div className="overflow-hidden rounded-[11px] bg-[#272729]"><div className="flex h-11 items-center border-b border-white/10 px-5"><span className="text-[11px] text-white/50">app.prismaplayer.com.br</span></div><ProductVisual label="Arte principal do dashboard / player" /></div></div>
           </div>
         </section>
 
