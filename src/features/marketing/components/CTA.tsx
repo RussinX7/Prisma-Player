@@ -10,7 +10,7 @@ export default function CTA() {
           instantaneamente as conversões do seu vídeo de vendas.
         </p>
         <a
-          href="#"
+          href="/pricing"
           className="bg-prisma-blue text-white text-[18px] font-light leading-none rounded-pill px-7 py-3.5 inline-flex items-center justify-center transition-all active:scale-95 hover:opacity-90"
         >
           Comece seu teste grátis

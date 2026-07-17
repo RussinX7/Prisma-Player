@@ -13,6 +13,7 @@ export default function Nav() {
           <div className="hidden md:flex items-center gap-5">
             {[
               ["Funcionalidades", "#features"],
+              ["Planos", "/pricing"],
               ["Parcerias", "#"],
               ["Ajuda", "#"],
             ].map(([label, href]) => (

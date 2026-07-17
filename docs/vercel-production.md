@@ -14,6 +14,9 @@ SUPABASE_JWKS_URL
 NEXT_PUBLIC_SITE_URL
 NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED
 NEXT_PUBLIC_SUPABASE_APPLE_ENABLED
+ABACATEPAY_API_KEY
+ABACATEPAY_WEBHOOK_SECRET
+ABACATEPAY_PUBLIC_KEY
 ```
 
 Somente URL e publishable key podem usar `NEXT_PUBLIC_`. A secret key nunca entra no Git, no bundle, em logs ou em respostas da API.
@@ -30,7 +33,19 @@ SUPABASE_JWKS_URL=https://jghtmqzgyyonelfmjdxb.supabase.co/auth/v1/.well-known/j
 NEXT_PUBLIC_SITE_URL=https://prisma-player.vercel.app
 NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED=false
 NEXT_PUBLIC_SUPABASE_APPLE_ENABLED=false
+ABACATEPAY_API_KEY=<chave de API v2 da AbacatePay; nunca use NEXT_PUBLIC_>
+ABACATEPAY_WEBHOOK_SECRET=<segredo aleatorio forte usado na URL do webhook>
+ABACATEPAY_PUBLIC_KEY=<opcional; use apenas para substituir a chave HMAC publica oficial>
 ```
+
+## AbacatePay
+
+- O PIX usa `POST /v2/checkouts/create` com produto avulso e libera 30 dias após `checkout.completed`.
+- O cartão usa `POST /v2/subscriptions/create` com produto `MONTHLY` e renovação automática.
+- Cadastre o webhook HTTPS `https://prisma-player.vercel.app/api/webhooks/abacatepay` no mesmo ambiente da chave (dev ou produção).
+- Use o mesmo valor de `ABACATEPAY_WEBHOOK_SECRET` no cadastro do webhook. A AbacatePay o envia como `?webhookSecret=...`.
+- Assine `checkout.completed`, `checkout.refunded`, `checkout.disputed`, `checkout.lost`, `subscription.completed`, `subscription.renewed` e `subscription.cancelled`.
+- O endpoint valida o secret, o corpo bruto e `X-Webhook-Signature` antes de alterar qualquer acesso.
 
 As duas flags de OAuth só devem virar `true` depois de configurar cada provedor no painel do Supabase. Depois de alterar qualquer variável `NEXT_PUBLIC_`, faça um novo deploy, pois o valor é incorporado ao bundle durante o build.
 

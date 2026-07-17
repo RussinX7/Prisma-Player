@@ -10,6 +10,7 @@ import {
   Shield,
   Target,
   Settings,
+  CreditCard,
   LifeBuoy,
   Menu,
   X,
@@ -21,6 +22,7 @@ const menuItems = [
   { label: "Segurança", href: "/dashboard/security", icon: Shield },
   { label: "Conversões", href: "/dashboard/conversions", icon: Target },
   { label: "Configurações", href: "/dashboard/settings", icon: Settings },
+  { label: "Plano", href: "/dashboard/billing", icon: CreditCard },
 ];
 
 export default function Sidebar() {
