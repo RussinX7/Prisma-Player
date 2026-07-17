@@ -1,31 +1,13 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abacateRequest } from "./abacatepay/client";
-import type { AbacateCheckout, AbacateCustomer, AbacateProduct } from "./abacatepay/types";
+import type { AbacateCheckout, AbacateProduct } from "./abacatepay/types";
 import type { BillingPlan } from "./catalog";
 
 type CheckoutType = "pix" | "card_subscription";
-type Profile = { email: string; full_name: string | null; phone: string | null };
 
 function siteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
-}
-
-async function ensureCustomer(userId: string, profile: Profile) {
-  const admin = createAdminClient();
-  const existing = await admin.from("billing_customers").select("provider_customer_id").eq("user_id", userId).maybeSingle();
-  if (existing.data?.provider_customer_id) return existing.data.provider_customer_id;
-
-  const customer = await abacateRequest<AbacateCustomer>("/customers/create", {
-    method: "POST",
-    body: JSON.stringify({
-      data: { email: profile.email, name: profile.full_name || undefined, cellphone: profile.phone || undefined },
-      metadata: { prismaUserId: userId },
-    }),
-  });
-  const saved = await admin.from("billing_customers").upsert({ user_id: userId, provider_customer_id: customer.id, updated_at: new Date().toISOString() });
-  if (saved.error) throw new Error("billing_customer_save_failed");
-  return customer.id;
 }
 
 async function listProducts() {
@@ -61,10 +43,6 @@ async function ensureProduct(plan: BillingPlan, type: CheckoutType) {
 
 export async function createBillingCheckout(userId: string, plan: BillingPlan, type: CheckoutType) {
   const admin = createAdminClient();
-  const profileResult = await admin.from("profiles").select("email,full_name,phone").eq("id", userId).single();
-  if (profileResult.error || !profileResult.data?.email) throw new Error("billing_profile_missing");
-
-  const customerId = await ensureCustomer(userId, profileResult.data);
   const productId = await ensureProduct(plan, type);
   const checkoutId = crypto.randomUUID();
   const externalId = `prisma_${checkoutId}`;
@@ -84,10 +62,9 @@ export async function createBillingCheckout(userId: string, plan: BillingPlan, t
       method: "POST",
       body: JSON.stringify({
         items: [{ id: productId, quantity: 1 }],
-        customerId,
         externalId,
         methods: [type === "pix" ? "PIX" : "CARD"],
-        returnUrl: `${siteUrl()}/pricing`,
+        returnUrl: `${siteUrl()}/dashboard/billing`,
         completionUrl: `${siteUrl()}/checkout/result?checkout=${checkoutId}`,
         metadata: { prismaUserId: userId, prismaPlan: plan.slug, prismaCheckoutId: checkoutId },
         ...(type === "card_subscription" ? { retryPolicy: { maxRetry: 3, retryEvery: 2 } } : {}),

@@ -16,12 +16,12 @@ export default function CheckoutActions({ plan }: { plan: string }) {
       body: JSON.stringify({ plan, method }),
     });
     if (response.status === 401) {
-      window.location.href = `/login?next=${encodeURIComponent("/pricing")}`;
+      window.location.href = `/login?next=${encodeURIComponent("/dashboard/billing")}`;
       return;
     }
-    const data = await response.json().catch(() => null) as { url?: string } | null;
+    const data = await response.json().catch(() => null) as { url?: string; message?: string } | null;
     if (!response.ok || !data?.url) {
-      setError("Nao foi possivel abrir o pagamento. Tente novamente em instantes.");
+      setError(data?.message || "Nao foi possivel abrir o pagamento. Tente novamente em instantes.");
       setLoading(null);
       return;
     }

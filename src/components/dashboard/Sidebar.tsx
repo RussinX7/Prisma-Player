@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { usePathname } from "next/navigation";
@@ -14,6 +14,7 @@ import {
   LifeBuoy,
   Menu,
   X,
+  LockKeyhole,
 } from "lucide-react";
 
 const menuItems = [
@@ -28,6 +29,11 @@ const menuItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasAccess, setHasAccess] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/account/access", { cache: "no-store" }).then((response) => response.json()).then((data) => setHasAccess(Boolean(data.hasAccess))).catch(() => setHasAccess(false));
+  }, []);
 
   function isActive(href: string) {
     return pathname.startsWith(href);
@@ -79,6 +85,7 @@ export default function Sidebar() {
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const active = isActive(item.href);
+            const locked = !hasAccess && !item.href.startsWith("/dashboard/settings") && !item.href.startsWith("/dashboard/billing");
             return (
               <Link
                 key={item.href}
@@ -99,6 +106,7 @@ export default function Sidebar() {
                   className={`flex-shrink-0 ${active ? "text-white" : ""}`}
                 />
                 <span className="text-[15px] font-semibold tracking-[-0.2px]">{item.label}</span>
+                {locked && <LockKeyhole size={14} className="ml-auto opacity-60" aria-label="Recurso bloqueado" />}
               </Link>
             );
           })}

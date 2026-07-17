@@ -3,6 +3,7 @@ import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createBillingCheckout } from "@/lib/billing/service";
 import type { BillingPlan } from "@/lib/billing/catalog";
+import { AbacatePayError } from "@/lib/billing/abacatepay/client";
 
 export async function POST(request: Request) {
   const userId = await getCurrentUserId();
@@ -21,7 +22,11 @@ export async function POST(request: Request) {
     const checkout = await createBillingCheckout(userId, planResult.data as BillingPlan, method === "pix" ? "pix" : "card_subscription");
     return NextResponse.json(checkout, { headers: { "cache-control": "no-store" } });
   } catch (error) {
-    console.error("AbacatePay checkout failed", error instanceof Error ? error.message : "unknown_error");
-    return NextResponse.json({ error: "checkout_provider_failed" }, { status: 502 });
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    console.error("AbacatePay checkout failed", error instanceof AbacatePayError ? { endpoint: error.endpoint, status: error.status, detail } : { detail });
+    const message = error instanceof AbacatePayError && (error.status === 401 || error.status === 403)
+      ? "A chave da AbacatePay nao tem permissao suficiente. Ative CHECKOUT:CREATE, PRODUCT:READ, PRODUCT:CREATE e a permissao de criar assinaturas."
+      : "A AbacatePay recusou a criacao do checkout. Confira a chave, as permissoes e tente novamente.";
+    return NextResponse.json({ error: "checkout_provider_failed", message }, { status: 502 });
   }
 }

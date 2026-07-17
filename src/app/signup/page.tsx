@@ -21,11 +21,11 @@ export default function SignupPage() {
     try {
       const supabase = createClient();
       const { data, error } = await withAuthTimeout(
-        supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } }),
+        supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/welcome` } }),
       );
       if (error) throw error;
       setMessage(data.session ? "Conta criada. Redirecionando…" : "Cadastro recebido. Confira seu e-mail para confirmar a conta.");
-      if (data.session) window.location.assign("/dashboard/videos");
+      if (data.session) window.location.assign("/welcome");
     } catch (error) {
       setMessage(getAuthErrorMessage(error, "Não foi possível criar a conta. Tente novamente."));
     } finally {
@@ -37,7 +37,7 @@ export default function SignupPage() {
     if (!oauthEnabled(provider)) { setMessage(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
+      const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/welcome` } });
       if (error) throw error;
     } catch (error) { setMessage(getAuthErrorMessage(error, "Não foi possível abrir o provedor de acesso.")); }
   }
