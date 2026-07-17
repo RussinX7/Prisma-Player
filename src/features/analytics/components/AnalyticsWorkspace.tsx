@@ -10,6 +10,7 @@ import {
   Funnel,
   Globe2,
   Lightbulb,
+  MessageCircle,
   MonitorSmartphone,
   Radio,
   RefreshCw,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react";
 
 type Summary = {
@@ -63,15 +65,22 @@ const tabs = [
   { id: "live", label: "Ao vivo", icon: Radio },
 ];
 
+const suggestionPrompts = [
+  "O que eu deveria melhorar primeiro nessa VSL?",
+  "Onde eu deveria posicionar o CTA para aumentar conversão?",
+  "Qual teste A/B vale mais a pena rodar agora?",
+  "Por que a retenção pode estar caindo?",
+];
+
 function format(value: number, percent = false) {
   return percent ? `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : value.toLocaleString("pt-BR");
 }
 
 function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
   return (
-    <section className="rounded-[28px] border p-5 shadow-sm themeable-bg-canvas themeable-border-hairline">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[17px] font-semibold themeable-text-ink">{title}</h3>
+    <section className="rounded-[22px] border bg-white p-4 sm:p-5 themeable-border-hairline dark:bg-white/[0.03]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-[17px] font-semibold tracking-[-0.02em] themeable-text-ink">{title}</h3>
         <span className="rounded-full bg-prisma-blue/10 px-3 py-1 text-[12px] font-semibold text-prisma-blue">{rows.length} segmentos</span>
       </div>
       {rows.length ? (
@@ -102,7 +111,7 @@ function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
           </table>
         </div>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed p-8 text-center text-[14px] themeable-border-hairline themeable-text-ink-muted-48">
+        <p className="mt-6 rounded-[18px] border border-dashed p-8 text-center text-[14px] themeable-border-hairline themeable-text-ink-muted-48">
           Os segmentos aparecerão quando o embed receber acessos reais.
         </p>
       )}
@@ -112,11 +121,10 @@ function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
 
 function MetricCard({ label, value, hint, featured }: { label: string; value: string; hint: string; featured?: boolean }) {
   return (
-    <article className={`relative overflow-hidden rounded-[28px] border p-5 shadow-sm themeable-border-hairline ${featured ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}>
-      {featured && <span className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15" />}
-      <p className={`text-[13px] ${featured ? "text-white/75" : "themeable-text-ink-muted-48"}`}>{label}</p>
-      <strong className="mt-3 block text-[34px] tracking-[-0.05em]">{value}</strong>
-      <p className={`mt-2 text-[12px] ${featured ? "text-white/70" : "themeable-text-ink-muted-48"}`}>{hint}</p>
+    <article className={`rounded-[22px] border p-5 themeable-border-hairline ${featured ? "bg-prisma-blue text-white" : "bg-white themeable-text-ink dark:bg-white/[0.03]"}`}>
+      <p className={`text-[13px] ${featured ? "text-white/72" : "themeable-text-ink-muted-48"}`}>{label}</p>
+      <strong className="mt-3 block text-[32px] font-semibold tracking-[-0.05em] sm:text-[36px]">{value}</strong>
+      <p className={`mt-2 text-[12px] ${featured ? "text-white/72" : "themeable-text-ink-muted-48"}`}>{hint}</p>
     </article>
   );
 }
@@ -126,6 +134,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [tab, setTab] = useState("overview");
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("O que eu deveria melhorar primeiro nessa VSL?");
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [aiBalance, setAiBalance] = useState<number | null>(null);
@@ -168,7 +177,8 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   }
 
   async function askAi() {
-    if (aiLoading) return;
+    if (aiLoading || !aiQuestion.trim()) return;
+    setAiOpen(true);
     setAiLoading(true);
     setAiError("");
     const response = await fetch("/api/ai/analyze", {
@@ -194,45 +204,52 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   }
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(0,113,227,0.12),transparent_32%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.96))] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,113,227,0.22),transparent_30%),linear-gradient(180deg,#080b12,#050608)]">
-      <header className="sticky top-0 z-20 border-b border-white/60 bg-white/72 px-4 py-4 backdrop-blur-2xl dark:border-white/10 dark:bg-black/38 sm:px-7">
-        <div className="mx-auto flex max-w-[1540px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050507] dark:text-white">
+      <header className="sticky top-0 z-30 border-b bg-white/86 px-4 py-4 backdrop-blur-xl themeable-border-hairline dark:bg-black/70 sm:px-7">
+        <div className="mx-auto flex max-w-[1540px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <Link href="/dashboard/videos" className="inline-flex items-center gap-2 text-[13px] font-medium text-prisma-blue">
               <ArrowLeft size={15} /> Voltar aos vídeos
             </Link>
             <h1 className="mt-2 truncate text-[24px] font-semibold tracking-[-0.04em] themeable-text-ink">{data?.video.title ?? "Analytics da VSL"}</h1>
-            <p className="mt-1 text-[13px] themeable-text-ink-muted-48">Métricas reais do embed, retenção, funil e inteligência para otimizar sua VSL.</p>
+            <p className="mt-1 max-w-2xl text-[13px] themeable-text-ink-muted-48">Métricas reais do embed, retenção, funil e inteligência para otimizar sua VSL.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={days} onChange={(event) => setDays(Number(event.target.value))} className="h-11 rounded-full border bg-white/70 px-4 text-[13px] shadow-sm outline-none themeable-border-hairline themeable-text-ink dark:bg-white/5">
+            <button onClick={() => setAiOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#1d1d1f] px-4 text-[13px] font-medium text-white dark:bg-white dark:text-black">
+              <Sparkles size={15} /> Ask IA
+            </button>
+            <select value={days} onChange={(event) => setDays(Number(event.target.value))} className="h-11 rounded-full border bg-white px-4 text-[13px] outline-none themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
               <option value={7}>7 dias</option>
               <option value={30}>30 dias</option>
               <option value={90}>90 dias</option>
               <option value={365}>1 ano</option>
             </select>
-            <button onClick={() => void load()} className="grid h-11 w-11 place-items-center rounded-full border bg-white/70 shadow-sm themeable-border-hairline themeable-text-ink dark:bg-white/5" aria-label="Atualizar">
+            <button onClick={() => void load()} className="grid h-11 w-11 place-items-center rounded-full border bg-white themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]" aria-label="Atualizar">
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
-            <button onClick={exportCsv} className="inline-flex h-11 items-center gap-2 rounded-full border bg-white/70 px-4 text-[13px] font-medium shadow-sm themeable-border-hairline themeable-text-ink dark:bg-white/5">
+            <button onClick={exportCsv} className="inline-flex h-11 items-center gap-2 rounded-full border bg-white px-4 text-[13px] font-medium themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
               <Download size={15} /> Exportar CSV
             </button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1540px] gap-5 p-4 lg:grid-cols-[250px_minmax(0,1fr)] lg:p-7">
-        <aside className="h-fit rounded-[30px] border border-white/70 bg-white/70 p-3 shadow-xl shadow-slate-950/5 backdrop-blur-2xl dark:border-white/10 dark:bg-white/5 lg:sticky lg:top-24">
-          <div className="mb-3 rounded-[24px] bg-prisma-blue p-4 text-white">
-            <p className="text-[12px] text-white/70">Ao vivo agora</p>
-            <strong className="mt-1 flex items-center gap-2 text-[28px] tracking-[-0.05em]"><Radio size={18} />{data?.live ?? 0}</strong>
+      <div className="mx-auto grid max-w-[1540px] gap-5 px-4 py-5 lg:grid-cols-[238px_minmax(0,1fr)] lg:px-7">
+        <aside className="min-w-0 lg:border-r lg:pr-4 themeable-border-hairline">
+          <div className="mb-3 hidden rounded-[18px] bg-prisma-blue p-4 text-white lg:block">
+            <p className="text-[12px] text-white/72">Ao vivo agora</p>
+            <strong className="mt-1 flex items-center gap-2 text-[30px] font-semibold tracking-[-0.05em]"><Radio size={18} />{data?.live ?? 0}</strong>
           </div>
-          <nav className="space-y-1">
+          <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 lg:mx-0 lg:block lg:space-y-1 lg:overflow-visible lg:px-0 lg:pb-0">
             {tabs.map((item) => {
               const Icon = item.icon;
               return (
-                <button key={item.id} onClick={() => setTab(item.id)} className={`flex min-h-12 w-full items-center gap-3 rounded-[18px] px-4 text-left text-[14px] transition ${tab === item.id ? "bg-black text-white shadow-lg shadow-black/10 dark:bg-white dark:text-black" : "themeable-text-ink hover:bg-prisma-blue/10"}`}>
-                  <Icon size={17} /> {item.label}
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-left text-[14px] transition lg:w-full lg:rounded-[12px] ${tab === item.id ? "bg-black text-white dark:bg-white dark:text-black" : "themeable-text-ink hover:bg-white dark:hover:bg-white/[0.06]"}`}
+                >
+                  <Icon size={16} /> {item.label}
                 </button>
               );
             })}
@@ -241,11 +258,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
         <section className="min-w-0">
           {loading && !data ? (
-            <div className="grid min-h-[540px] place-items-center rounded-[32px] border bg-white/70 shadow-xl shadow-slate-950/5 themeable-border-hairline dark:bg-white/5">
+            <div className="grid min-h-[520px] place-items-center rounded-[24px] border bg-white themeable-border-hairline dark:bg-white/[0.03]">
               <RefreshCw className="animate-spin text-prisma-blue" />
             </div>
           ) : !data ? (
-            <div className="rounded-[32px] border bg-white/70 p-10 text-center themeable-border-hairline themeable-text-ink dark:bg-white/5">
+            <div className="rounded-[24px] border bg-white p-10 text-center themeable-border-hairline themeable-text-ink dark:bg-white/[0.03]">
               Não foi possível carregar os dados. Confira se a migration de Analytics foi aplicada.
             </div>
           ) : (
@@ -257,33 +274,33 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   </section>
 
                   <section className="grid gap-5 xl:grid-cols-[0.96fr_1.04fr]">
-                    <div className="rounded-[32px] border bg-white/74 p-5 shadow-xl shadow-slate-950/5 backdrop-blur-xl themeable-border-hairline dark:bg-white/5">
+                    <div className="rounded-[24px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h2 className="text-[19px] font-semibold themeable-text-ink">Curva rápida de retenção</h2>
+                          <h2 className="text-[19px] font-semibold tracking-[-0.03em] themeable-text-ink">Curva rápida de retenção</h2>
                           <p className="text-[13px] themeable-text-ink-muted-48">Onde a atenção está segurando ou escapando.</p>
                         </div>
                         <TrendingUp className="text-prisma-blue" size={22} />
                       </div>
-                      <div className="mt-8 flex h-[220px] items-end gap-2 rounded-[24px] bg-prisma-blue/5 p-4">
+                      <div className="mt-7 flex h-[210px] items-end gap-2 rounded-[20px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04]">
                         {data.retention.map((point) => (
                           <div key={point.point} className="flex h-full flex-1 flex-col justify-end gap-2">
                             <span className="text-center text-[11px] font-semibold themeable-text-ink">{format(point.rate, true)}</span>
-                            <div className="min-h-2 rounded-t-full bg-gradient-to-t from-prisma-blue to-cyan-300 shadow-lg shadow-prisma-blue/20" style={{ height: `${Math.max(2, point.rate)}%` }} />
+                            <div className="min-h-2 rounded-t-full bg-prisma-blue" style={{ height: `${Math.max(2, point.rate)}%` }} />
                             <span className="text-center text-[11px] themeable-text-ink-muted-48">{point.point}%</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="rounded-[32px] border bg-white/74 p-5 shadow-xl shadow-slate-950/5 backdrop-blur-xl themeable-border-hairline dark:bg-white/5">
+                    <div className="rounded-[24px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
                       <div className="flex items-center gap-2">
                         <Lightbulb size={18} className="text-amber-500" />
                         <h2 className="font-semibold themeable-text-ink">Diagnóstico inteligente</h2>
                       </div>
                       <div className="mt-4 grid gap-3">
                         {data.insights.map((insight) => (
-                          <article key={insight.title} className="rounded-[20px] bg-prisma-blue/7 p-4">
+                          <article key={insight.title} className="rounded-[18px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04]">
                             <strong className="themeable-text-ink">{insight.title}</strong>
                             <p className="mt-1 text-[13px] leading-relaxed themeable-text-ink-muted-48">{insight.detail}</p>
                           </article>
@@ -291,70 +308,18 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       </div>
                     </div>
                   </section>
-
-                  <section className="overflow-hidden rounded-[34px] border bg-white/78 shadow-xl shadow-slate-950/5 backdrop-blur-xl themeable-border-hairline dark:bg-white/5">
-                    <div className="grid lg:grid-cols-[0.92fr_1.08fr]">
-                      <div className="border-b p-6 themeable-border-hairline lg:border-b-0 lg:border-r">
-                        <div className="flex items-center gap-3">
-                          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-prisma-blue text-white shadow-lg shadow-prisma-blue/20"><Sparkles size={21} /></span>
-                          <div>
-                            <h2 className="text-[20px] font-semibold themeable-text-ink">Ask IA da Prisma</h2>
-                            <p className="text-[13px] themeable-text-ink-muted-48">Pergunte sobre retenção, CTA, headline, tráfego e próximos testes.</p>
-                          </div>
-                        </div>
-                        <textarea value={aiQuestion} onChange={(event) => setAiQuestion(event.target.value.slice(0, 500))} placeholder="Ex.: onde devo colocar o botão de compra nessa VSL?" className="mt-5 min-h-32 w-full resize-none rounded-[22px] border bg-white/70 p-4 text-[14px] leading-relaxed outline-none transition focus:border-prisma-blue themeable-border-hairline themeable-text-ink dark:bg-white/5" />
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-[12px] themeable-text-ink-muted-48">{500 - aiQuestion.length} caracteres restantes{aiBalance !== null ? ` · ${aiBalance} créditos restantes` : ""}</p>
-                          <button type="button" onClick={() => void askAi()} disabled={aiLoading || !aiQuestion.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] font-semibold text-white shadow-lg shadow-prisma-blue/20 disabled:cursor-not-allowed disabled:opacity-50">
-                            {aiLoading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />} Perguntar
-                          </button>
-                        </div>
-                        {aiError && <p className="mt-3 rounded-2xl bg-red-500/10 p-3 text-[13px] text-red-600">{aiError}</p>}
-                      </div>
-                      <div className="p-6">
-                        {!aiResult ? (
-                          <div className="grid min-h-[320px] place-items-center rounded-[28px] bg-prisma-blue/5 p-8 text-center">
-                            <div>
-                              <Sparkles className="mx-auto text-prisma-blue" size={34} />
-                              <h3 className="mt-4 text-[18px] font-semibold themeable-text-ink">A IA responde com base nos dados reais do embed</h3>
-                              <p className="mx-auto mt-2 max-w-md text-[14px] leading-relaxed themeable-text-ink-muted-48">
-                                Ela olha play rate, retenção, funil, fonte, criativo e sinais de risco para sugerir uma ação prática.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="rounded-[22px] bg-prisma-blue/7 p-4">
-                              <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-prisma-blue">{aiResult.headline}</p>
-                              <p className="mt-2 text-[15px] leading-relaxed themeable-text-ink">{aiResult.executiveSummary}</p>
-                            </div>
-                            <div className="grid gap-3 xl:grid-cols-2">
-                              {aiResult.opportunities.map((item) => (
-                                <article key={`${item.priority}-${item.title}`} className="rounded-[20px] border p-4 themeable-border-hairline">
-                                  <span className="rounded-full bg-prisma-blue/10 px-2.5 py-1 text-[11px] font-semibold uppercase text-prisma-blue">{item.priority}</span>
-                                  <h4 className="mt-3 font-semibold themeable-text-ink">{item.title}</h4>
-                                  <p className="mt-1 text-[13px] themeable-text-ink-muted-48">{item.evidence}</p>
-                                  <p className="mt-3 text-[13px] font-medium themeable-text-ink">{item.action}</p>
-                                </article>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </section>
                 </>
               )}
 
               {tab === "retention" && (
-                <section className="rounded-[32px] border bg-white/74 p-6 shadow-xl shadow-slate-950/5 themeable-border-hairline dark:bg-white/5">
-                  <h2 className="text-[20px] font-semibold themeable-text-ink">Curva de retenção</h2>
+                <section className="rounded-[24px] border bg-white p-5 sm:p-6 themeable-border-hairline dark:bg-white/[0.03]">
+                  <h2 className="text-[20px] font-semibold tracking-[-0.03em] themeable-text-ink">Curva de retenção</h2>
                   <p className="mt-1 text-[13px] themeable-text-ink-muted-48">Mostra quantas pessoas permanecem em cada trecho. Os dados são marcos reais enviados pelo player.</p>
-                  <div className="mt-8 flex h-[380px] items-end gap-2 rounded-[28px] bg-prisma-blue/5 p-5">
+                  <div className="mt-7 flex h-[300px] items-end gap-2 rounded-[22px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04] sm:h-[380px] sm:p-5">
                     {data.retention.map((point) => (
                       <div key={point.point} className="flex h-full flex-1 flex-col justify-end gap-2">
                         <span className="text-center text-[11px] font-semibold themeable-text-ink">{format(point.rate, true)}</span>
-                        <div className="min-h-1 rounded-t-[16px] bg-gradient-to-t from-prisma-blue to-cyan-400 transition-all" style={{ height: `${Math.max(2, point.rate)}%` }} />
+                        <div className="min-h-1 rounded-t-[16px] bg-prisma-blue" style={{ height: `${Math.max(2, point.rate)}%` }} />
                         <span className="pb-1 text-center text-[11px] themeable-text-ink-muted-48">{point.point}%</span>
                       </div>
                     ))}
@@ -363,16 +328,16 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               )}
 
               {tab === "funnel" && (
-                <section className="rounded-[32px] border bg-white/74 p-6 shadow-xl shadow-slate-950/5 themeable-border-hairline dark:bg-white/5">
-                  <h2 className="text-[20px] font-semibold themeable-text-ink">Funil da VSL</h2>
-                  <div className="mt-7 space-y-4">
+                <section className="rounded-[24px] border bg-white p-5 sm:p-6 themeable-border-hairline dark:bg-white/[0.03]">
+                  <h2 className="text-[20px] font-semibold tracking-[-0.03em] themeable-text-ink">Funil da VSL</h2>
+                  <div className="mt-6 space-y-4">
                     {data.funnel.map((step, index) => (
-                      <div key={step.name} className="grid grid-cols-[130px_1fr_82px] items-center gap-3 text-[13px]">
+                      <div key={step.name} className="grid gap-2 text-[13px] sm:grid-cols-[138px_1fr_82px] sm:items-center sm:gap-3">
                         <span className="themeable-text-ink">{step.name}</span>
-                        <div className="h-12 overflow-hidden rounded-[16px] bg-prisma-blue/8">
-                          <div className="h-full rounded-[16px] bg-prisma-blue transition-all" style={{ width: `${Math.max(step.value ? 5 : 0, step.value / maxFunnel * 100)}%`, opacity: 1 - index * 0.08 }} />
+                        <div className="h-11 overflow-hidden rounded-[12px] bg-[#f5f5f7] dark:bg-white/[0.04]">
+                          <div className="h-full rounded-[12px] bg-prisma-blue transition-all" style={{ width: `${Math.max(step.value ? 5 : 0, step.value / maxFunnel * 100)}%`, opacity: 1 - index * 0.08 }} />
                         </div>
-                        <strong className="text-right themeable-text-ink">{format(step.value)}</strong>
+                        <strong className="text-left themeable-text-ink sm:text-right">{format(step.value)}</strong>
                       </div>
                     ))}
                   </div>
@@ -383,13 +348,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               {tab === "technology" && <div className="grid gap-5"><DimensionTable title="Sistemas operacionais" rows={data.dimensions.operatingSystems} /><DimensionTable title="Navegadores" rows={data.dimensions.browsers} /></div>}
               {tab === "traffic" && <DimensionTable title="Origem do tráfego" rows={data.dimensions.traffic} />}
               {tab === "live" && (
-                <section className="grid min-h-[560px] place-items-center rounded-[32px] border bg-white/74 p-8 text-center shadow-xl shadow-slate-950/5 themeable-border-hairline dark:bg-white/5">
+                <section className="grid min-h-[520px] place-items-center rounded-[24px] border bg-white p-8 text-center themeable-border-hairline dark:bg-white/[0.03]">
                   <div>
                     <span className="relative mx-auto grid h-28 w-28 place-items-center rounded-full bg-prisma-blue/10">
                       <Radio size={42} className="text-prisma-blue" />
                       <i className="absolute right-3 top-3 h-4 w-4 animate-pulse rounded-full bg-red-500" />
                     </span>
-                    <strong className="mt-6 block text-[64px] tracking-[-0.06em] themeable-text-ink">{data.live}</strong>
+                    <strong className="mt-6 block text-[64px] font-semibold tracking-[-0.06em] themeable-text-ink">{data.live}</strong>
                     <p className="themeable-text-ink-muted-48">espectador{data.live === 1 ? "" : "es"} ativo{data.live === 1 ? "" : "s"} nos últimos 2 minutos</p>
                   </div>
                 </section>
@@ -398,6 +363,95 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
           )}
         </section>
       </div>
+
+      <div className={`fixed inset-0 z-40 bg-black/18 transition-opacity lg:bg-transparent ${aiOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
+      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-[440px] flex-col border-l bg-white shadow-2xl transition-transform duration-300 themeable-border-hairline dark:bg-[#070709] ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex min-h-16 items-center justify-between border-b px-5 themeable-border-hairline">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-prisma-blue">Prisma IA</p>
+            <h2 className="text-[17px] font-semibold themeable-text-ink">Nova conversa</h2>
+          </div>
+          <button onClick={() => setAiOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Fechar Ask IA">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle,#d8dee8_1px,transparent_1px)] p-5 [background-size:18px_18px] dark:bg-[radial-gradient(circle,rgba(255,255,255,0.12)_1px,transparent_1px)]">
+          <div className="rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-prisma-blue text-white"><Sparkles size={19} /></span>
+              <div>
+                <h3 className="font-semibold themeable-text-ink">Como posso ajudar sua VSL?</h3>
+                <p className="text-[13px] themeable-text-ink-muted-48">Eu leio as métricas reais e sugiro próximos passos.</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {suggestionPrompts.map((prompt) => (
+                <button key={prompt} onClick={() => setAiQuestion(prompt)} className="rounded-[16px] border bg-[#fafafc] px-3 py-2 text-left text-[13px] themeable-border-hairline themeable-text-ink hover:border-prisma-blue dark:bg-white/[0.04]">
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {aiError && <p className="mt-4 rounded-[18px] bg-red-500/10 p-3 text-[13px] text-red-600">{aiError}</p>}
+
+          {aiLoading && (
+            <div className="mt-4 rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+              <RefreshCw size={18} className="animate-spin text-prisma-blue" />
+              <p className="mt-3 text-[14px] themeable-text-ink">Analisando retenção, funil e sinais de campanha...</p>
+            </div>
+          )}
+
+          {aiResult && !aiLoading && (
+            <div className="mt-4 space-y-3">
+              <article className="rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-prisma-blue">{aiResult.headline}</p>
+                <p className="mt-2 text-[14px] leading-relaxed themeable-text-ink">{aiResult.executiveSummary}</p>
+              </article>
+              {aiResult.opportunities.map((item) => (
+                <article key={`${item.priority}-${item.title}`} className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+                  <span className="rounded-full bg-prisma-blue/10 px-2.5 py-1 text-[11px] font-semibold uppercase text-prisma-blue">{item.priority}</span>
+                  <h4 className="mt-3 font-semibold themeable-text-ink">{item.title}</h4>
+                  <p className="mt-1 text-[13px] themeable-text-ink-muted-48">{item.evidence}</p>
+                  <p className="mt-3 text-[13px] font-medium themeable-text-ink">{item.action}</p>
+                </article>
+              ))}
+              {aiResult.experiments.length > 0 && (
+                <article className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+                  <h4 className="font-semibold themeable-text-ink">Testes sugeridos</h4>
+                  <div className="mt-3 space-y-3">
+                    {aiResult.experiments.map((experiment) => (
+                      <div key={`${experiment.element}-${experiment.hypothesis}`} className="rounded-[16px] bg-[#f5f5f7] p-3 dark:bg-white/[0.04]">
+                        <p className="text-[13px] font-semibold themeable-text-ink">{experiment.element}</p>
+                        <p className="mt-1 text-[12px] themeable-text-ink-muted-48">{experiment.hypothesis}</p>
+                        <p className="mt-2 text-[12px] text-prisma-blue">{experiment.successMetric}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t bg-white p-4 themeable-border-hairline dark:bg-[#070709]">
+          <textarea
+            value={aiQuestion}
+            onChange={(event) => setAiQuestion(event.target.value.slice(0, 500))}
+            placeholder="Pergunte sobre retenção, CTA, headline, tráfego..."
+            className="min-h-24 w-full resize-none rounded-[20px] border bg-white p-3 text-[14px] outline-none focus:border-prisma-blue themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]"
+          />
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-[12px] themeable-text-ink-muted-48">
+              {aiBalance !== null ? `${aiBalance} créditos` : `${500 - aiQuestion.length} caracteres`}
+            </p>
+            <button type="button" onClick={() => void askAi()} disabled={aiLoading || !aiQuestion.trim()} className="inline-flex h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+              {aiLoading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />} Ask
+            </button>
+          </div>
+        </div>
+      </aside>
     </main>
   );
 }
