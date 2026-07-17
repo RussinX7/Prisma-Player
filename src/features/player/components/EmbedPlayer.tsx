@@ -40,7 +40,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     const key = `${eventType}:${progressPercent}`;
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
-    void fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer }) });
+    void fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href }) });
   };
 
   useEffect(() => {
