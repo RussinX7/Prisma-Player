@@ -23,6 +23,7 @@ export type AbacateCheckout = {
   url: string;
   amount: number;
   status: string;
+  devMode?: boolean;
   receiptUrl?: string | null;
 };
 

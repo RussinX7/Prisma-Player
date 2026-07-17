@@ -6,6 +6,16 @@ import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
 
 export const runtime = "nodejs";
 
+const supportedEvents = new Set([
+  "checkout.completed",
+  "checkout.refunded",
+  "checkout.disputed",
+  "checkout.lost",
+  "subscription.completed",
+  "subscription.renewed",
+  "subscription.cancelled",
+]);
+
 function objectValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -24,12 +34,21 @@ export async function POST(request: Request) {
   const url = new URL(request.url);
   const rawBody = await request.text();
   const signature = request.headers.get("x-webhook-signature") || request.headers.get("x-abacate-signature");
-  if (!verifyWebhookSecret(url.searchParams.get("webhookSecret")) || !verifyWebhookSignature(rawBody, signature)) {
+  const validSecret = verifyWebhookSecret(url.searchParams.get("webhookSecret"));
+  const validSignature = verifyWebhookSignature(rawBody, signature);
+  if (!validSecret || !validSignature) {
+    console.warn("AbacatePay webhook authentication failed", { validSecret, validSignature, hasSignature: Boolean(signature) });
     return NextResponse.json({ error: "invalid_webhook_signature" }, { status: 401 });
   }
 
-  const event = JSON.parse(rawBody) as AbacateWebhook;
+  let event: AbacateWebhook;
+  try {
+    event = JSON.parse(rawBody) as AbacateWebhook;
+  } catch {
+    return NextResponse.json({ error: "invalid_webhook_json" }, { status: 400 });
+  }
   if (!event?.event || !event.data) return NextResponse.json({ error: "invalid_webhook" }, { status: 400 });
+  if (!supportedEvents.has(event.event)) return NextResponse.json({ ok: true, ignored: true });
 
   const providerEventId = stringValue(event.id) || createHash("sha256").update(rawBody).digest("hex");
   const subscriptionObject = objectValue(event.data.subscription);
