@@ -5,12 +5,19 @@ import { analyzeWithNvidia } from "@/lib/ai/nvidia";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowedTypes = new Set(["performance", "retention", "funnel", "copy", "experiment"]);
+const MAX_REQUEST_BYTES = 4096;
+const ACTIVE_JOB_TIMEOUT_MS = 2 * 60 * 1000;
+const TEN_MINUTE_LIMIT = 3;
+const DAILY_LIMIT = 30;
 
 function pct(value: number, total: number) { return total ? Math.round(value / total * 1000) / 10 : 0; }
 
 export async function POST(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_REQUEST_BYTES) return NextResponse.json({ error: "request_too_large" }, { status: 413 });
+
   const body = await request.json().catch(() => null) as { videoId?: string; type?: string; days?: number } | null;
   const videoId = String(body?.videoId ?? "");
   const type = String(body?.type ?? "performance");
@@ -18,6 +25,40 @@ export async function POST(request: Request) {
   if (!uuid.test(videoId) || !allowedTypes.has(type)) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
   const admin = createAdminClient();
+  const now = Date.now();
+  const staleBefore = new Date(now - ACTIVE_JOB_TIMEOUT_MS).toISOString();
+  const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
+
+  await admin.from("ai_analysis_jobs")
+    .update({ status: "failed", error_code: "analysis_timeout", completed_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .in("status", ["queued", "processing"])
+    .lt("created_at", staleBefore);
+
+  const { data: recentJobs, error: recentJobsError } = await admin.from("ai_analysis_jobs")
+    .select("id,status,created_at")
+    .eq("user_id", userId)
+    .gte("created_at", dayAgo)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (recentJobsError) return NextResponse.json({ error: "ai_limits_unavailable" }, { status: 503 });
+  const activeJob = recentJobs?.find((job) => job.status === "queued" || job.status === "processing");
+  if (activeJob) return NextResponse.json({ error: "analysis_in_progress" }, { status: 409 });
+  const recentWindowCount = recentJobs?.filter((job) => String(job.created_at) >= tenMinutesAgo).length ?? 0;
+  if (recentWindowCount >= TEN_MINUTE_LIMIT) {
+    return NextResponse.json(
+      { error: "ai_rate_limit_10m", retryAfterSeconds: 600 },
+      { status: 429, headers: { "Retry-After": "600" } },
+    );
+  }
+  if ((recentJobs?.length ?? 0) >= DAILY_LIMIT) {
+    return NextResponse.json(
+      { error: "ai_rate_limit_daily", retryAfterSeconds: 86400 },
+      { status: 429, headers: { "Retry-After": "86400" } },
+    );
+  }
+
   const [{ data: video }, { data: wallet }] = await Promise.all([
     admin.from("videos").select("id,title,duration_seconds").eq("id", videoId).eq("user_id", userId).maybeSingle(),
     admin.from("ai_credit_wallets").select("balance").eq("user_id", userId).maybeSingle(),
@@ -53,8 +94,14 @@ export async function POST(request: Request) {
     funnel: [{ name: "Impressão", value: impressions }, { name: "Play", value: plays }, { name: "Pitch", value: reached(75) }, { name: "Conclusão", value: completed }],
     dimensions: { traffic: dimension("traffic_source"), devices: dimension("device_type"), countries: dimension("country_code"), campaigns: dimension("campaign_id"), creatives: dimension("creative_id") },
   };
-  const { data: job, error: jobError } = await admin.from("ai_analysis_jobs").insert({ user_id: userId, video_id: videoId, analysis_type: type, status: "processing", input_snapshot: snapshot }).select("id").single();
-  if (jobError || !job) return NextResponse.json({ error: "analysis_create_failed" }, { status: 500 });
+  const { data: job, error: jobError } = await admin.from("ai_analysis_jobs")
+    .insert({ user_id: userId, video_id: videoId, analysis_type: type, status: "processing", input_snapshot: snapshot })
+    .select("id")
+    .single();
+  if (jobError || !job) {
+    if (jobError?.code === "23505") return NextResponse.json({ error: "analysis_in_progress" }, { status: 409 });
+    return NextResponse.json({ error: "analysis_create_failed" }, { status: 500 });
+  }
   try {
     const analysis = await analyzeWithNvidia(snapshot);
     const reference = `ai_analysis:${job.id}`;
