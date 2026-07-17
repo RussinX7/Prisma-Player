@@ -43,6 +43,10 @@ async function ensureProduct(plan: BillingPlan, type: CheckoutType) {
 
 export async function createBillingCheckout(userId: string, plan: BillingPlan, type: CheckoutType) {
   const admin = createAdminClient();
+  const { data: currentSubscription } = await admin.from("subscriptions")
+    .select("plan_id,status,provider_subscription_id")
+    .eq("user_id", userId).eq("status", "active").maybeSingle();
+  if (currentSubscription?.plan_id === plan.id) throw new Error("plan_already_active");
   const productId = await ensureProduct(plan, type);
   const checkoutId = crypto.randomUUID();
   const externalId = `prisma_${checkoutId}`;
@@ -53,6 +57,7 @@ export async function createBillingCheckout(userId: string, plan: BillingPlan, t
     checkout_type: type,
     external_id: externalId,
     amount_cents: plan.amount_cents,
+    previous_provider_subscription_id: currentSubscription?.provider_subscription_id ?? null,
   });
   if (inserted.error) throw new Error("billing_checkout_create_failed");
 

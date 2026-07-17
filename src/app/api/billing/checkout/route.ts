@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json(checkout, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown_error";
+    if (detail === "plan_already_active") return NextResponse.json({ error: detail, message: "Este já é o seu plano atual." }, { status: 409 });
     console.error("AbacatePay checkout failed", error instanceof AbacatePayError ? { endpoint: error.endpoint, status: error.status, detail } : { detail });
     const message = error instanceof AbacatePayError && (error.status === 401 || error.status === 403)
       ? "A chave da AbacatePay nao tem permissao suficiente. Ative CHECKOUT:CREATE, PRODUCT:READ, PRODUCT:CREATE e a permissao de criar assinaturas."

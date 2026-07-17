@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import AudienceGlobe from "@/components/ui/cobe-audience-globe";
 
 type Summary = {
   impressions: number;
@@ -44,6 +45,7 @@ type Data = {
   dimensions: Record<string, Dimension[]>;
   insights: { tone: string; title: string; detail: string }[];
   live: number;
+  liveCountries: Dimension[];
 };
 
 type AiResult = {
@@ -197,8 +199,8 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const firstDrop = data?.retention.find((point) => point.point > 0 && point.rate < 70);
   const pitchRetention = data?.summary.plays ? data.summary.reached75 / data.summary.plays * 100 : 0;
   const retentionSpark = data?.retention.map((point) => point.viewers) ?? [0];
-  const countryRows = data?.dimensions.countries ?? [];
-  const maxCountryViews = Math.max(...countryRows.map((row) => row.impressions), 1);
+  const activeCountryRows = data?.liveCountries ?? [];
+  const maxCountryViews = Math.max(...activeCountryRows.map((row) => row.impressions), 1);
 
   const cards = useMemo(() => data ? [
     { label: "Visualizações", value: format(data.summary.impressions), hint: "Sessões que viram o player", featured: true },
@@ -456,20 +458,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   </div>
                   <div className="grid min-h-[520px] lg:grid-cols-[1.1fr_0.9fr]">
                     <div className="relative grid min-h-[420px] place-items-center border-b bg-[radial-gradient(circle_at_center,#ffffff_0%,#f8fbff_42%,#edf4ff_100%)] themeable-border-hairline dark:bg-[radial-gradient(circle_at_center,#182033_0%,#080b12_70%)] lg:border-b-0 lg:border-r">
-                      <div className="relative h-72 w-72 rounded-full bg-[radial-gradient(circle_at_32%_28%,#ffffff_0%,#f7fbff_34%,#dbeafe_72%,#bcd7ff_100%)] shadow-[inset_-24px_-22px_48px_rgba(0,102,204,0.16),inset_18px_18px_48px_rgba(255,255,255,0.95),0_18px_44px_rgba(15,23,42,0.12)] dark:bg-[radial-gradient(circle_at_32%_28%,#f9fbff_0%,#9cc7ff_28%,#1d4ed8_72%,#0b1020_100%)]">
-                        <div className="absolute inset-7 animate-[spin_26s_linear_infinite] rounded-full bg-[radial-gradient(circle_at_30%_36%,rgba(0,102,204,0.35)_1.5px,transparent_2px),radial-gradient(circle_at_64%_56%,rgba(0,102,204,0.35)_1.5px,transparent_2px),radial-gradient(circle_at_58%_24%,rgba(0,102,204,0.28)_1.5px,transparent_2px),radial-gradient(circle_at_42%_72%,rgba(0,102,204,0.28)_1.5px,transparent_2px)] bg-[length:16px_16px,18px_18px,20px_20px,14px_14px] opacity-80" />
-                        {countryRows.slice(0, 5).map((row, index) => (
-                          <span
-                            key={row.name}
-                            className="absolute h-3 w-3 rounded-full bg-prisma-blue shadow-[0_0_0_8px_rgba(0,102,204,0.14)]"
-                            style={{
-                              left: `${[34, 57, 49, 66, 42][index] ?? 50}%`,
-                              top: `${[58, 47, 32, 61, 43][index] ?? 50}%`,
-                            }}
-                            title={row.name}
-                          />
-                        ))}
-                      </div>
+                      <AudienceGlobe countries={activeCountryRows} live={data.live} />
                     </div>
                     <div className="max-h-[520px] overflow-y-auto p-5">
                       <div className="mb-4 flex items-center justify-between">
@@ -477,7 +466,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         <span className="text-[12px] themeable-text-ink-muted-48">últimos minutos</span>
                       </div>
                       <div className="space-y-4">
-                        {(countryRows.length ? countryRows : [{ name: "Sem país identificado", impressions: 0, plays: 0, playRate: 0, completes: 0, completionRate: 0 }]).map((row) => (
+                        {(activeCountryRows.length ? activeCountryRows : [{ name: "Nenhum país conectado agora", impressions: 0, plays: 0, playRate: 0, completes: 0, completionRate: 0 }]).map((row) => (
                           <div key={row.name} className="grid grid-cols-[1fr_96px_64px] items-center gap-3 text-[14px]">
                             <span className="truncate themeable-text-ink">{row.name}</span>
                             <span className="h-2 overflow-hidden rounded-full bg-[#e5e7eb] dark:bg-white/10">

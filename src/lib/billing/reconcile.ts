@@ -11,6 +11,7 @@ type StoredCheckout = {
   checkout_type: "pix" | "card_subscription";
   external_id: string;
   status: string;
+  previous_provider_subscription_id?: string | null;
 };
 
 function nextPeriodEnd() {
@@ -31,6 +32,14 @@ export async function activatePaidCheckout(checkout: StoredCheckout, provider: A
     updated_at: now,
   }).eq("id", checkout.id).eq("user_id", checkout.user_id);
   if (checkoutUpdate.error) throw new Error("billing_checkout_payment_save_failed");
+
+  if (checkout.previous_provider_subscription_id && checkout.previous_provider_subscription_id !== provider.id) {
+    await abacateRequest("/subscriptions/cancel", {
+      method: "POST",
+      body: JSON.stringify({ id: checkout.previous_provider_subscription_id }),
+    });
+    await admin.from("billing_checkouts").update({ previous_provider_subscription_id: null, updated_at: now }).eq("id", checkout.id);
+  }
 
   const subscriptionUpdate = await admin.from("subscriptions").upsert({
     user_id: checkout.user_id,

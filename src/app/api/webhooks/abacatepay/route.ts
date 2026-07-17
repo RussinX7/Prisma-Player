@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abacatepay/webhook";
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
 import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
+import { abacateRequest } from "@/lib/billing/abacatepay/client";
 
 export const runtime = "nodejs";
 
@@ -98,20 +99,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
     if (!externalId) throw new Error("missing_external_id");
-    const checkoutResult = await admin.from("billing_checkouts").select("id,user_id,plan_id,checkout_type").eq("external_id", externalId).single();
+    const checkoutResult = await admin.from("billing_checkouts").select("id,user_id,plan_id,checkout_type,previous_provider_subscription_id").eq("external_id", externalId).single();
     if (checkoutResult.error || !checkoutResult.data) throw new Error("checkout_not_found");
     const checkout = checkoutResult.data;
     const now = new Date().toISOString();
 
     if (event.event === "checkout.completed" || event.event === "subscription.completed" || event.event === "subscription.renewed") {
       const method = checkout.checkout_type === "pix" ? "pix" : "card";
-      await admin.from("billing_checkouts").update({ status: "paid", paid_at: now, provider_checkout_id: providerObjectId, receipt_url: stringValue(checkoutObject?.receiptUrl), updated_at: now }).eq("id", checkout.id);
+      const newProviderSubscriptionId = method === "card" ? stringValue(subscriptionObject?.id) : null;
+      if (checkout.previous_provider_subscription_id && checkout.previous_provider_subscription_id !== newProviderSubscriptionId) {
+        await abacateRequest("/subscriptions/cancel", { method: "POST", body: JSON.stringify({ id: checkout.previous_provider_subscription_id }) });
+      }
+      await admin.from("billing_checkouts").update({ status: "paid", paid_at: now, provider_checkout_id: providerObjectId, receipt_url: stringValue(checkoutObject?.receiptUrl), previous_provider_subscription_id: null, updated_at: now }).eq("id", checkout.id);
       const subscriptionUpdate = {
         user_id: checkout.user_id,
         plan_id: checkout.plan_id,
         source_checkout_id: checkout.id,
         billing_method: method,
-        provider_subscription_id: method === "card" ? stringValue(subscriptionObject?.id) : null,
+        provider_subscription_id: newProviderSubscriptionId,
         status: "active",
         current_period_start: now,
         current_period_end: nextPeriodEnd(),
@@ -126,7 +131,8 @@ export async function POST(request: Request) {
       await admin.from("subscriptions").update({ status: "suspended", updated_at: now }).eq("source_checkout_id", checkout.id);
     } else if (event.event === "subscription.cancelled") {
       await admin.from("billing_checkouts").update({ status: "cancelled", updated_at: now }).eq("id", checkout.id);
-      await admin.from("subscriptions").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("user_id", checkout.user_id);
+      const cancelledProviderId = stringValue(subscriptionObject?.id);
+      if (cancelledProviderId) await admin.from("subscriptions").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("user_id", checkout.user_id).eq("provider_subscription_id", cancelledProviderId);
     } else {
       await admin.from("payment_webhook_events").update({ status: "ignored", processed_at: now }).eq("provider_event_id", providerEventId);
       return NextResponse.json({ ok: true, ignored: true });

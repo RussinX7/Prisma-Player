@@ -53,8 +53,10 @@ export async function GET(request: Request, context: { params: Promise<{ videoId
   if (plays >= 10 && pct(summary.reached75, plays) < 35) insights.push({ tone: "tip", title: "Há espaço para um Mini-Gancho", detail: "A retenção cai antes da oferta. Use um gancho de curiosidade entre 50% e 75% e compare o resultado." });
   if (plays >= 10 && summary.completionRate >= 40) insights.push({ tone: "success", title: "Boa retenção final", detail: "A audiência que inicia permanece até o fim. Foque agora em CTA e taxa de conversão." });
   const liveSince = Date.now() - 2 * 60000;
-  const live = new Set(rows.filter((row) => new Date(row.created_at).getTime() >= liveSince).map((row) => row.session_id)).size;
+  const liveRows = rows.filter((row) => new Date(row.created_at).getTime() >= liveSince);
+  const live = new Set(liveRows.map((row) => row.session_id)).size;
+  const liveCountries = dimension(liveRows, "country_code");
   const suspiciousSessions = new Set(rows.filter((row) => row.risk_score >= 50).map((row) => row.session_id)).size;
   const attentionMap = retention.slice(1).map((point, index, list) => ({ ...point, drop: index ? Math.max(0, Math.round((list[index - 1].rate - point.rate) * 10) / 10) : Math.max(0, 100 - point.rate) }));
-  return NextResponse.json({ video, range, summary, comparison, retention, attentionMap, funnel, fraud: { suspiciousSessions, suspiciousRate: pct(suspiciousSessions, impressions), cleanSessions: Math.max(0, impressions - suspiciousSessions) }, dimensions: { countries: dimension(rows, "country_code"), devices: dimension(rows, "device_type"), operatingSystems: dimension(rows, "os_name"), browsers: dimension(rows, "browser_name"), traffic: dimension(rows, "traffic_source"), campaigns: dimension(rows, "campaign_id"), creatives: dimension(rows, "creative_id"), ads: dimension(rows, "ad_id") }, insights, live });
+  return NextResponse.json({ video, range, summary, comparison, retention, attentionMap, funnel, fraud: { suspiciousSessions, suspiciousRate: pct(suspiciousSessions, impressions), cleanSessions: Math.max(0, impressions - suspiciousSessions) }, dimensions: { countries: dimension(rows, "country_code"), devices: dimension(rows, "device_type"), operatingSystems: dimension(rows, "os_name"), browsers: dimension(rows, "browser_name"), traffic: dimension(rows, "traffic_source"), campaigns: dimension(rows, "campaign_id"), creatives: dimension(rows, "creative_id"), ads: dimension(rows, "ad_id") }, insights, live, liveCountries });
 }
