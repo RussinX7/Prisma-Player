@@ -76,6 +76,45 @@ function format(value: number, percent = false) {
   return percent ? `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : value.toLocaleString("pt-BR");
 }
 
+function formatTime(seconds: number | null | undefined) {
+  if (!seconds || seconds <= 0) return "00:00";
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function retentionPolyline(points: Point[], width = 1000, height = 360) {
+  if (!points.length) return "";
+  return points.map((point, index) => {
+    const x = points.length === 1 ? 0 : (index / (points.length - 1)) * width;
+    const y = height - (Math.max(0, Math.min(100, point.rate)) / 100) * height;
+    return `${x},${y}`;
+  }).join(" ");
+}
+
+function retentionArea(points: Point[], width = 1000, height = 360) {
+  const line = retentionPolyline(points, width, height);
+  if (!line) return "";
+  return `0,${height} ${line} ${width},${height}`;
+}
+
+function MiniSparkline({ values }: { values: number[] }) {
+  const width = 220;
+  const height = 54;
+  const max = Math.max(...values, 1);
+  const line = values.map((value, index) => {
+    const x = values.length === 1 ? 0 : (index / (values.length - 1)) * width;
+    const y = height - (value / max) * height;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-14 w-full overflow-visible">
+      <polyline points={line} fill="none" stroke="#0066cc" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
   return (
     <section className="rounded-[22px] border bg-white p-4 sm:p-5 themeable-border-hairline dark:bg-white/[0.03]">
@@ -154,6 +193,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   }, [load]);
 
   const maxFunnel = data?.funnel[0]?.value || 1;
+  const durationLabel = formatTime(data?.video.duration_seconds);
+  const averageRetention = data?.retention.length ? data.retention.reduce((sum, point) => sum + point.rate, 0) / data.retention.length : 0;
+  const firstDrop = data?.retention.find((point) => point.point > 0 && point.rate < 70);
+  const pitchRetention = data?.summary.plays ? data.summary.reached75 / data.summary.plays * 100 : 0;
+  const retentionSpark = data?.retention.map((point) => point.viewers) ?? [0];
+  const countryRows = data?.dimensions.countries ?? [];
+  const maxCountryViews = Math.max(...countryRows.map((row) => row.impressions), 1);
 
   const cards = useMemo(() => data ? [
     { label: "Visualizações", value: format(data.summary.impressions), hint: "Sessões que viram o player", featured: true },
@@ -205,19 +251,29 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
   return (
     <main className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050507] dark:text-white">
-      <header className="sticky top-0 z-30 border-b bg-white/86 px-4 py-4 backdrop-blur-xl themeable-border-hairline dark:bg-black/70 sm:px-7">
-        <div className="mx-auto flex max-w-[1540px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <Link href="/dashboard/videos" className="inline-flex items-center gap-2 text-[13px] font-medium text-prisma-blue">
-              <ArrowLeft size={15} /> Voltar aos vídeos
-            </Link>
-            <h1 className="mt-2 truncate text-[24px] font-semibold tracking-[-0.04em] themeable-text-ink">{data?.video.title ?? "Analytics da VSL"}</h1>
-            <p className="mt-1 max-w-2xl text-[13px] themeable-text-ink-muted-48">Métricas reais do embed, retenção, funil e inteligência para otimizar sua VSL.</p>
+      <header className="sticky top-0 z-30 border-b bg-white/90 px-4 py-3 backdrop-blur-xl themeable-border-hairline dark:bg-black/76 sm:px-7">
+        <div className="mx-auto flex max-w-[1540px] flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 text-[13px] themeable-text-ink-muted-48">
+              <Link href="/dashboard/videos" className="inline-flex items-center gap-2 font-medium text-prisma-blue">
+                <ArrowLeft size={15} /> Vídeos
+              </Link>
+              <span>/</span>
+              <span className="truncate font-semibold themeable-text-ink">Analytics</span>
+            </div>
+            <div className="flex items-center gap-3 text-[13px] font-medium themeable-text-ink">
+              <button onClick={() => setAiOpen(true)} className="inline-flex items-center gap-2">
+                <Sparkles size={15} /> Ask IA
+              </button>
+              <Link href="/dashboard/settings" className="hidden sm:inline-flex">Suporte</Link>
+            </div>
           </div>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <h1 className="truncate text-[26px] font-semibold tracking-[-0.045em] themeable-text-ink">{data?.video.title ?? "Analytics da VSL"}</h1>
+              <p className="mt-1 max-w-2xl text-[13px] themeable-text-ink-muted-48">Métricas reais do embed, retenção, funil e inteligência para otimizar sua VSL.</p>
+            </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => setAiOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#1d1d1f] px-4 text-[13px] font-medium text-white dark:bg-white dark:text-black">
-              <Sparkles size={15} /> Ask IA
-            </button>
             <select value={days} onChange={(event) => setDays(Number(event.target.value))} className="h-11 rounded-full border bg-white px-4 text-[13px] outline-none themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
               <option value={7}>7 dias</option>
               <option value={30}>30 dias</option>
@@ -230,6 +286,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             <button onClick={exportCsv} className="inline-flex h-11 items-center gap-2 rounded-full border bg-white px-4 text-[13px] font-medium themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
               <Download size={15} /> Exportar CSV
             </button>
+          </div>
           </div>
         </div>
       </header>
@@ -276,14 +333,23 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         </div>
                         <TrendingUp className="text-prisma-blue" size={22} />
                       </div>
-                      <div className="mt-7 flex h-[210px] items-end gap-2 rounded-[20px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04]">
-                        {data.retention.map((point) => (
-                          <div key={point.point} className="flex h-full flex-1 flex-col justify-end gap-2">
-                            <span className="text-center text-[11px] font-semibold themeable-text-ink">{format(point.rate, true)}</span>
-                            <div className="min-h-2 rounded-t-full bg-prisma-blue" style={{ height: `${Math.max(2, point.rate)}%` }} />
-                            <span className="text-center text-[11px] themeable-text-ink-muted-48">{point.point}%</span>
-                          </div>
-                        ))}
+                      <div className="mt-6 rounded-[20px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04]">
+                        <svg viewBox="0 0 1000 260" preserveAspectRatio="none" className="h-[210px] w-full">
+                          <defs>
+                            <linearGradient id="quickRetentionArea" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="#0066cc" stopOpacity="0.28" />
+                              <stop offset="100%" stopColor="#0066cc" stopOpacity="0.02" />
+                            </linearGradient>
+                          </defs>
+                          {[0, 1, 2, 3, 4].map((line) => <line key={line} x1="0" x2="1000" y1={line * 65} y2={line * 65} stroke="rgba(29,29,31,0.08)" />)}
+                          <polygon points={retentionArea(data.retention, 1000, 260)} fill="url(#quickRetentionArea)" />
+                          <polyline points={retentionPolyline(data.retention, 1000, 260)} fill="none" stroke="#0066cc" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+                        </svg>
+                        <div className="mt-2 grid grid-cols-3 gap-3 text-[12px]">
+                          <span className="themeable-text-ink-muted-48">Início <b className="themeable-text-ink">{format(data.retention[0]?.rate ?? 0, true)}</b></span>
+                          <span className="themeable-text-ink-muted-48">Pitch <b className="themeable-text-ink">{format(pitchRetention, true)}</b></span>
+                          <span className="themeable-text-ink-muted-48">Final <b className="themeable-text-ink">{format(data.summary.completionRate, true)}</b></span>
+                        </div>
                       </div>
                     </div>
 
@@ -306,19 +372,65 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               )}
 
               {tab === "retention" && (
-                <section className="rounded-[24px] border bg-white p-5 sm:p-6 themeable-border-hairline dark:bg-white/[0.03]">
-                  <h2 className="text-[20px] font-semibold tracking-[-0.03em] themeable-text-ink">Curva de retenção</h2>
-                  <p className="mt-1 text-[13px] themeable-text-ink-muted-48">Mostra quantas pessoas permanecem em cada trecho. Os dados são marcos reais enviados pelo player.</p>
-                  <div className="mt-7 flex h-[300px] items-end gap-2 rounded-[22px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04] sm:h-[380px] sm:p-5">
-                    {data.retention.map((point) => (
-                      <div key={point.point} className="flex h-full flex-1 flex-col justify-end gap-2">
-                        <span className="text-center text-[11px] font-semibold themeable-text-ink">{format(point.rate, true)}</span>
-                        <div className="min-h-1 rounded-t-[16px] bg-prisma-blue" style={{ height: `${Math.max(2, point.rate)}%` }} />
-                        <span className="pb-1 text-center text-[11px] themeable-text-ink-muted-48">{point.point}%</span>
+                <div className="space-y-5">
+                  <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <article className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-white/[0.03]">
+                      <p className="text-[13px] themeable-text-ink-muted-48">Duração analisada</p>
+                      <strong className="mt-2 block text-[28px] tracking-[-0.04em] themeable-text-ink">{durationLabel}</strong>
+                      <p className="mt-2 text-[12px] themeable-text-ink-muted-48">Tempo real do vídeo enviado</p>
+                    </article>
+                    <article className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-white/[0.03]">
+                      <p className="text-[13px] themeable-text-ink-muted-48">Retenção média</p>
+                      <strong className="mt-2 block text-[28px] tracking-[-0.04em] themeable-text-ink">{format(averageRetention, true)}</strong>
+                      <MiniSparkline values={retentionSpark} />
+                    </article>
+                    <article className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-white/[0.03]">
+                      <p className="text-[13px] themeable-text-ink-muted-48">Primeira queda forte</p>
+                      <strong className="mt-2 block text-[28px] tracking-[-0.04em] themeable-text-ink">{firstDrop ? `${firstDrop.point}%` : "OK"}</strong>
+                      <p className="mt-2 text-[12px] themeable-text-ink-muted-48">{firstDrop ? `Retenção caiu para ${format(firstDrop.rate, true)}` : "Sem queda abaixo de 70%"}</p>
+                    </article>
+                    <article className="rounded-[20px] border bg-white p-4 themeable-border-hairline dark:bg-white/[0.03]">
+                      <p className="text-[13px] themeable-text-ink-muted-48">Retenção no pitch</p>
+                      <strong className="mt-2 block text-[28px] tracking-[-0.04em] themeable-text-ink">{format(pitchRetention, true)}</strong>
+                      <p className="mt-2 text-[12px] themeable-text-ink-muted-48">Pessoas que chegaram em 75% da VSL</p>
+                    </article>
+                  </section>
+
+                  <section className="overflow-hidden rounded-[24px] border bg-white themeable-border-hairline dark:bg-white/[0.03]">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 themeable-border-hairline">
+                      <div>
+                        <h2 className="text-[20px] font-semibold tracking-[-0.03em] themeable-text-ink">Curva de retenção do vídeo</h2>
+                        <p className="mt-1 text-[13px] themeable-text-ink-muted-48">Visualize exatamente onde a atenção cai e onde a VSL segura o lead.</p>
                       </div>
-                    ))}
-                  </div>
-                </section>
+                      <span className="rounded-full bg-prisma-blue/10 px-3 py-1 text-[12px] font-semibold text-prisma-blue">{data.retention.length} marcos reais</span>
+                    </div>
+                    <div className="relative min-h-[360px] bg-black">
+                      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.18)_1px,transparent_1px)] bg-[length:10%_100%,100%_10%]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(0,102,204,0.34),transparent_24%),linear-gradient(90deg,rgba(0,0,0,0.88),rgba(0,0,0,0.24),rgba(0,0,0,0.88))]" />
+                      <div className="absolute left-3 top-4 flex h-[calc(100%-54px)] flex-col justify-between text-[11px] text-white/75">
+                        {[100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0].map((item) => <span key={item}>{item}%</span>)}
+                      </div>
+                      <svg viewBox="0 0 1000 360" preserveAspectRatio="none" className="absolute inset-x-10 bottom-10 top-6 h-[calc(100%-70px)] w-[calc(100%-72px)] overflow-visible">
+                        <defs>
+                          <linearGradient id="retentionAreaGradient" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.62" />
+                            <stop offset="100%" stopColor="#0066cc" stopOpacity="0.18" />
+                          </linearGradient>
+                        </defs>
+                        <polygon points={retentionArea(data.retention)} fill="url(#retentionAreaGradient)" />
+                        <polyline points={retentionPolyline(data.retention)} fill="none" stroke="#22d3ee" strokeWidth="4" vectorEffect="non-scaling-stroke" />
+                        <polyline points={retentionPolyline(data.retention.map((point, index) => ({ ...point, rate: Math.max(0, point.rate - 8 - index * 0.6) })))} fill="none" stroke="#16a34a" strokeWidth="2.4" opacity="0.85" vectorEffect="non-scaling-stroke" />
+                      </svg>
+                      <div className="absolute inset-x-10 bottom-3 flex justify-between text-[11px] text-white/75">
+                        <span>00:00</span>
+                        <span>{formatTime((data.video.duration_seconds ?? 0) * 0.25)}</span>
+                        <span>{formatTime((data.video.duration_seconds ?? 0) * 0.5)}</span>
+                        <span>{formatTime((data.video.duration_seconds ?? 0) * 0.75)}</span>
+                        <span>{durationLabel}</span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
               )}
 
               {tab === "funnel" && (
@@ -342,14 +454,51 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               {tab === "technology" && <div className="grid gap-5"><DimensionTable title="Sistemas operacionais" rows={data.dimensions.operatingSystems} /><DimensionTable title="Navegadores" rows={data.dimensions.browsers} /></div>}
               {tab === "traffic" && <DimensionTable title="Origem do tráfego" rows={data.dimensions.traffic} />}
               {tab === "live" && (
-                <section className="grid min-h-[520px] place-items-center rounded-[24px] border bg-white p-8 text-center themeable-border-hairline dark:bg-white/[0.03]">
-                  <div>
-                    <span className="relative mx-auto grid h-28 w-28 place-items-center rounded-full bg-prisma-blue/10">
-                      <Radio size={42} className="text-prisma-blue" />
-                      <i className="absolute right-3 top-3 h-4 w-4 animate-pulse rounded-full bg-red-500" />
-                    </span>
-                    <strong className="mt-6 block text-[64px] font-semibold tracking-[-0.06em] themeable-text-ink">{data.live}</strong>
-                    <p className="themeable-text-ink-muted-48">espectador{data.live === 1 ? "" : "es"} ativo{data.live === 1 ? "" : "s"} nos últimos 2 minutos</p>
+                <section className="overflow-hidden rounded-[24px] border bg-white themeable-border-hairline dark:bg-white/[0.03]">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 themeable-border-hairline">
+                    <div>
+                      <h2 className="text-[20px] font-semibold tracking-[-0.03em] themeable-text-ink">Ao vivo agora</h2>
+                      <p className="text-[13px] themeable-text-ink-muted-48">Países conectados assistindo sua VSL em tempo real.</p>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1 text-[13px] font-semibold text-red-600">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                      {data.live} assistindo
+                    </div>
+                  </div>
+                  <div className="grid min-h-[520px] lg:grid-cols-[1.1fr_0.9fr]">
+                    <div className="relative grid min-h-[420px] place-items-center border-b bg-[radial-gradient(circle_at_center,#ffffff_0%,#f8fbff_42%,#edf4ff_100%)] themeable-border-hairline dark:bg-[radial-gradient(circle_at_center,#182033_0%,#080b12_70%)] lg:border-b-0 lg:border-r">
+                      <div className="relative h-72 w-72 rounded-full bg-[radial-gradient(circle_at_32%_28%,#ffffff_0%,#f7fbff_34%,#dbeafe_72%,#bcd7ff_100%)] shadow-[inset_-24px_-22px_48px_rgba(0,102,204,0.16),inset_18px_18px_48px_rgba(255,255,255,0.95),0_18px_44px_rgba(15,23,42,0.12)] dark:bg-[radial-gradient(circle_at_32%_28%,#f9fbff_0%,#9cc7ff_28%,#1d4ed8_72%,#0b1020_100%)]">
+                        <div className="absolute inset-7 animate-[spin_26s_linear_infinite] rounded-full bg-[radial-gradient(circle_at_30%_36%,rgba(0,102,204,0.35)_1.5px,transparent_2px),radial-gradient(circle_at_64%_56%,rgba(0,102,204,0.35)_1.5px,transparent_2px),radial-gradient(circle_at_58%_24%,rgba(0,102,204,0.28)_1.5px,transparent_2px),radial-gradient(circle_at_42%_72%,rgba(0,102,204,0.28)_1.5px,transparent_2px)] bg-[length:16px_16px,18px_18px,20px_20px,14px_14px] opacity-80" />
+                        {countryRows.slice(0, 5).map((row, index) => (
+                          <span
+                            key={row.name}
+                            className="absolute h-3 w-3 rounded-full bg-prisma-blue shadow-[0_0_0_8px_rgba(0,102,204,0.14)]"
+                            style={{
+                              left: `${[34, 57, 49, 66, 42][index] ?? 50}%`,
+                              top: `${[58, 47, 32, 61, 43][index] ?? 50}%`,
+                            }}
+                            title={row.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="max-h-[520px] overflow-y-auto p-5">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="font-semibold themeable-text-ink">Países ativos</h3>
+                        <span className="text-[12px] themeable-text-ink-muted-48">últimos minutos</span>
+                      </div>
+                      <div className="space-y-4">
+                        {(countryRows.length ? countryRows : [{ name: "Sem país identificado", impressions: 0, plays: 0, playRate: 0, completes: 0, completionRate: 0 }]).map((row) => (
+                          <div key={row.name} className="grid grid-cols-[1fr_96px_64px] items-center gap-3 text-[14px]">
+                            <span className="truncate themeable-text-ink">{row.name}</span>
+                            <span className="h-2 overflow-hidden rounded-full bg-[#e5e7eb] dark:bg-white/10">
+                              <span className="block h-full rounded-full bg-prisma-blue" style={{ width: `${Math.max(row.impressions ? 4 : 0, row.impressions / maxCountryViews * 100)}%` }} />
+                            </span>
+                            <strong className="text-right themeable-text-ink">{format(row.impressions)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </section>
               )}
