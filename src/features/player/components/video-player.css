@@ -25,10 +25,32 @@
 }
 
 .prisma-video-player.prisma-player--embed {
+  --media-border-radius: 0px;
+  --media-video-border-radius: 0px;
   width: 100%;
   height: 100%;
   background: transparent;
   border-radius: inherit;
+}
+
+/*
+ * O skin padrao do Video.js aplica um raio de 2rem, fundo preto e uma borda
+ * interna no canvas do player. Na embed, o recorte pertence ao container
+ * externo (configurado pelo usuario); manter os dois recortes revelava os
+ * cantos pretos vistos em videos verticais.
+ */
+.prisma-video-player.prisma-player--embed .media-default-skin {
+  --media-border-radius: 0px;
+  --media-video-border-radius: 0px;
+  overflow: hidden;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.prisma-video-player.prisma-player--embed .media-default-skin::after {
+  content: none !important;
+  box-shadow: none !important;
 }
 
 .prisma-video-player.prisma-player--embed :is(video, .media-player, .media-provider, .media-poster) {
