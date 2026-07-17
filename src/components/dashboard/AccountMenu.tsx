@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Languages, LogOut, Settings } from "lucide-react";
+import { Check, ChevronDown, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const languages = [
@@ -16,6 +16,7 @@ export default function AccountMenu() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [language, setLanguage] = useState("pt-BR");
   const [profile, setProfile] = useState({ name: "Conta Prisma", email: "" });
+  const [isAdmin, setIsAdmin] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,6 +25,10 @@ export default function AccountMenu() {
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  useEffect(() => {
+    void fetch("/api/account/access", { cache: "no-store" }).then((response) => response.json()).then((data) => setIsAdmin(Boolean(data.isAdmin))).catch(() => setIsAdmin(false));
   }, []);
 
   useEffect(() => {
@@ -71,6 +76,7 @@ export default function AccountMenu() {
               </div>
             )}
             <Link href="/dashboard/settings" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Settings size={17} /><span>Conta</span></Link>
+            {isAdmin && <Link href="/admin" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><ShieldCheck size={17} className="text-prisma-blue" /><span>Administração</span></Link>}
           </div>
           <button type="button" onClick={logout} className="flex min-h-11 w-full items-center gap-3 border-t px-3 pt-2 text-[14px] text-red-500 themeable-border-hairline"><LogOut size={17} /><span>Sair</span></button>
         </div>

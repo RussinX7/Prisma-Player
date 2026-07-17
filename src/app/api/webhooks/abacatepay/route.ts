@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abacatepay/webhook";
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
+import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,14 @@ function objectValue(value: unknown): Record<string, unknown> | null {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value ? value : null;
+}
+
+function firstString(objects: Array<Record<string, unknown> | null>, key: string) {
+  for (const object of objects) {
+    const value = stringValue(object?.[key]);
+    if (value) return value;
+  }
+  return null;
 }
 
 function nextPeriodEnd() {
@@ -51,10 +60,14 @@ export async function POST(request: Request) {
   if (!supportedEvents.has(event.event)) return NextResponse.json({ ok: true, ignored: true });
 
   const providerEventId = stringValue(event.id) || createHash("sha256").update(rawBody).digest("hex");
-  const subscriptionObject = objectValue(event.data.subscription);
-  const checkoutObject = objectValue(event.data.checkout) || subscriptionObject;
-  const externalId = stringValue(checkoutObject?.externalId);
-  const providerObjectId = stringValue(checkoutObject?.id);
+  const dataObject = objectValue(event.data);
+  const subscriptionObject = objectValue(dataObject?.subscription);
+  const checkoutObject = objectValue(dataObject?.checkout) || objectValue(dataObject?.payment) || subscriptionObject || dataObject;
+  const metadataObject = objectValue(checkoutObject?.metadata) || objectValue(dataObject?.metadata);
+  const candidates = [checkoutObject, dataObject, subscriptionObject];
+  const externalId = firstString(candidates, "externalId") || firstString(candidates, "external_id");
+  const providerObjectId = firstString(candidates, "id");
+  const creditCheckoutId = firstString([metadataObject], "prismaCreditCheckoutId");
   const admin = createAdminClient();
 
   const existing = await admin.from("payment_webhook_events").select("status").eq("provider_event_id", providerEventId).maybeSingle();
@@ -66,16 +79,15 @@ export async function POST(request: Request) {
 
   await admin.from("payment_webhook_events").update({ status: "processing", processing_error: null }).eq("provider_event_id", providerEventId);
   try {
-    if (!externalId) throw new Error("missing_external_id");
-    if (externalId.startsWith("prisma_ai_")) {
-      const creditResult = await admin.from("ai_credit_checkouts").select("id,user_id").eq("external_id", externalId).single();
+    const isCreditCheckout = Boolean(creditCheckoutId || externalId?.startsWith("prisma_ai_"));
+    if (isCreditCheckout) {
+      let creditQuery = admin.from("ai_credit_checkouts").select("id,user_id,external_id,status");
+      creditQuery = creditCheckoutId ? creditQuery.eq("id", creditCheckoutId) : creditQuery.eq("external_id", externalId!);
+      const creditResult = await creditQuery.single();
       if (creditResult.error || !creditResult.data) throw new Error("credit_checkout_not_found");
       const now = new Date().toISOString();
       if (event.event === "checkout.completed") {
-        await admin.from("ai_credit_checkouts").update({ status: "paid", paid_at: now, provider_checkout_id: providerObjectId, updated_at: now }).eq("id", creditResult.data.id);
-        const applied = await admin.rpc("apply_ai_credit_purchase", { p_checkout_id: creditResult.data.id, p_provider_event_id: providerEventId });
-        if (applied.error) throw new Error("credit_wallet_update_failed");
-        await admin.from("user_inbox").insert({ user_id: creditResult.data.user_id, kind: "billing", title: "Creditos Prisma IA adicionados", message: "Seu pagamento foi confirmado e os novos creditos ja estao disponiveis." });
+        await activatePaidAiCreditCheckout(creditResult.data, { id: providerObjectId ?? `webhook:${providerEventId}` });
       } else if (["checkout.refunded", "checkout.disputed", "checkout.lost"].includes(event.event)) {
         await admin.from("ai_credit_checkouts").update({ status: event.event === "checkout.refunded" ? "refunded" : "disputed", updated_at: now }).eq("id", creditResult.data.id);
       } else {
@@ -85,6 +97,7 @@ export async function POST(request: Request) {
       await admin.from("payment_webhook_events").update({ status: "processed", processed_at: now }).eq("provider_event_id", providerEventId);
       return NextResponse.json({ ok: true });
     }
+    if (!externalId) throw new Error("missing_external_id");
     const checkoutResult = await admin.from("billing_checkouts").select("id,user_id,plan_id,checkout_type").eq("external_id", externalId).single();
     if (checkoutResult.error || !checkoutResult.data) throw new Error("checkout_not_found");
     const checkout = checkoutResult.data;

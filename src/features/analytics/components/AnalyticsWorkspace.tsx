@@ -10,7 +10,6 @@ import {
   Funnel,
   Globe2,
   Lightbulb,
-  MessageCircle,
   MonitorSmartphone,
   Radio,
   RefreshCw,
@@ -251,42 +250,32 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
   return (
     <main className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050507] dark:text-white">
-      <header className="sticky top-0 z-30 border-b bg-white/90 px-4 py-3 backdrop-blur-xl themeable-border-hairline dark:bg-black/76 sm:px-7">
-        <div className="mx-auto flex max-w-[1540px] flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2 text-[13px] themeable-text-ink-muted-48">
-              <Link href="/dashboard/videos" className="inline-flex items-center gap-2 font-medium text-prisma-blue">
-                <ArrowLeft size={15} /> Vídeos
-              </Link>
-              <span>/</span>
-              <span className="truncate font-semibold themeable-text-ink">Analytics</span>
-            </div>
-            <div className="flex items-center gap-3 text-[13px] font-medium themeable-text-ink">
-              <button onClick={() => setAiOpen(true)} className="inline-flex items-center gap-2">
-                <Sparkles size={15} /> Ask IA
-              </button>
-              <Link href="/dashboard/settings" className="hidden sm:inline-flex">Suporte</Link>
-            </div>
+      <header className="sticky top-0 z-30 border-b bg-white/92 px-3 py-2 backdrop-blur-xl themeable-border-hairline dark:bg-black/82 sm:px-5">
+        <div className="mx-auto flex max-w-[1540px] flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] themeable-text-ink-muted-48">
+            <Link href="/dashboard/videos" className="inline-flex h-10 items-center gap-2 rounded-full px-2 font-medium text-prisma-blue transition hover:bg-prisma-blue/8">
+              <ArrowLeft size={15} /> <span className="hidden xs:inline">Vídeos</span>
+            </Link>
+            <span aria-hidden="true" className="opacity-40">/</span>
+            <span className="truncate font-semibold themeable-text-ink">Analytics</span>
           </div>
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="min-w-0">
-              <h1 className="truncate text-[26px] font-semibold tracking-[-0.045em] themeable-text-ink">{data?.video.title ?? "Analytics da VSL"}</h1>
-              <p className="mt-1 max-w-2xl text-[13px] themeable-text-ink-muted-48">Métricas reais do embed, retenção, funil e inteligência para otimizar sua VSL.</p>
-            </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select value={days} onChange={(event) => setDays(Number(event.target.value))} className="h-11 rounded-full border bg-white px-4 text-[13px] outline-none themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:flex-none">
+            <button onClick={() => setAiOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-[13px] font-medium themeable-text-ink transition hover:bg-prisma-blue/8">
+              <Sparkles size={15} /> <span className="hidden sm:inline">Ask IA</span>
+            </button>
+            <Link href="/dashboard/settings" className="hidden h-10 items-center rounded-full px-3 text-[13px] font-medium themeable-text-ink transition hover:bg-black/5 md:inline-flex dark:hover:bg-white/5">Suporte</Link>
+            <select value={days} onChange={(event) => setDays(Number(event.target.value))} aria-label="Período das métricas" className="h-10 max-w-[104px] rounded-full border bg-white px-3 text-[13px] outline-none themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
               <option value={7}>7 dias</option>
               <option value={30}>30 dias</option>
               <option value={90}>90 dias</option>
               <option value={365}>1 ano</option>
             </select>
-            <button onClick={() => void load()} className="grid h-11 w-11 place-items-center rounded-full border bg-white themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]" aria-label="Atualizar">
+            <button onClick={() => void load()} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border bg-white themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]" aria-label="Atualizar">
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
-            <button onClick={exportCsv} className="inline-flex h-11 items-center gap-2 rounded-full border bg-white px-4 text-[13px] font-medium themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]">
-              <Download size={15} /> Exportar CSV
+            <button onClick={exportCsv} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border bg-white px-3 text-[13px] font-medium themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]" aria-label="Exportar métricas em CSV">
+              <Download size={15} /> <span className="hidden lg:inline">Exportar CSV</span>
             </button>
-          </div>
           </div>
         </div>
       </header>

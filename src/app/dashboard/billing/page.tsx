@@ -1,4 +1,5 @@
-import { Check, CreditCard, QrCode, Sparkles } from "lucide-react";
+import { Check, CreditCard, QrCode } from "lucide-react";
+import Image from "next/image";
 import Header from "@/components/dashboard/Header";
 import CancelSubscriptionButton from "@/features/billing/components/CancelSubscriptionButton";
 import CheckoutActions from "@/features/billing/components/CheckoutActions";
@@ -7,9 +8,11 @@ import { requireUser } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBRL, getPlanBenefits, type BillingPlan } from "@/lib/billing/catalog";
 import { getAccountAccess } from "@/lib/access/service";
+import { reconcilePendingAiCreditCheckouts } from "@/lib/billing/ai-credit-reconcile";
 export const dynamic = "force-dynamic";
 export default async function BillingPage() {
   const userId = await requireUser("/dashboard/billing"); const admin = createAdminClient();
+  await reconcilePendingAiCreditCheckouts(userId).catch((error) => console.error("Credit reconciliation failed", error instanceof Error ? error.message : "unknown_error"));
   const [subscriptionResult, plansResult, creditsResult, walletResult, access] = await Promise.all([
     admin.from("subscriptions").select("status,billing_method,current_period_end,cancelled_at,plan:billing_plans(slug,name,amount_cents)").eq("user_id", userId).maybeSingle(),
     admin.from("billing_plans").select("*").eq("is_active", true).order("display_order"),
@@ -32,5 +35,5 @@ export default async function BillingPage() {
       {isCurrentPlan ? <div className="mt-6 rounded-xl bg-green-500/10 px-4 py-3 text-center text-[12px] font-semibold text-green-600">Seu plano atual</div> : <CheckoutActions plan={item.slug} />}
     </article>;
   })}</div>
-  <div className="mt-10 flex items-end justify-between"><div><h2 className="flex items-center gap-2 text-[21px] font-semibold themeable-text-ink"><Sparkles size={20} className="text-prisma-blue" />Creditos Prisma IA</h2><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Saldo atual: <strong className="text-prisma-blue">{walletResult.data?.balance ?? 0} creditos</strong>. Os creditos nao expiram.</p></div></div><div className="mt-4 grid gap-4 md:grid-cols-3">{(creditsResult.data ?? []).map((item) => <article key={item.id} className={`rounded-[20px] border p-5 themeable-bg-canvas themeable-border-hairline ${item.is_featured ? "ring-2 ring-prisma-blue" : ""}`}><p className="text-[15px] font-semibold themeable-text-ink">{item.name}</p><p className="mt-3 text-[26px] font-semibold themeable-text-ink">{item.credits + item.bonus_credits} <span className="text-[12px] font-normal themeable-text-ink-muted-48">creditos</span></p>{item.bonus_credits > 0 && <p className="text-[11px] font-semibold text-green-600">+{item.bonus_credits} de bonus incluidos</p>}<p className="mt-4 text-[19px] font-semibold themeable-text-ink">{formatBRL(item.amount_cents)}</p><AiCreditCheckoutButton product={item.slug} /></article>)}</div></main></>;
+  <div className="mt-10 flex items-end justify-between"><div><h2 className="flex items-center gap-3 text-[21px] font-semibold themeable-text-ink"><Image src="/prisma-credits.png" width={42} height={42} alt="Créditos Prisma" className="h-10 w-10 object-contain" />Créditos Prisma IA</h2><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Saldo atual: <strong className="text-prisma-blue">{walletResult.data?.balance ?? 0} créditos</strong>. Os créditos não expiram.</p></div></div><div className="mt-4 grid gap-4 md:grid-cols-3">{(creditsResult.data ?? []).map((item) => <article key={item.id} className={`relative overflow-hidden rounded-[20px] border p-5 themeable-bg-canvas themeable-border-hairline ${item.is_featured ? "ring-2 ring-prisma-blue" : ""}`}><Image src="/prisma-credits.png" width={66} height={66} alt="" aria-hidden="true" className="absolute right-3 top-3 h-14 w-14 object-contain opacity-90" /><p className="pr-16 text-[15px] font-semibold themeable-text-ink">{item.name}</p><p className="mt-3 text-[26px] font-semibold themeable-text-ink">{item.credits + item.bonus_credits} <span className="text-[12px] font-normal themeable-text-ink-muted-48">créditos</span></p>{item.bonus_credits > 0 && <p className="text-[11px] font-semibold text-green-600">+{item.bonus_credits} de bônus incluídos</p>}<p className="mt-4 text-[19px] font-semibold themeable-text-ink">{formatBRL(item.amount_cents)}</p><AiCreditCheckoutButton product={item.slug} /></article>)}</div></main></>;
 }

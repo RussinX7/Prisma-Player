@@ -13,6 +13,12 @@ export type BillingPlan = {
   provider_pix_product_id: string | null;
   provider_card_product_id: string | null;
   is_featured: boolean;
+  automatic_reports?: boolean;
+  audience_sync?: boolean;
+  outgoing_webhooks?: boolean;
+  private_benchmark?: boolean;
+  portfolio_comparison?: boolean;
+  conversion_drop_alerts?: boolean;
 };
 
 export const sharedFeatures = [
@@ -23,14 +29,21 @@ export const sharedFeatures = [
 ];
 
 export function getPlanBenefits(plan: BillingPlan) {
-  return [
+  const benefits = [
     ...sharedFeatures,
     `${plan.included_plays.toLocaleString("pt-BR")} plays incluídos por mês`,
     `${plan.storage_gb.toLocaleString("pt-BR")} GB na biblioteca`,
     `${plan.prisma_ai_analyses.toLocaleString("pt-BR")} análises da Prisma IA por mês`,
-    plan.team_seats === 1 ? "1 acesso à conta" : `${plan.team_seats} acessos para a equipe`,
+    plan.team_seats === 1 ? "Acesso individual para o titular" : `Até ${plan.team_seats} membros na equipe`,
     `${formatPlayOverage(plan.play_overage_millicents)} por play excedente`,
   ];
+  if (plan.automatic_reports) benefits.push("Relatórios automáticos de desempenho");
+  if (plan.audience_sync) benefits.push("Audience Sync para campanhas de remarketing");
+  if (plan.outgoing_webhooks) benefits.push("Webhooks para integrar eventos da operação");
+  if (plan.private_benchmark) benefits.push("Benchmark privado da própria operação");
+  if (plan.portfolio_comparison) benefits.push("Comparação global entre todas as VSLs");
+  if (plan.conversion_drop_alerts) benefits.push("Alertas inteligentes de queda na conversão");
+  return benefits;
 }
 
 export function formatPlayOverage(millicents: number) {
