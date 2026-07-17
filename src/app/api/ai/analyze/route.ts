@@ -18,10 +18,11 @@ export async function POST(request: Request) {
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > MAX_REQUEST_BYTES) return NextResponse.json({ error: "request_too_large" }, { status: 413 });
 
-  const body = await request.json().catch(() => null) as { videoId?: string; type?: string; days?: number } | null;
+  const body = await request.json().catch(() => null) as { videoId?: string; type?: string; days?: number; question?: string } | null;
   const videoId = String(body?.videoId ?? "");
   const type = String(body?.type ?? "performance");
   const days = Math.min(Math.max(Number(body?.days ?? 30), 1), 365);
+  const question = String(body?.question ?? "").replace(/[<>]/g, "").trim().slice(0, 500);
   if (!uuid.test(videoId) || !allowedTypes.has(type)) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
   const admin = createAdminClient();
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
   const reached = (point: number) => sessions((row) => row.event_type === "complete" || (row.event_type === "progress" && row.progress_percent >= point));
   const dimension = (key: "traffic_source" | "device_type" | "country_code" | "campaign_id" | "creative_id") => {
     const values = new Map<string, typeof rows>();
-    rows.forEach((row) => { const name = String(row[key] || "Não identificado").slice(0, 120); values.set(name, [...(values.get(name) ?? []), row]); });
+    rows.forEach((row) => { const name = String(row[key] || "Nao identificado").slice(0, 120); values.set(name, [...(values.get(name) ?? []), row]); });
     return [...values].map(([name, group]) => {
       const views = new Set(group.filter((row) => row.event_type === "impression").map((row) => row.session_id)).size;
       const starts = new Set(group.filter((row) => row.event_type === "play").map((row) => row.session_id)).size;
@@ -88,10 +89,10 @@ export async function POST(request: Request) {
     }).sort((a, b) => b.impressions - a.impressions).slice(0, 20);
   };
   const snapshot = {
-    video: { id: video.id, title: video.title.slice(0, 200), durationSeconds: video.duration_seconds }, periodDays: days,
+    video: { id: video.id, title: video.title.slice(0, 200), durationSeconds: video.duration_seconds }, periodDays: days, question,
     summary: { impressions, plays, playRate: pct(plays, impressions), reached25: reached(25), reached50: reached(50), reached75: reached(75), completed, completionRate: pct(completed, plays), suspiciousSessions: sessions((row) => Number(row.risk_score) >= 60) },
     retention: [0, 10, 25, 50, 75, 90, 100].map((point) => ({ point, viewers: point === 0 ? plays : point === 100 ? completed : reached(point), rate: pct(point === 0 ? plays : point === 100 ? completed : reached(point), plays) })),
-    funnel: [{ name: "Impressão", value: impressions }, { name: "Play", value: plays }, { name: "Pitch", value: reached(75) }, { name: "Conclusão", value: completed }],
+    funnel: [{ name: "Impressao", value: impressions }, { name: "Play", value: plays }, { name: "Pitch", value: reached(75) }, { name: "Conclusao", value: completed }],
     dimensions: { traffic: dimension("traffic_source"), devices: dimension("device_type"), countries: dimension("country_code"), campaigns: dimension("campaign_id"), creatives: dimension("creative_id") },
   };
   const { data: job, error: jobError } = await admin.from("ai_analysis_jobs")
