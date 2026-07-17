@@ -10,6 +10,7 @@ export type BillingPlan = {
   prisma_ai_analyses: number;
   team_seats: number;
   play_overage_millicents: number;
+  storage_overage_cents_per_gb: number;
   provider_pix_product_id: string | null;
   provider_card_product_id: string | null;
   is_featured: boolean;
@@ -36,6 +37,7 @@ export function getPlanBenefits(plan: BillingPlan) {
     `${plan.prisma_ai_analyses.toLocaleString("pt-BR")} análises da Prisma IA por mês`,
     plan.team_seats === 1 ? "Acesso individual para o titular" : `Até ${plan.team_seats} membros na equipe`,
     `${formatPlayOverage(plan.play_overage_millicents)} por play excedente`,
+    `${formatStorageOverage(plan.storage_overage_cents_per_gb)} por GB excedente/mês`,
   ];
   if (plan.automatic_reports) benefits.push("Relatórios automáticos de desempenho");
   if (plan.audience_sync) benefits.push("Audience Sync para campanhas de remarketing");
@@ -44,6 +46,10 @@ export function getPlanBenefits(plan: BillingPlan) {
   if (plan.portfolio_comparison) benefits.push("Comparação global entre todas as VSLs");
   if (plan.conversion_drop_alerts) benefits.push("Alertas inteligentes de queda na conversão");
   return benefits;
+}
+
+export function formatStorageOverage(cents: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 }
 
 export function formatPlayOverage(millicents: number) {

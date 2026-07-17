@@ -1,4 +1,4 @@
-import { Check, CreditCard, QrCode } from "lucide-react";
+import { Check, CreditCard, Info, QrCode } from "lucide-react";
 import Image from "next/image";
 import Header from "@/components/dashboard/Header";
 import CancelSubscriptionButton from "@/features/billing/components/CancelSubscriptionButton";
@@ -6,7 +6,7 @@ import CheckoutActions from "@/features/billing/components/CheckoutActions";
 import AiCreditCheckoutButton from "@/features/billing/components/AiCreditCheckoutButton";
 import { requireUser } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatBRL, getPlanBenefits, type BillingPlan } from "@/lib/billing/catalog";
+import { formatBRL, formatPlayOverage, formatStorageOverage, getPlanBenefits, type BillingPlan } from "@/lib/billing/catalog";
 import { getAccountAccess } from "@/lib/access/service";
 import { reconcilePendingAiCreditCheckouts } from "@/lib/billing/ai-credit-reconcile";
 export const dynamic = "force-dynamic";
@@ -33,7 +33,11 @@ export default async function BillingPage() {
       <p className="pr-24 text-[15px] font-semibold themeable-text-ink">{item.name}</p>
       <p className="mt-3 min-h-10 text-[12px] leading-relaxed themeable-text-ink-muted-48">{item.description}</p>
       <p className="mt-5 text-[34px] font-semibold tracking-[-1px] themeable-text-ink">{formatBRL(item.amount_cents)}<span className="ml-1 text-[12px] font-normal tracking-normal themeable-text-ink-muted-48">/mês</span></p>
-      <div className="mt-5 flex-1 space-y-3">{getPlanBenefits(item).map((feature) => <p key={feature} className="flex items-start gap-2 text-[12px] leading-relaxed themeable-text-ink"><Check size={15} className="mt-0.5 shrink-0 text-prisma-blue" />{feature}</p>)}</div>
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <div className="rounded-[14px] border p-3 themeable-border-hairline"><p className="flex items-center gap-1.5 text-[11px] themeable-text-ink-muted-48">Plays <span title={`Após o limite: ${formatPlayOverage(item.play_overage_millicents)} por play.`} aria-label={`Após o limite: ${formatPlayOverage(item.play_overage_millicents)} por play.`} tabIndex={0} className="cursor-help"><Info size={13} /></span></p><strong className="mt-1 block text-[14px] themeable-text-ink">{item.included_plays.toLocaleString("pt-BR")}/mês</strong></div>
+        <div className="rounded-[14px] border p-3 themeable-border-hairline"><p className="flex items-center gap-1.5 text-[11px] themeable-text-ink-muted-48">Armazenamento <span title={`Após o limite: ${formatStorageOverage(item.storage_overage_cents_per_gb)} por GB/mês.`} aria-label={`Após o limite: ${formatStorageOverage(item.storage_overage_cents_per_gb)} por GB/mês.`} tabIndex={0} className="cursor-help"><Info size={13} /></span></p><strong className="mt-1 block text-[14px] themeable-text-ink">{item.storage_gb.toLocaleString("pt-BR")} GB</strong></div>
+      </div>
+      <div className="mt-5 flex-1 space-y-3">{getPlanBenefits(item).filter((feature) => !feature.includes("plays incluídos") && !feature.includes("GB na biblioteca") && !feature.includes("play excedente") && !feature.includes("GB excedente")).map((feature) => <p key={feature} className="flex items-start gap-2 text-[12px] leading-relaxed themeable-text-ink"><Check size={15} className="mt-0.5 shrink-0 text-prisma-blue" />{feature}</p>)}</div>
       {isCurrentPlan ? <div className="mt-6 rounded-xl bg-green-500/10 px-4 py-3 text-center text-[12px] font-semibold text-green-600">Seu plano atual</div> : <CheckoutActions plan={item.slug} change={currentPlanIndex < 0 ? "subscribe" : planOrder.indexOf(item.slug) > currentPlanIndex ? "upgrade" : "downgrade"} />}
     </article>;
   })}</div>

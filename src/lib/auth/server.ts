@@ -19,13 +19,8 @@ export async function getCurrentAdminUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
 
-  const allowedEmails = (process.env.PRISMA_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-  const email = data.user.email?.toLowerCase() ?? "";
   const appRole = typeof data.user.app_metadata?.role === "string" ? data.user.app_metadata.role : "";
-  return appRole === "admin" || allowedEmails.includes(email) ? data.user : null;
+  return appRole === "admin" ? data.user : null;
 }
 
 export async function requireAdmin() {
@@ -33,5 +28,10 @@ export async function requireAdmin() {
   if (!userId) redirect(`/login?next=${encodeURIComponent("/admin")}`);
   const user = await getCurrentAdminUser();
   if (!user) redirect("/dashboard/videos");
+  const supabase = await createClient();
+  const { data: assurance, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || assurance.currentLevel !== "aal2") {
+    redirect("/dashboard/settings?section=security&adminMfa=required");
+  }
   return user;
 }
