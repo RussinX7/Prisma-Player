@@ -234,27 +234,21 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1540px] gap-5 px-4 py-5 lg:grid-cols-[238px_minmax(0,1fr)] lg:px-7">
-        <aside className="min-w-0 lg:border-r lg:pr-4 themeable-border-hairline">
-          <div className="mb-3 hidden rounded-[18px] bg-prisma-blue p-4 text-white lg:block">
-            <p className="text-[12px] text-white/72">Ao vivo agora</p>
-            <strong className="mt-1 flex items-center gap-2 text-[30px] font-semibold tracking-[-0.05em]"><Radio size={18} />{data?.live ?? 0}</strong>
-          </div>
-          <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 lg:mx-0 lg:block lg:space-y-1 lg:overflow-visible lg:px-0 lg:pb-0">
-            {tabs.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setTab(item.id)}
-                  className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-left text-[14px] transition lg:w-full lg:rounded-[12px] ${tab === item.id ? "bg-black text-white dark:bg-white dark:text-black" : "themeable-text-ink hover:bg-white dark:hover:bg-white/[0.06]"}`}
-                >
-                  <Icon size={16} /> {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
+      <div className="mx-auto max-w-[1540px] px-4 py-5 lg:px-7">
+        <nav className="mb-5 flex gap-2 overflow-x-auto rounded-[18px] border bg-white p-2 themeable-border-hairline dark:bg-white/[0.03]">
+          {tabs.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                className={`flex min-h-10 shrink-0 items-center gap-2 rounded-[13px] px-4 text-left text-[13px] font-medium transition ${tab === item.id ? "bg-prisma-blue text-white" : "themeable-text-ink hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]"}`}
+              >
+                <Icon size={16} /> {item.label}
+              </button>
+            );
+          })}
+        </nav>
 
         <section className="min-w-0">
           {loading && !data ? (
