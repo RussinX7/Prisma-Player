@@ -46,7 +46,7 @@ O domínio real será configurado somente quando as instâncias de desenvolvimen
 
 - `CLERK_SECRET_KEY` é somente server-side e nunca pode usar prefixo `NEXT_PUBLIC_`.
 - Chaves secretas ou `service_role` do Supabase nunca entram no browser.
-- O frontend não decide papel, plano, workspace, limite ou propriedade de um registro.
+- O frontend não decide papel, workspace, limite ou propriedade de um registro.
 - Toda tabela exposta pelo Data API terá RLS habilitada e políticas específicas.
 - `TO authenticated` sozinho não é autorização; a policy também precisa validar usuário ou workspace.
 - Claims editáveis pelo usuário nunca serão usadas para conceder acesso.

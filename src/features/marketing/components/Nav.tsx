@@ -1,6 +1,6 @@
 import Link from "next/link";
-import BrandLogo from "./BrandLogo";
-import ThemeToggle from "./ThemeToggle";
+import BrandLogo from "@/components/BrandLogo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Nav() {
   return (
@@ -13,7 +13,6 @@ export default function Nav() {
           <div className="hidden md:flex items-center gap-5">
             {[
               ["Funcionalidades", "#features"],
-              ["Planos", "#pricing"],
               ["Parcerias", "#"],
               ["Ajuda", "#"],
             ].map(([label, href]) => (
@@ -36,7 +35,7 @@ export default function Nav() {
             Login
           </a>
           <a
-            href="#pricing"
+            href="/signup"
             className="bg-prisma-blue hover:opacity-90 text-white text-xs tracking-[-0.12px] rounded-sm px-3.5 py-2 transition-all active:scale-95"
           >
             Comece seu teste grátis

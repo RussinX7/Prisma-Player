@@ -41,7 +41,6 @@ Ele não contém chaves, tokens, dados pessoais de clientes ou credenciais. Segr
 | Acesso privilegiado | Supabase Service Role, somente no servidor | Operações validadas pelo backend |
 | Hospedagem | Vercel | Deploy do Next.js, HTTPS, funções serverless e cron |
 | Domínios | API da Vercel + DNS do cliente | Cadastro, verificação e SSL de domínios personalizados |
-| Pagamentos | SyncPay | Planos, checkout Pix, assinatura e webhooks |
 | Métricas de desempenho | Vercel Speed Insights | Web Vitals e desempenho real da aplicação |
 | Controle de versão | Git + GitHub | Histórico, revisão e publicação do código |
 
@@ -70,7 +69,6 @@ Navegador
   -> PostgreSQL
 
 Serviços externos
-  -> SyncPay envia webhooks ao backend
   -> Vercel Cron chama rotas internas protegidas
   -> API da Vercel gerencia domínios personalizados
 ```
@@ -809,7 +807,6 @@ Categorias atuais:
 - URL pública e SEO;
 - Supabase server-side;
 - chaves públicas do Supabase;
-- SyncPay;
 - fingerprint de trial;
 - rate limit;
 - troca segura de contas;

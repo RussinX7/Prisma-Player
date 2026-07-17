@@ -14,7 +14,7 @@ export default function Hero() {
         </p>
         <div className="flex items-center justify-center gap-4">
           <a
-            href="#pricing"
+            href="/signup"
             className="bg-prisma-blue text-white text-[17px] font-normal leading-none rounded-pill px-[22px] py-[11px] inline-flex items-center justify-center transition-all active:scale-95 hover:opacity-90"
           >
             Comece seu teste grátis

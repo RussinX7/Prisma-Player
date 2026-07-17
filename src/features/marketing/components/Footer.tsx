@@ -15,7 +15,6 @@ export default function Footer() {
                 "Turbo Playback",
                 "Teste A/B",
                 "Analytics",
-                "Planos",
               ].map((item) => (
                 <li key={item}>
                   <a

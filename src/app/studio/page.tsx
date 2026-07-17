@@ -1,3 +1,3 @@
-import VslStudio from "@/components/studio/VslStudio";
+import VslStudio from "@/features/studio/components/VslStudio";
 
 export default VslStudio;

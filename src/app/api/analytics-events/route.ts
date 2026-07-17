@@ -19,6 +19,7 @@ function source(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  if (Number(request.headers.get("content-length") ?? 0) > 4096) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const videoId = String(body?.videoId ?? "");
   const sessionId = String(body?.sessionId ?? "");
@@ -27,8 +28,12 @@ export async function POST(request: Request) {
   if (!uuid.test(videoId) || !uuid.test(sessionId) || !events.has(eventType) || !milestones.has(progressPercent)) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
 
   const supabase = createAdminClient();
-  const { data: video } = await supabase.from("videos").select("id,user_id,status").eq("id", videoId).maybeSingle();
+  const [{ data: video }, { data: player }] = await Promise.all([
+    supabase.from("videos").select("id,user_id,status").eq("id", videoId).maybeSingle(),
+    supabase.from("player_configs").select("id").eq("video_id", videoId).eq("published", true).maybeSingle(),
+  ]);
   if (!video || video.status !== "ready") return NextResponse.json({ error: "video_not_found" }, { status: 404 });
+  if (!player) return NextResponse.json({ error: "player_not_published" }, { status: 409 });
   const context = clientContext(request);
   const country = (request.headers.get("x-vercel-ip-country") ?? "XX").toUpperCase().slice(0, 2);
   const { error } = await supabase.from("video_events").upsert({
@@ -37,5 +42,5 @@ export async function POST(request: Request) {
     country_code: country.length === 2 ? country : "XX", device_type: context.device,
     os_name: context.os, browser_name: context.browser, traffic_source: source(body?.referrer),
   }, { onConflict: "video_id,session_id,event_type,progress_percent", ignoreDuplicates: true });
-  return error ? NextResponse.json({ error: "event_write_failed" }, { status: 500 }) : new NextResponse(null, { status: 204 });
+  return error ? NextResponse.json({ error: "event_write_failed" }, { status: 500 }) : new NextResponse(null, { status: 204, headers: { "cache-control": "no-store" } });
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { VideoUploadProvider } from "@/components/uploads/VideoUploadProvider";
+import { VideoUploadProvider } from "@/features/videos/components/VideoUploadProvider";
 
 export const metadata: Metadata = {
   title: "Dashboard",

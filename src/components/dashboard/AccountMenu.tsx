@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Languages, LogOut, Settings, Wallet } from "lucide-react";
+import { Check, ChevronDown, Languages, LogOut, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const languages = [
@@ -71,7 +71,6 @@ export default function AccountMenu() {
               </div>
             )}
             <Link href="/dashboard/settings" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Settings size={17} /><span>Conta</span></Link>
-            <Link href="/dashboard/billing" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Wallet size={17} /><span>Financeiro</span></Link>
           </div>
           <button type="button" onClick={logout} className="flex min-h-11 w-full items-center gap-3 border-t px-3 pt-2 text-[14px] text-red-500 themeable-border-hairline"><LogOut size={17} /><span>Sair</span></button>
         </div>

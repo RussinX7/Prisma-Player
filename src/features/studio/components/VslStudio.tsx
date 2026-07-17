@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Captions, Check, ChevronRight, Code2, Gauge, Globe2, Heading, ImageIcon, MousePointerClick, Palette, Play, Radio, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
-import { VideoPlayer } from "@/components/player";
+import { VideoPlayer } from "@/features/player/components";
 import { createClient } from "@/lib/supabase/client";
 
 interface StoredVideo { id?: string; name: string; src: string; type: string }

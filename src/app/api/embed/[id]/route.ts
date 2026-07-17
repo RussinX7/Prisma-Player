@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function normalizeHost(value: string) {
   try { return new URL(value).hostname.toLowerCase(); } catch { return ""; }
 }
@@ -15,7 +17,7 @@ function domainAllowed(host: string, domains: string[]) {
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
+  if (!uuid.test(id)) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
   const supabase = createAdminClient();
   const fields = "id,video_id,config,allowed_domains,published";
   const byPlayerId = await supabase.from("player_configs").select(fields).eq("id", id).eq("published", true).maybeSingle();
@@ -33,24 +35,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     playerConfig = byVideoId.data;
   }
 
-  // Compatibilidade com códigos antigos que receberam o video_id antes da criação do player_config.
-  let fallbackVideo: { id: string; title: string; object_path: string; mime_type: string; user_id: string } | null = null;
-  if (!playerConfig) {
-    const legacy = await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", id).eq("status", "ready").maybeSingle();
-    if (legacy.error) return NextResponse.json({ error: "video_lookup_failed" }, { status: 503 });
-    fallbackVideo = legacy.data;
-    if (!fallbackVideo) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
-    const created = await supabase.from("player_configs").insert({ user_id: fallbackVideo.user_id, video_id: fallbackVideo.id, config: {}, allowed_domains: [], published: true }).select(fields).maybeSingle();
-    playerConfig = created.data ?? { id, video_id: fallbackVideo.id, config: {}, allowed_domains: [], published: true };
-  }
+  if (!playerConfig) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
 
   const requestedSite = new URL(request.url).searchParams.get("site") ?? "";
   const host = normalizeHost(requestedSite || request.headers.get("referer") || request.headers.get("origin") || "");
   const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((domain) => domain.trim()).filter(Boolean) : [];
   if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
-  const { data: loadedVideo } = fallbackVideo ? { data: fallbackVideo } : await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
-  const video = loadedVideo;
+  const { data: video } = await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const { data: signed, error } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 900);
   if (error || !signed) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });

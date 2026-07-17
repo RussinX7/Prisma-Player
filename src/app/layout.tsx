@@ -87,7 +87,6 @@ export default function RootLayout({
               operatingSystem: "Web",
               description:
                 "Player de vídeo focado em conversão de vendas. Aumente play rate, engajamento e vendas.",
-              offers: { "@type": "Offer", name: "Prisma Completo", price: "97", priceCurrency: "BRL", url: `${siteUrl}/checkout` },
             }),
           }}
         />

@@ -8,7 +8,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
 import Dialog from "@/components/ui/Dialog";
-import { useVideoUploads } from "@/components/uploads/VideoUploadProvider";
+import { useVideoUploads } from "@/features/videos/components/VideoUploadProvider";
 
 interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready" | "failed"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
 interface VideoFolder { id: string; name: string }

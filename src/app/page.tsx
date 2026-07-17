@@ -1,11 +1,10 @@
-import Nav from "@/components/Nav";
-import Hero from "@/components/Hero";
-import Logos from "@/components/Logos";
-import Testimonials from "@/components/Testimonials";
-import Features from "@/components/Features";
-import Pricing from "@/components/Pricing";
-import CTA from "@/components/CTA";
-import Footer from "@/components/Footer";
+import Nav from "@/features/marketing/components/Nav";
+import Hero from "@/features/marketing/components/Hero";
+import Logos from "@/features/marketing/components/Logos";
+import Testimonials from "@/features/marketing/components/Testimonials";
+import Features from "@/features/marketing/components/Features";
+import CTA from "@/features/marketing/components/CTA";
+import Footer from "@/features/marketing/components/Footer";
 
 export default function Home() {
   return (
@@ -33,22 +32,6 @@ export default function Home() {
                   text: "Através de recursos como Headlines AI, Smart Autoplay, Turbo Playback, Mini-Gancho e Thumbnail de Recuperação, que trabalham juntos para manter a audiência engajada até o final do vídeo.",
                 },
               },
-              {
-                "@type": "Question",
-                name: "O Prisma Player tem limite de players?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Não. Os planos Pro e Enterprise não têm limite de players. Você pode criar quantos players quiser.",
-                },
-              },
-              {
-                "@type": "Question",
-                name: "Quanto custa o Prisma Player?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "O plano Essential custa R$ 49/mês, o Pro custa R$ 99/mês, e o Enterprise é sob consulta. Todos incluem 14 dias de teste grátis.",
-                },
-              },
             ],
           }),
         }}
@@ -59,7 +42,6 @@ export default function Home() {
         <Logos />
         <Testimonials />
         <Features />
-        <Pricing />
         <CTA />
       </main>
       <Footer />
