@@ -11,7 +11,14 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const endpoint = () => `https://${required("CLOUDFLARE_R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`;
+function endpoint() {
+  const configured = process.env.CLOUDFLARE_R2_ENDPOINT?.trim();
+  if (!configured) return `https://${required("CLOUDFLARE_R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`;
+  if (/\r|\n/.test(configured)) throw new Error("invalid_cloudflare_r2_endpoint");
+  const url = new URL(configured);
+  if (url.protocol !== "https:" || !url.hostname.endsWith(".r2.cloudflarestorage.com")) throw new Error("invalid_cloudflare_r2_endpoint");
+  return url.origin;
+}
 
 function required(name: string) {
   const value = process.env[name]?.trim();

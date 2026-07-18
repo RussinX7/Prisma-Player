@@ -34,6 +34,8 @@ Remova `localhost` quando não for mais necessário. O `ETag` exposto é obrigat
 
 ```text
 CLOUDFLARE_R2_ACCOUNT_ID=
+# Opcional. Deixe vazio para usar o endpoint S3 padrao derivado do Account ID.
+CLOUDFLARE_R2_ENDPOINT=
 CLOUDFLARE_R2_ACCESS_KEY_ID=
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=
 CLOUDFLARE_R2_BUCKET=prisma-videos
@@ -41,6 +43,8 @@ R2_MAX_UPLOAD_BYTES=21474836480
 ```
 
 Configure nos ambientes necessários e faça um novo deploy. Nunca use `NEXT_PUBLIC_` nessas credenciais.
+
+O endpoint padrão tem o formato `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` e já é montado pela aplicação. Preencha `CLOUDFLARE_R2_ENDPOINT` somente quando o bucket estiver vinculado a uma jurisdição específica, como União Europeia. Não use o endpoint público `r2.dev` neste campo.
 
 ## Banco e produção
 

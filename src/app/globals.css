@@ -182,6 +182,19 @@ body {
   padding: 20px 16px 0;
 }
 
+.hide-page-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-page-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
 .editor-label {
   display: block;
   color: var(--color-ink-muted-80);
