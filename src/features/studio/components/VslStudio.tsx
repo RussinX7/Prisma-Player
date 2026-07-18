@@ -87,6 +87,9 @@ export default function VslStudio() {
   const [posterPreviewActive, setPosterPreviewActive] = useState(false);
   const [captionTrack, setCaptionTrack] = useState<{ src: string; kind: "subtitles"; label: string; srclang: string; default: boolean }>();
   const [assetFiles, setAssetFiles] = useState<Partial<Record<"thumbnailStart" | "thumbnailPause" | "thumbnailEnd" | "headlineDesktop" | "headlineMobile" | "captions", File>>>({});
+  const previewStageRef = useRef<HTMLDivElement>(null);
+  const [previewStageSize, setPreviewStageSize] = useState({ width: 0, height: 0 });
+  const dirtyConfigKeys = useRef(new Set<keyof StudioConfig>());
   useEffect(() => {
     const receiveHeadlineFile = (event: Event) => {
       const detail = (event as CustomEvent<{ viewport: "desktop" | "mobile"; file: File }>).detail;
@@ -103,6 +106,17 @@ export default function VslStudio() {
     window.addEventListener("prisma:headline-file", receiveHeadlineFile);
     return () => window.removeEventListener("prisma:headline-file", receiveHeadlineFile);
   }, []);
+  useEffect(() => {
+    const stage = previewStageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.floor(entry.contentRect.width);
+      const height = Math.floor(entry.contentRect.height);
+      setPreviewStageSize((current) => current.width === width && current.height === height ? current : { width, height });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
   const sources = useMemo(() => video ? [{ src: video.src, type: video.type }] : [], [video]);
   const controlVisibility = useMemo(() => ({ progressControl: config.progressBar && !config.smartProgress, currentTimeDisplay: config.time, durationDisplay: config.time, seekBackward: config.seekBackward, seekForward: config.seekForward, volumePanel: config.volume, fullscreenToggle: config.fullscreen, pictureInPictureToggle: config.pictureInPicture, playbackRateMenuButton: config.speedControl }), [config.progressBar, config.smartProgress, config.time, config.seekBackward, config.seekForward, config.volume, config.fullscreen, config.pictureInPicture, config.speedControl]);
   const playerStyle = { "--player-accent": config.smartProgress ? config.progressColor : config.accent, "--player-progress-height": `${config.progressHeight}px`, borderRadius: `${config.radius}px`, background: "transparent" } as CSSProperties;
@@ -110,19 +124,23 @@ export default function VslStudio() {
   const lastPersistedSecond = useRef(-1);
   const injectedResumePreview = useRef(false);
   const previewRatio = videoSize.width > 0 && videoSize.height > 0 ? videoSize.width / videoSize.height : 16 / 9;
-  const portraitPreview = previewRatio < 0.9;
+  const availablePreviewWidth = previewStageSize.width || (previewRatio < 0.9 ? 360 : 720);
+  const availablePreviewHeight = previewStageSize.height || (previewRatio < 0.9 ? 520 : 405);
+  const fittedPreviewWidth = Math.max(1, Math.min(availablePreviewWidth, availablePreviewHeight * previewRatio, 860));
   const previewStyle = {
     ...playerStyle,
     aspectRatio: `${videoSize.width} / ${videoSize.height}`,
-    width: portraitPreview ? "auto" : "min(100%, 720px)",
-    height: portraitPreview ? "min(100%, calc(100dvh - 350px))" : "auto",
-    maxWidth: "100%",
-    maxHeight: "100%",
+    width: `${fittedPreviewWidth}px`,
+    height: `${fittedPreviewWidth / previewRatio}px`,
+    flex: "0 0 auto",
   } as CSSProperties;
   const actualProgress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   // Avança rapidamente no início e desacelera perto do fim, sem nunca concluir antes do vídeo.
   const smartProgress = actualProgress >= 1 ? 100 : Math.min(99.5, (1 - Math.pow(1 - actualProgress, 2.4)) * 100);
-  const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => setConfig((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => {
+    dirtyConfigKeys.current.add(key);
+    setConfig((current) => ({ ...current, [key]: value }));
+  };
   const setActive = (module: ModuleId | null) => {
     setActiveState(module);
     setThumbnailOverlay(null);
@@ -141,7 +159,11 @@ export default function VslStudio() {
       if (payload.playerConfig.id) setPlayerId(payload.playerConfig.id);
       if (payload.playerConfig.config) {
         const loaded = { ...initialConfig, ...payload.playerConfig.config };
-        setConfig(loaded);
+        setConfig((current) => {
+          const merged = { ...loaded };
+          for (const key of dirtyConfigKeys.current) Object.assign(merged, { [key]: current[key] });
+          return merged;
+        });
         const assets = loaded.assets ?? {};
         const supabase = createClient();
         const signed = await Promise.all(Object.entries(assets).map(async ([kind, path]) => {
@@ -275,15 +297,17 @@ export default function VslStudio() {
       <main className="order-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#f5f5f7] p-3 text-[#1d1d1f] dark:bg-black dark:text-white sm:p-4 lg:p-5">
         <div className="mb-4 flex items-center justify-between"><div><p className="text-[12px] text-black/50 dark:text-white/50">Prévia ao vivo</p><p className="text-[14px] font-semibold">{active ? modules.find((item) => item.id === active)?.label : "Visão geral"}</p></div><span className="rounded-full bg-black/5 px-3 py-2 text-[12px] dark:bg-white/10">{config.playbackRate.toFixed(2)}x</span></div>
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-2 sm:p-3">
-          <div className="flex max-h-full w-full min-h-0 flex-col overflow-hidden">
-            {config.headlineEnabled && (config.headlineFormat === "image" && (headlineDesktopUrl || headlineMobileUrl) ? <picture className="mx-auto mb-4 block max-w-2xl"><source media="(max-width: 767px)" srcSet={headlineMobileUrl || headlineDesktopUrl} /><img src={headlineDesktopUrl || headlineMobileUrl} alt="Prévia da headline" className="block h-auto w-full object-contain" /></picture> : <h2 className="mx-auto mb-4 max-w-2xl px-4 py-3 font-semibold leading-tight" style={{ color: config.headlineColor, backgroundColor: config.headlineBackground, fontSize: `${config.headlineSize}px`, textAlign: config.headlineAlign, borderRadius: `${Math.min(config.radius, 16)}px` }}>{config.headline}</h2>)}
-            {video ? <div style={previewStyle} className="relative mx-auto max-h-[62dvh] overflow-hidden"><VideoPlayer key={`${posterUrl ?? "video-without-poster"}-${config.smartAutoplay}-${active === "thumbnail"}`} className={`${config.smartProgress ? "prisma-player--smart-progress" : ""} ${config.playPause ? "" : "prisma-player--play-pause-hidden"} ${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled && !config.smartAutoplay ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null && !posterPreviewActive} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => { if (config.thumbnailEnabled && pausePosterUrl && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onPlay={() => setThumbnailOverlay(null)} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); if (config.thumbnailEnabled && endPosterUrl) setThumbnailOverlay("end"); }} />
+          <div className="flex h-full max-h-full w-full min-h-0 flex-col overflow-hidden">
+            {config.headlineEnabled && <HeadlinePreview config={config} desktopUrl={headlineDesktopUrl} mobileUrl={headlineMobileUrl} />}
+            <div ref={previewStageRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+            {video ? <div style={previewStyle} className="relative overflow-hidden"><VideoPlayer key={`${posterUrl ?? "video-without-poster"}-${config.smartAutoplay}-${active === "thumbnail"}`} className={`${config.smartProgress ? "prisma-player--smart-progress" : ""} ${config.playPause ? "" : "prisma-player--play-pause-hidden"} ${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled && !config.smartAutoplay ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null && !posterPreviewActive} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => { if (config.thumbnailEnabled && pausePosterUrl && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onPlay={() => setThumbnailOverlay(null)} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); if (config.thumbnailEnabled && endPosterUrl) setThumbnailOverlay("end"); }} />
               {resumePoint !== null && <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{config.resumeMessage}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
               {config.smartAutoplay && !autoplayActivated && resumePoint === null && <button type="button" onClick={() => { setStartTime(0); setPosterPreviewActive(false); setAutoplayActivated(true); setRestartWithSoundSignal((value) => value + 1); }} className="absolute left-1/2 top-1/2 z-10 w-[min(240px,80%)] -translate-x-1/2 -translate-y-1/2 border border-white/40 px-5 py-3 text-center text-[13px] font-semibold backdrop-blur-md" style={{ color: config.autoplayTextColor, backgroundColor: config.autoplayBackground, borderRadius: `${config.autoplayRadius}px` }}>{config.autoplayMessage}</button>}
               {config.smartProgress && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-transparent" style={{ height: `${Math.max(config.progressHeight, 4)}px` }} aria-hidden="true"><div className="h-full transition-[width] duration-300 ease-out" style={{ width: `${smartProgress}%`, backgroundColor: config.progressColor }} /></div>}
               {config.miniHooksEnabled && (active === "hooks" || (currentTime >= config.miniHookStart && currentTime < config.miniHookStart + config.miniHookDuration)) && <div className="pointer-events-none absolute inset-x-4 top-4 z-20 mx-auto max-w-[520px] px-4 py-3 font-semibold shadow-lg backdrop-blur-md" style={{ color: config.miniHookTextColor, backgroundColor: `${config.miniHookBackground}e8`, fontSize: `${config.miniHookSize}px`, borderRadius: `${config.miniHookRadius}px`, textAlign: config.miniHookAlign }}>{config.miniHookText}</div>}
               {thumbnailOverlay && <button type="button" onClick={() => { const wasPaused = thumbnailOverlay === "pause"; setThumbnailOverlay(null); if (wasPaused) setResumePlaybackSignal((value) => value + 1); else setRestartWithSoundSignal((value) => value + 1); }} className="absolute inset-0 z-40 bg-cover bg-center" style={{ backgroundImage: `url(${thumbnailOverlay === "pause" ? pausePosterUrl : endPosterUrl})` }} aria-label={thumbnailOverlay === "pause" ? "Continuar vídeo" : "Assistir novamente"}><span className="absolute inset-0 grid place-items-center bg-black/20"><span className="rounded-full bg-black/70 px-5 py-3 text-[13px] font-semibold text-white backdrop-blur-md">{thumbnailOverlay === "pause" ? "Continuar assistindo" : "Assistir novamente"}</span></span></button>}
-            </div> : <div style={playerStyle} className="mx-auto flex aspect-video max-w-[680px] items-center justify-center text-center text-white/50"><div><Play size={36} className="mx-auto mb-3" /><p>Importe um vídeo para testar o Studio</p></div></div>}
+            </div> : <div style={playerStyle} className="mx-auto flex aspect-video w-full max-w-[680px] items-center justify-center text-center text-white/50"><div><Play size={36} className="mx-auto mb-3" /><p>Importe um vídeo para testar o Studio</p></div></div>}
+            </div>
             {config.ctaEnabled && (active === "actions" || (currentTime >= config.ctaStart && (!config.ctaEnd || currentTime <= config.ctaEnd))) && <a href={config.ctaUrl} target={config.ctaNewTab ? "_blank" : undefined} rel="noreferrer" className={`studio-preview-cta mx-auto mt-5 flex min-h-12 w-fit items-center font-semibold ${config.ctaPulse ? "studio-cta-pulse" : ""}`} style={{ color: config.ctaTextColor, backgroundColor: config.ctaBackground, fontSize: `${config.ctaFontSize}px`, borderRadius: `${config.ctaRadius}px`, padding: `${config.ctaPaddingY}px ${config.ctaPaddingX}px`, boxShadow: config.ctaShadow ? "0 12px 28px rgba(0,102,204,.24)" : "none", "--cta-hover-bg": config.ctaHoverBackground, "--cta-hover-color": config.ctaHoverTextColor } as CSSProperties}>{config.ctaText}</a>}
             {video && <p className="mt-3 text-center text-[11px] text-black/40 dark:text-white/40">{videoSize.width}×{videoSize.height} · {duration ? `${Math.floor(duration / 60)}:${String(Math.floor(duration % 60)).padStart(2, "0")}` : "Lendo metadados"}</p>}
           </div>
@@ -384,6 +408,15 @@ function renderPanel(module: ModuleId, c: StudioConfig, u: <K extends keyof Stud
 }
 
 function PanelTitle({ children }: { children: React.ReactNode }) { return <h3 className="border-t border-black/10 pt-5 text-[15px] font-semibold dark:border-white/10">{children}</h3>; }
+function HeadlinePreview({ config, desktopUrl, mobileUrl }: { config: StudioConfig; desktopUrl?: string; mobileUrl?: string }) {
+  if (config.headlineFormat === "image" && (desktopUrl || mobileUrl)) {
+    return <picture className="mx-auto mb-3 block max-h-[112px] max-w-2xl shrink-0 overflow-hidden"><source media="(max-width: 767px)" srcSet={mobileUrl || desktopUrl} /><img src={desktopUrl || mobileUrl} alt="Prévia da headline" className="block h-full max-h-[112px] w-full object-contain" /></picture>;
+  }
+  const explicitLines = Math.max(1, config.headline.split(/\r?\n/).length);
+  const estimatedLines = Math.max(explicitLines, Math.ceil(config.headline.length / 44));
+  const fittedFontSize = Math.max(16, Math.min(config.headlineSize, estimatedLines >= 4 ? 24 : estimatedLines === 3 ? 28 : config.headlineSize));
+  return <div className="mb-3 flex max-h-[132px] min-h-12 shrink-0 items-center justify-center overflow-y-auto px-1"><h2 className="mx-auto w-fit max-w-2xl whitespace-pre-wrap break-words px-4 py-3 font-semibold leading-tight" style={{ color: config.headlineColor, backgroundColor: config.headlineBackground, fontSize: `${fittedFontSize}px`, textAlign: config.headlineAlign, borderRadius: `${Math.min(config.radius, 16)}px` }}>{config.headline || "Digite sua headline"}</h2></div>;
+}
 function Switch({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) { return <button type="button" onClick={() => onChange(!checked)} className={`ml-auto h-6 w-11 rounded-full p-1 ${checked ? "bg-green-500" : "bg-black/20 dark:bg-white/20"}`}><span className={`block h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : ""}`} /></button>; }
 function ControlIcon({ label }: { label: string }) {
   const normalized = label.toLowerCase();
@@ -399,18 +432,27 @@ function TimeRange({ label, value, max, onChange }: { label: string; value: numb
 const WORLD_COUNTRY_CODES = "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW".split(" ");
 function CountryPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [search, setSearch] = useState("");
-  const selected = value.toLowerCase() === "todos" ? [] : value.split(",").map((item) => item.trim().toUpperCase()).filter(Boolean);
+  const normalizedValue = value.trim().toLowerCase();
+  const allSelected = normalizedValue === "todos";
+  const noneSelected = normalizedValue === "nenhum";
+  const selected = allSelected || noneSelected ? [] : value.split(",").map((item) => item.trim().toUpperCase()).filter(Boolean);
   const displayNames = useMemo(() => new Intl.DisplayNames(["pt-BR"], { type: "region" }), []);
   const countries = useMemo(() => WORLD_COUNTRY_CODES.map((code) => ({ code, name: displayNames.of(code) || code })).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [displayNames]);
   const visible = countries.filter((country) => `${country.name} ${country.code}`.toLowerCase().includes(search.toLowerCase()));
   const toggle = (code: string, checked: boolean) => {
-    const current = selected.length === 0 ? WORLD_COUNTRY_CODES : selected;
+    const current = allSelected ? WORLD_COUNTRY_CODES : selected;
     const next = checked ? [...new Set([...current, code])] : current.filter((item) => item !== code);
-    onChange(next.length ? next.join(",") : "Todos");
+    onChange(next.length ? next.join(",") : "Nenhum");
   };
-  return <fieldset className="space-y-2"><div className="flex items-center justify-between"><legend className="text-[14px] font-semibold">Países permitidos</legend><button type="button" className="text-[12px] font-semibold text-[#0066cc]" onClick={() => onChange("Todos")}>Permitir todos</button></div><input className="studio-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar país" /><div className="max-h-64 space-y-1 overflow-y-auto rounded-[11px] border border-black/10 p-2 dark:border-white/10">{visible.map((country) => <label key={country.code} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-[8px] px-2 text-[13px] hover:bg-black/5 dark:hover:bg-white/5"><input type="checkbox" className="h-4 w-4 accent-[#0066cc]" checked={selected.length === 0 || selected.includes(country.code)} onChange={(event) => toggle(country.code, event.target.checked)} /><span className="flex-1">{country.name}</span><span className="text-[11px] text-[#7a7a7a]">{country.code}</span></label>)}</div><p className="text-[11px] text-[#7a7a7a]">{selected.length === 0 ? "Todos os países permitidos" : `${selected.length} país(es) permitido(s)`}</p></fieldset>;
+  return <fieldset className="space-y-2"><div className="flex items-start justify-between gap-3"><legend className="text-[14px] font-semibold">Países permitidos</legend><div className="flex flex-wrap justify-end gap-x-3 gap-y-1"><button type="button" className="text-[12px] font-semibold text-[#0066cc]" onClick={() => onChange("Todos")}>Permitir todos</button><button type="button" className="text-[12px] font-semibold text-red-500" onClick={() => onChange("Nenhum")}>Desmarcar todos</button></div></div><input className="studio-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar país" /><div className="max-h-64 space-y-1 overflow-y-auto rounded-[11px] border border-black/10 p-2 dark:border-white/10">{visible.map((country) => <label key={country.code} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-[8px] px-2 text-[13px] hover:bg-black/5 dark:hover:bg-white/5"><input type="checkbox" className="h-4 w-4 accent-[#0066cc]" checked={allSelected || selected.includes(country.code)} onChange={(event) => toggle(country.code, event.target.checked)} /><span className="flex-1">{country.name}</span><span className="text-[11px] text-[#7a7a7a]">{country.code}</span></label>)}</div><p className="text-[11px] text-[#7a7a7a]">{allSelected ? "Todos os países permitidos" : noneSelected ? "Nenhum país permitido" : `${selected.length} país(es) permitido(s)`}</p></fieldset>;
 }
-function TextInput({ label, value, placeholder, onChange, onEnter }: { label: string; value?: string; placeholder?: string; onChange?: (value: string) => void; onEnter?: (value: string) => void }) { const [local, setLocal] = useState(value ?? ""); if (label === "Países permitidos" && onChange) return <CountryPicker value={value ?? "Todos"} onChange={onChange} />; return <label className="block text-[14px] font-semibold">{label}<input value={onChange ? value : local} placeholder={placeholder} onChange={(e) => { setLocal(e.target.value); onChange?.(e.target.value); }} onKeyDown={(e) => { if (e.key === "Enter" && onEnter) { onEnter(local); setLocal(""); } }} className="studio-input mt-2" /></label>; }
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block text-[14px] font-semibold">{label}<textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} className="studio-input mt-2 resize-y" /></label>; }
+function TextInput({ label, value, placeholder, onChange, onEnter }: { label: string; value?: string; placeholder?: string; onChange?: (value: string) => void; onEnter?: (value: string) => void }) {
+  const [draft, setDraft] = useState(value ?? "");
+  if (label === "Países permitidos" && onChange) return <CountryPicker value={value ?? "Todos"} onChange={onChange} />;
+  const controlled = value !== undefined;
+  const inputValue = controlled ? value : draft;
+  return <label className="block text-[14px] font-semibold">{label}<input value={inputValue} placeholder={placeholder} autoComplete="off" spellCheck onChange={(event) => { const next = event.currentTarget.value; if (!controlled) setDraft(next); onChange?.(next); }} onKeyDown={(event) => { if (event.key === "Enter" && onEnter) { event.preventDefault(); const next = event.currentTarget.value; onEnter(next); if (!controlled) setDraft(""); } }} className="studio-input mt-2" /></label>;
+}
+function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block text-[14px] font-semibold">{label}<textarea rows={4} value={value} spellCheck onChange={(event) => onChange(event.currentTarget.value)} className="studio-input mt-2 resize-y" /></label>; }
 function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) { return <label className="block text-[14px] font-semibold">{label}<select value={value} onChange={(e) => onChange(e.target.value)} className="studio-input mt-2">{options.map((option) => <option key={option}>{option}</option>)}</select></label>; }
 function UploadBox({ label, selectedName, accept, onFile }: { label: string; selectedName?: string; accept: string; onFile: (file: File) => void }) { return <label className={`flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[11px] border border-dashed px-4 text-center transition-colors ${selectedName ? "border-green-500 bg-green-500/10" : "border-[#0066cc]"}`}><Subtitles size={26} className={`mb-3 ${selectedName ? "text-green-500" : "text-[#0066cc]"}`} /><span className="text-[14px] font-semibold">{label}</span>{selectedName ? <><span className="mt-2 max-w-full truncate text-[12px] font-semibold text-green-600 dark:text-green-400">✓ {selectedName}</span><span className="mt-1 text-[11px] text-[#7a7a7a]">Clique para substituir</span></> : <span className="mt-1 text-[12px] text-[#7a7a7a]">Clique para selecionar</span>}<input type="file" accept={accept} className="sr-only" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} /></label>; }

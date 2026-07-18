@@ -63,12 +63,27 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = locale;
     localizeTree(document.body, locale);
     let queued = false;
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((mutations) => {
+      // React reutiliza nós de texto entre renders. Quando o conteúdo muda,
+      // a nova string é a fonte correta; manter a fonte antiga fazia títulos
+      // como "Estilo" reaparecerem em todos os painéis do Studio.
+      for (const mutation of mutations) {
+        if (mutation.type === "characterData" && mutation.target instanceof Text) {
+          originalText.set(mutation.target, mutation.target.nodeValue ?? "");
+        }
+        if (mutation.type === "attributes" && mutation.target instanceof Element && mutation.attributeName) {
+          const current = mutation.target.getAttribute(mutation.attributeName);
+          if (current) {
+            if (!originalAttributes.has(mutation.target)) originalAttributes.set(mutation.target, new Map());
+            originalAttributes.get(mutation.target)!.set(mutation.attributeName, current);
+          }
+        }
+      }
       if (queued) return;
       queued = true;
-      requestAnimationFrame(() => { queued = false; observer.disconnect(); localizeTree(document.body, locale); observer.observe(document.body, { childList: true, subtree: true, characterData: true }); });
+      requestAnimationFrame(() => { queued = false; observer.disconnect(); localizeTree(document.body, locale); observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["placeholder", "title", "aria-label"] }); });
     });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["placeholder", "title", "aria-label"] });
     return () => observer.disconnect();
   }, [locale]);
   const value = useMemo<I18nValue>(() => ({ locale, setLocale, t: (key) => message(locale, key), currency: localeMeta[locale].currency }), [locale, setLocale]);

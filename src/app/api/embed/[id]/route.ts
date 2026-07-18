@@ -46,6 +46,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const config = playerConfig.config && typeof playerConfig.config === "object" ? { ...playerConfig.config } as Record<string, unknown> : {};
   if (Boolean(config.trafficEnabled)) {
+    const countryPolicy = String(config.allowedCountries || "Todos").trim().toLowerCase();
+    if (countryPolicy === "nenhum") return NextResponse.json({ error: "country_not_allowed" }, { status: 403 });
     const allowedCountries = csvValues(config.allowedCountries).filter((item) => item !== "todos");
     const country = (request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry") || "").toLowerCase();
     if (allowedCountries.length > 0 && (!country || !allowedCountries.includes(country))) return NextResponse.json({ error: "country_not_allowed" }, { status: 403 });
