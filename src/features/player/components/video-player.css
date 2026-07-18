@@ -13,7 +13,21 @@
   height: 100%;
   max-height: 72dvh;
   background: transparent;
-  object-fit: contain;
+  object-fit: cover;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* O skin não pode possuir um recorte próprio. Quem recorta é somente o quadro
+ * externo do Studio/Embed, que já usa a proporção nativa do arquivo. */
+.prisma-video-player :is(.media-default-skin, .media-player, .media-provider, .media-poster) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
 .prisma-video-player.prisma-player--embed video {
