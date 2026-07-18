@@ -12,8 +12,7 @@ Todos os arquivos exclusivos da landing page ficam em `public/marketing`.
 
 ## Arquivos atuais
 
-- `/marketing/mascot/prisma-rabbit.png`: imagem oficial do mascote com fundo transparente.
-- `/marketing/mascot/hero/prisma-rabbit-hero-draft.mp4`: primeira animação do hero. É um rascunho e não deve ser usado em produção porque o quadriculado foi renderizado dentro do vídeo.
+Os diretórios estão reservados, mas nenhum asset de mascote está publicado. O primeiro vídeo gerado foi removido porque era um rascunho com o quadriculado renderizado no próprio arquivo.
 
 ## Convenção
 
@@ -28,4 +27,3 @@ Quando o hero definitivo estiver pronto, use:
 
 - `prisma-rabbit-hero.webm`
 - `prisma-rabbit-hero-poster.webp`
-
