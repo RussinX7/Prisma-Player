@@ -131,13 +131,13 @@ export default function SignupPage() {
               />
               <span className="text-caption themeable-text-ink-muted-48 leading-relaxed">
                 Ao criar a conta, você aceita nossos{" "}
-                <a href="#" className="text-prisma-blue hover:underline">
+                <Link href="/terms" target="_blank" className="text-prisma-blue hover:underline">
                   Termos de Uso
-                </a>{" "}
+                </Link>{" "}
                 e{" "}
-                <a href="#" className="text-prisma-blue hover:underline">
+                <Link href="/privacy" target="_blank" className="text-prisma-blue hover:underline">
                   Política de Privacidade
-                </a>
+                </Link>
               </span>
             </label>
 

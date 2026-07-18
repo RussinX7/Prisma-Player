@@ -5,7 +5,7 @@ import EmbedPlayer from "./EmbedPlayer";
 
 interface Assignment { testId: string; variantId: string; videoId: string; playerId: string }
 
-export default function AbTestPlayer({ testId }: { testId: string }) {
+export default function AbTestPlayer({ testId, originToken }: { testId: string; originToken?: string }) {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -19,5 +19,5 @@ export default function AbTestPlayer({ testId }: { testId: string }) {
   if (failed) return <main className="grid min-h-dvh place-items-center bg-black text-sm text-white/70">Teste A/B indisponível.</main>;
   if (!assignment) return <main className="grid min-h-dvh place-items-center bg-black text-white/60"><span className="animate-pulse">Selecionando variante…</span></main>;
   const sessionId = localStorage.getItem(`prisma-ab-session:${testId}`)!;
-  return <EmbedPlayer playerId={assignment.playerId} tracking={{ testId, variantId: assignment.variantId, sessionId }} />;
+  return <EmbedPlayer playerId={assignment.playerId} originToken={originToken} tracking={{ testId, variantId: assignment.variantId, sessionId }} />;
 }

@@ -7,7 +7,7 @@ interface Payload { videoId: string; title: string; source: string; type: string
 
 interface Tracking { testId: string; variantId: string; sessionId: string }
 
-export default function EmbedPlayer({ playerId, tracking }: { playerId: string; tracking?: Tracking }) {
+export default function EmbedPlayer({ playerId, tracking, originToken }: { playerId: string; tracking?: Tracking; originToken?: string }) {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [error, setError] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
@@ -50,8 +50,9 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     let stored = trackingSessionId || window.localStorage.getItem(key);
     if (!stored) { stored = crypto.randomUUID(); window.localStorage.setItem(key, stored); }
     sessionId.current = stored;
-    const declaredSite = new URLSearchParams(window.location.search).get("site") ?? "";
-    fetch(`/api/embed/${encodeURIComponent(playerId)}?site=${encodeURIComponent(declaredSite || document.referrer)}`, { cache: "no-store" })
+    const params = new URLSearchParams();
+    if (originToken) params.set("originToken", originToken);
+    fetch(`/api/embed/${encodeURIComponent(playerId)}${params.size ? `?${params.toString()}` : ""}`, { cache: "no-store" })
       .then(async (response) => { if (!response.ok) throw new Error(String(response.status)); return response.json() as Promise<Payload>; })
       .then((data) => {
         const config = { ...data.config };
@@ -78,7 +79,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
         setPayload({ ...data, config });
       })
       .catch((reason: Error) => setError(reason.message === "403" ? "Este domínio não está autorizado a exibir o player." : "Player não encontrado ou ainda não publicado."));
-  }, [playerId, trackingSessionId]);
+  }, [originToken, playerId, trackingSessionId]);
 
   useEffect(() => {
     if (payload) trackAnalytics("impression");

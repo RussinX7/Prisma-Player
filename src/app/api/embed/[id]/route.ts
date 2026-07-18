@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { domainAllowed, trustedEmbedHostFromHeaders, verifyEmbedOriginToken } from "@/lib/security/embed-origin";
 import { signR2ReadUrl } from "@/lib/storage/r2";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function normalizeHost(value: string) {
-  try { return new URL(value).hostname.toLowerCase(); } catch { return ""; }
-}
-
-function domainAllowed(host: string, domains: string[]) {
-  if (domains.length === 0) return true;
-  return domains.some((domain) => {
-    const clean = domain.toLowerCase().replace(/^\*\./, "");
-    return host === clean || (domain.startsWith("*.") && host.endsWith(`.${clean}`));
-  });
-}
 
 function requestDevice(userAgent: string) {
   if (/ipad|tablet/i.test(userAgent)) return "tablet";
@@ -49,10 +38,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   if (!playerConfig) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
 
-  const requestedSite = new URL(request.url).searchParams.get("site") ?? "";
-  const host = normalizeHost(requestedSite || request.headers.get("referer") || request.headers.get("origin") || "");
+  const originToken = new URL(request.url).searchParams.get("originToken");
+  const verifiedOrigin = verifyEmbedOriginToken(originToken, playerConfig.id) || verifyEmbedOriginToken(originToken, id);
+  const host = verifiedOrigin?.host || trustedEmbedHostFromHeaders(request.headers);
   const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((domain) => domain.trim()).filter(Boolean) : [];
-  if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
+  if (domains.length > 0 && (!verifiedOrigin || !host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
   const config = playerConfig.config && typeof playerConfig.config === "object" ? { ...playerConfig.config } as Record<string, unknown> : {};
   if (Boolean(config.trafficEnabled)) {

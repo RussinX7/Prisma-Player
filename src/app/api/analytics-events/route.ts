@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
   const eventType = String(body?.eventType ?? "");
   const progressPercent = Number(body?.progressPercent ?? 0);
   if (!uuid.test(videoId) || !uuid.test(sessionId) || !events.has(eventType) || !milestones.has(progressPercent)) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
+  const limited = rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: 120, windowMs: 60_000 });
+  if (limited) return limited;
 
   const supabase = createAdminClient();
   const [{ data: video }, { data: player }] = await Promise.all([

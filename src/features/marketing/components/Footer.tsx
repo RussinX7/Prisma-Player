@@ -55,14 +55,18 @@ export default function Footer() {
               Legal
             </h4>
             <ul className="space-y-2">
-              {["Termos de Uso", "Política de Privacidade", "Canal de Denúncias"].map(
+              {[
+                { label: "Termos de Uso", href: "/terms" },
+                { label: "Política de Privacidade", href: "/privacy" },
+                { label: "Canal de Denúncias", href: "mailto:privacidade@prismaplayer.com.br" },
+              ].map(
                 (item) => (
-                  <li key={item}>
+                  <li key={item.label}>
                     <a
-                      href="#"
+                      href={item.href}
                       className="text-fine themeable-text-ink-muted-48 hover:text-prisma-blue transition-colors"
                     >
-                      {item}
+                      {item.label}
                     </a>
                   </li>
                 )
