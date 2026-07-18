@@ -7,6 +7,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { clientRateMessage, consumeClientAttempt } from "@/lib/security/client-rate-limit";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorMessage, oauthEnabled, withAuthTimeout } from "@/lib/supabase/auth-errors";
+import posthog from "posthog-js";
 
 function safeNext(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard/videos";
@@ -36,6 +37,11 @@ export default function LoginPage() {
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
       );
       if (authError) throw authError;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        posthog.identify(user.id, { email: user.email });
+        posthog.capture("user_logged_in", { method: "email" });
+      }
       router.replace(safeNext(new URLSearchParams(window.location.search).get("next")));
       router.refresh();
     } catch (authError) {
@@ -48,6 +54,7 @@ export default function LoginPage() {
   async function signInWith(provider: "google" | "apple") {
     if (!oauthEnabled(provider)) { setError(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
     try {
+      posthog.capture("user_logged_in", { method: provider });
       const supabase = createClient();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/videos` } });
       if (oauthError) throw oauthError;

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LoaderCircle } from "lucide-react";
+import posthog from "posthog-js";
 
 export default function WelcomeActions() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function WelcomeActions() {
     setLoading(action); setError("");
     const response = await fetch("/api/account/trial", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) });
     if (!response.ok) { setError("Nao foi possivel concluir agora. Tente novamente."); setLoading(null); return; }
+    if (action === "activate") posthog.capture("trial_activated");
     router.replace(action === "activate" ? "/dashboard/videos" : "/dashboard/billing"); router.refresh();
   }
   return <div className="mt-8 space-y-3">

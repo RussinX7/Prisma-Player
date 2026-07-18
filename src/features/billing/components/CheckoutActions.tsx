@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { CreditCard, LoaderCircle, QrCode } from "lucide-react";
+import posthog from "posthog-js";
 
 export default function CheckoutActions({ plan, change = "subscribe" }: { plan: string; change?: "subscribe" | "upgrade" | "downgrade" }) {
   const [loading, setLoading] = useState<"pix" | "card" | null>(null);
   const [error, setError] = useState("");
 
   async function checkout(method: "pix" | "card") {
+    posthog.capture("checkout_initiated", { plan, method, change });
     setLoading(method);
     setError("");
     const response = await fetch("/api/billing/checkout", {

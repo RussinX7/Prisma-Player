@@ -5,6 +5,7 @@ import { verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abaca
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
 import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
 import { cancelPreviousProviderSubscription, nextPeriodEnd } from "@/lib/billing/shared-activation";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 
@@ -120,6 +121,14 @@ export async function POST(request: Request) {
       if (newProviderSubscriptionId) subscriptionUpdate.provider_subscription_id = newProviderSubscriptionId;
       const saved = await admin.from("subscriptions").upsert(subscriptionUpdate, { onConflict: "user_id" });
       if (saved.error) throw new Error("subscription_save_failed");
+      const phClient = getPostHogClient();
+      const phEventName = event.event === "subscription.renewed" ? "subscription_renewed" : "subscription_activated";
+      phClient.capture({
+        distinctId: checkout.user_id,
+        event: phEventName,
+        properties: { plan_id: checkout.plan_id, billing_method: subscriptionUpdate.billing_method, webhook_event: event.event },
+      });
+      await phClient.flush();
     } else if (["checkout.refunded", "checkout.disputed", "checkout.lost"].includes(event.event)) {
       const status = event.event === "checkout.refunded" ? "refunded" : "disputed";
       await admin.from("billing_checkouts").update({ status, updated_at: now }).eq("id", checkout.id);
@@ -128,6 +137,13 @@ export async function POST(request: Request) {
       await admin.from("billing_checkouts").update({ status: "cancelled", updated_at: now }).eq("id", checkout.id);
       const cancelledProviderId = stringValue(subscriptionObject?.id);
       if (cancelledProviderId) await admin.from("subscriptions").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("user_id", checkout.user_id).eq("provider_subscription_id", cancelledProviderId);
+      const phClient = getPostHogClient();
+      phClient.capture({
+        distinctId: checkout.user_id,
+        event: "subscription_cancelled_server",
+        properties: { plan_id: checkout.plan_id, webhook_event: event.event },
+      });
+      await phClient.flush();
     } else {
       await admin.from("payment_webhook_events").update({ status: "ignored", processed_at: now }).eq("provider_event_id", providerEventId);
       return NextResponse.json({ ok: true, ignored: true });

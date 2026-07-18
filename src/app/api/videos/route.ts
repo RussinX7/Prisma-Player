@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { isR2Configured, r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r2";
 import { csrfGuard } from "@/lib/security/csrf";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function GET(request: Request) {
   const userId = await getCurrentUserId();
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
   const requestedStatus = body.status === "processing" ? "processing" : "ready";
   const { data, error } = await supabase.from("videos").insert({ user_id: userId, folder_id: typeof body.folderId === "string" ? body.folderId : null, title, object_path: body.objectPath, mime_type: mimeType, size_bytes: sizeBytes, status: requestedStatus, storage_provider: storageProvider }).select().single();
   if (error || !data) return NextResponse.json({ error: "video_create_failed" }, { status: 400 });
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "video_created",
+    properties: { storage_provider: storageProvider, mime_type: mimeType, size_bytes: sizeBytes, status: requestedStatus },
+  });
+  await posthog.flush();
   if (requestedStatus === "processing") return NextResponse.json({ video: data }, { status: 201, headers: { Location: `/api/videos/${data.id}` } });
   const { data: player, error: playerError } = await supabase.from("player_configs").insert({ user_id: userId, video_id: data.id, config: {}, allowed_domains: [], published: true }).select("id").single();
   if (playerError) return NextResponse.json({ video: data, warning: "player_create_failed" }, { status: 201 });

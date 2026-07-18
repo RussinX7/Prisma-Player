@@ -5,6 +5,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorMessage, oauthEnabled, withAuthTimeout } from "@/lib/supabase/auth-errors";
+import posthog from "posthog-js";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -27,6 +28,10 @@ export default function SignupPage() {
         supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/welcome` } }),
       );
       if (error) throw error;
+      if (data.user) {
+        posthog.identify(data.user.id, { email: data.user.email });
+        posthog.capture("user_signed_up", { method: "email" });
+      }
       setMessage(data.session ? "Conta criada. Redirecionando…" : "Cadastro recebido. Confira seu e-mail para confirmar a conta.");
       if (data.session) window.location.assign("/welcome");
     } catch (error) {
@@ -40,6 +45,7 @@ export default function SignupPage() {
   async function signUpWith(provider: "google" | "apple") {
     if (!oauthEnabled(provider)) { setMessage(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
     try {
+      posthog.capture("user_signed_up", { method: provider });
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/welcome` } });
       if (error) throw error;

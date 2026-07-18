@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
+import posthog from "posthog-js";
 
 export default function CancelSubscriptionButton() {
   const [loading, setLoading] = useState(false);
@@ -10,7 +11,10 @@ export default function CancelSubscriptionButton() {
     setLoading(true);
     const response = await fetch("/api/billing/cancel", { method: "POST" });
     setLoading(false);
-    if (response.ok) window.location.reload(); else window.alert("Nao foi possivel cancelar agora.");
+    if (response.ok) {
+      posthog.capture("subscription_cancelled");
+      window.location.reload();
+    } else window.alert("Nao foi possivel cancelar agora.");
   }
   return <button onClick={cancel} disabled={loading} className="flex min-h-11 items-center gap-2 rounded-full border border-red-500/30 px-5 text-[13px] font-semibold text-red-500 disabled:opacity-60">{loading && <LoaderCircle size={16} className="animate-spin" />}Cancelar assinatura</button>;
 }
