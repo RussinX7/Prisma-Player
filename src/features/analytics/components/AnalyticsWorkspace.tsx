@@ -9,7 +9,10 @@ import {
   Download,
   Funnel,
   Globe2,
+  History,
   Lightbulb,
+  Maximize2,
+  Minimize2,
   MonitorSmartphone,
   Radio,
   RefreshCw,
@@ -55,6 +58,7 @@ type AiResult = {
   experiments: { element: string; hypothesis: string; successMetric: string }[];
   warnings: string[];
 };
+type AiConversation = { id: string; title: string; question: string; result: AiResult; createdAt: string };
 
 const tabs = [
   { id: "overview", label: "Visão geral", icon: BarChart3 },
@@ -180,6 +184,16 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [aiBalance, setAiBalance] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [aiFullscreen, setAiFullscreen] = useState(false);
+  const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
+  const [aiConversations, setAiConversations] = useState<AiConversation[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(`prisma-ai-conversations:${videoId}`) ?? "[]") as AiConversation[];
+      setAiConversations(Array.isArray(stored) ? stored.slice(0, 30) : []);
+    } catch { setAiConversations([]); }
+  }, [videoId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -247,6 +261,12 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       return;
     }
     setAiResult(payload.result);
+    const conversation: AiConversation = { id: crypto.randomUUID(), title: payload.result.headline || aiQuestion.slice(0, 54), question: aiQuestion.trim(), result: payload.result, createdAt: new Date().toISOString() };
+    setAiConversations((current) => {
+      const next = [conversation, ...current].slice(0, 30);
+      localStorage.setItem(`prisma-ai-conversations:${videoId}`, JSON.stringify(next));
+      return next;
+    });
     setAiBalance(typeof payload.balance === "number" ? payload.balance : null);
   }
 
@@ -486,15 +506,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       </div>
 
       <div className={`fixed inset-0 z-40 bg-black/18 transition-opacity lg:bg-transparent ${aiOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
-      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-[440px] flex-col border-l bg-white shadow-2xl transition-transform duration-300 themeable-border-hairline dark:bg-[#070709] ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
+      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l bg-white shadow-2xl transition-[transform,max-width] duration-300 themeable-border-hairline dark:bg-[#070709] ${aiFullscreen ? "max-w-none" : "max-w-[480px]"} ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex min-h-16 items-center justify-between border-b px-5 themeable-border-hairline">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-prisma-blue">Prisma IA</p>
             <h2 className="text-[17px] font-semibold themeable-text-ink">Nova conversa</h2>
           </div>
-          <button onClick={() => setAiOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Fechar Ask IA">
-            <X size={18} />
-          </button>
+          <div className="relative flex items-center gap-1"><button onClick={() => setAiHistoryOpen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Histórico de conversas"><History size={18} /></button><button onClick={() => setAiFullscreen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label={aiFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}>{aiFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button><button onClick={() => setAiOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Fechar Ask IA"><X size={18} /></button>{aiHistoryOpen && <div className="absolute right-0 top-12 z-20 w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-[18px] border bg-white p-2 shadow-2xl themeable-border-hairline dark:bg-[#151518]"><div className="flex items-center justify-between px-3 py-2"><strong className="text-[13px] themeable-text-ink">Histórico</strong><span className="text-[11px] themeable-text-ink-muted-48">{aiConversations.length} conversas</span></div><div className="max-h-[55dvh] space-y-1 overflow-y-auto">{aiConversations.length === 0 ? <p className="px-3 py-6 text-center text-[12px] themeable-text-ink-muted-48">Suas análises aparecerão aqui.</p> : aiConversations.map((conversation) => <button key={conversation.id} type="button" onClick={() => { setAiQuestion(conversation.question); setAiResult(conversation.result); setAiHistoryOpen(false); }} className="block w-full rounded-[12px] px-3 py-2 text-left hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]"><span className="block truncate text-[12px] font-semibold themeable-text-ink">{conversation.title}</span><span className="mt-1 block truncate text-[11px] themeable-text-ink-muted-48">{conversation.question}</span></button>)}</div></div>}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle,#d8dee8_1px,transparent_1px)] p-5 [background-size:18px_18px] dark:bg-[radial-gradient(circle,rgba(255,255,255,0.12)_1px,transparent_1px)]">

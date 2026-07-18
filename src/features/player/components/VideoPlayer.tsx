@@ -19,6 +19,7 @@ export default function VideoPlayer({
   playbackRate = 1,
   bigPlayButton = true,
   pauseWhenHidden = false,
+  protectContent,
   onTimeUpdate,
   onLoadedMetadata,
   onEnded,
@@ -33,6 +34,7 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const mediaRef = useRef<HTMLVideoElement>(null);
   const source = sources[0];
+  const contentProtection = protectContent ?? (className.includes("prisma-player--embed") && !className.includes("prisma-player--unprotected"));
   const visibilityClasses = useMemo(() => [
     !controls && "prisma-player--controls-hidden",
     !bigPlayButton && "prisma-player--big-play-hidden",
@@ -99,10 +101,10 @@ export default function VideoPlayer({
             muted={muted}
             loop={loop}
             playsInline
-            controlsList="nodownload noremoteplayback"
+            controlsList={contentProtection ? "nodownload noremoteplayback" : undefined}
             disablePictureInPicture={controlVisibility?.pictureInPictureToggle === false}
-            onContextMenu={(event) => event.preventDefault()}
-            draggable={false}
+            onContextMenu={(event) => { if (contentProtection) event.preventDefault(); }}
+            draggable={!contentProtection}
             preload="metadata"
             crossOrigin="anonymous"
             onLoadedMetadata={(event) => {

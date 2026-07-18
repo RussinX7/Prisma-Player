@@ -22,6 +22,7 @@ export interface VideoPlayerProps {
   playbackRates?: number[];
   bigPlayButton?: boolean;
   pauseWhenHidden?: boolean;
+  protectContent?: boolean;
   textTracks?: VideoTextTrack[];
   onTimeUpdate?: (currentTime: number) => void;
   onLoadedMetadata?: (metadata: { duration: number; width: number; height: number }) => void;

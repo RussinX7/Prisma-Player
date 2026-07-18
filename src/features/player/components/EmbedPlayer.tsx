@@ -53,7 +53,30 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
     const declaredSite = new URLSearchParams(window.location.search).get("site") ?? "";
     fetch(`/api/embed/${encodeURIComponent(playerId)}?site=${encodeURIComponent(declaredSite || document.referrer)}`, { cache: "no-store" })
       .then(async (response) => { if (!response.ok) throw new Error(String(response.status)); return response.json() as Promise<Payload>; })
-      .then(setPayload)
+      .then((data) => {
+        const config = { ...data.config };
+        const variants = Array.isArray(config.headlineVariants) ? config.headlineVariants.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+        if (config.headlineFormat !== "image" && variants.length > 0) {
+          const choices = [String(config.headline || ""), ...variants].filter(Boolean);
+          const assignmentKey = `prisma-headline:${data.videoId}`;
+          const stored = Number(localStorage.getItem(assignmentKey));
+          const index = Number.isInteger(stored) && stored >= 0 && stored < choices.length ? stored : Math.floor(Math.random() * choices.length);
+          localStorage.setItem(assignmentKey, String(index));
+          config.headline = choices[index];
+          config.headlineVariantIndex = index;
+        }
+        if (config.turboMode === "automatic") {
+          const minimum = Math.max(0.9, Math.min(1.5, Number(config.turboMin ?? 1)));
+          const maximum = Math.max(minimum, Math.min(1.5, Number(config.turboMax ?? 1.2)));
+          const assignmentKey = `prisma-turbo:${data.videoId}`;
+          const stored = Number(localStorage.getItem(assignmentKey));
+          const steps = Math.max(0, Math.round((maximum - minimum) * 10));
+          const selected = Number.isFinite(stored) && stored >= minimum && stored <= maximum ? stored : Number((minimum + Math.floor(Math.random() * (steps + 1)) / 10).toFixed(1));
+          localStorage.setItem(assignmentKey, String(selected));
+          config.playbackRate = selected;
+        }
+        setPayload({ ...data, config });
+      })
       .catch((reason: Error) => setError(reason.message === "403" ? "Este domínio não está autorizado a exibir o player." : "Player não encontrado ou ainda não publicado."));
   }, [playerId, trackingSessionId]);
 
@@ -81,6 +104,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   }, [payload, trackingSessionId, trackingTestId, trackingVariantId]);
 
   useEffect(() => {
+    if (!payload || payload.config.antiDownload === false) return;
     const blockContext = (event: MouseEvent) => event.preventDefault();
     const blockDrag = (event: DragEvent) => event.preventDefault();
     const blockShortcuts = (event: KeyboardEvent) => {
@@ -98,7 +122,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
       document.removeEventListener("dragstart", blockDrag);
       document.removeEventListener("keydown", blockShortcuts, true);
     };
-  }, []);
+  }, [payload]);
 
   useEffect(() => {
     if (window.parent === window) return;
@@ -148,7 +172,7 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const smartAutoplay = Boolean(c.smartAutoplay);
   const resumeEnabled = Boolean(c.resumeEnabled);
   const thumbnailEnabled = Boolean(c.thumbnailEnabled);
-  const playerClasses = `prisma-player--embed ${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.seekBackward === true ? "" : "prisma-player--seek-back-hidden"} ${c.seekForward === true ? "" : "prisma-player--seek-forward-hidden"} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
+  const playerClasses = `prisma-player--embed ${c.antiDownload === false ? "prisma-player--unprotected" : ""} ${Boolean(c.smartProgress) ? "prisma-player--smart-progress" : ""} ${c.playPause === false ? "prisma-player--play-pause-hidden" : ""} ${c.seekBackward === true ? "" : "prisma-player--seek-back-hidden"} ${c.seekForward === true ? "" : "prisma-player--seek-forward-hidden"} ${c.fullscreenDesktop === false ? "prisma-player--fullscreen-desktop-hidden" : ""} ${c.fullscreenMobile === false ? "prisma-player--fullscreen-mobile-hidden" : ""}`;
 
   const configuredRatio = Number(c.aspectRatio);
   const initialRatio = Number.isFinite(configuredRatio) && configuredRatio > 0 ? configuredRatio : 16 / 9;
@@ -158,9 +182,9 @@ export default function EmbedPlayer({ playerId, tracking }: { playerId: string; 
   const hookRemaining = Math.max(0, Math.ceil(Number(c.miniHookStart ?? 0) + Number(c.miniHookDuration ?? 6) - currentTime));
   const hookText = String(c.miniHookText || "Continue assistindo").replace("{mm:ss}", `${Math.floor(hookRemaining / 60)}:${String(hookRemaining % 60).padStart(2, "0")}`);
 
-  return <main data-prisma-embed className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => event.preventDefault()}>
+  return <main data-prisma-embed className="flex min-h-0 select-none justify-center bg-transparent" onContextMenu={(event) => { if (c.antiDownload !== false) event.preventDefault(); }}>
     <div className="w-full" style={responsiveStyle}>
-      {Boolean(c.headlineEnabled) && <h1 className="mb-4 px-4 py-3 font-semibold leading-tight" style={{ color: String(c.headlineColor ?? "#1d1d1f"), backgroundColor: String(c.headlineBackground ?? "#ffffff"), fontSize: `clamp(16px,4vw,${Number(c.headlineSize ?? 30)}px)`, textAlign: String(c.headlineAlign ?? "center") as CSSProperties["textAlign"], borderRadius: `${Math.min(Number(c.radius ?? 0), 16)}px` }}>{String(c.headline ?? "")}</h1>}
+      {Boolean(c.headlineEnabled) && (c.headlineFormat === "image" && (assetUrls.headlineDesktop || assetUrls.headlineMobile) ? <picture className="mb-4 block w-full"><source media="(max-width: 767px)" srcSet={assetUrls.headlineMobile || assetUrls.headlineDesktop} /><img src={assetUrls.headlineDesktop || assetUrls.headlineMobile} alt="" draggable={false} className="block h-auto w-full object-contain" /></picture> : <h1 className="mb-4 px-4 py-3 font-semibold leading-tight" style={{ color: String(c.headlineColor ?? "#1d1d1f"), backgroundColor: String(c.headlineBackground ?? "#ffffff"), fontSize: `clamp(16px,4vw,${Number(c.headlineSize ?? 30)}px)`, textAlign: String(c.headlineAlign ?? "center") as CSSProperties["textAlign"], borderRadius: `${Math.min(Number(c.radius ?? 0), 16)}px` }}>{String(c.headline ?? "")}</h1>)}
       <div className="relative w-full overflow-hidden bg-transparent" style={{ borderRadius: `${Number(c.radius ?? 0)}px`, aspectRatio: String(videoRatio ?? initialRatio) }}>
         <VideoPlayer className={playerClasses} sources={[{ src: payload.source, type: payload.type }]} poster={thumbnailEnabled && !smartAutoplay ? assetUrls.thumbnailStart : undefined} textTracks={Boolean(c.captionsEnabled) && assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: String(c.captionName || "Legendas"), srclang: "pt-BR", default: true }] : []} autoplay={smartAutoplay && resumeChecked && resumePoint === null && !autoplayActivated} muted={Boolean(c.muted) || (smartAutoplay && !autoplayActivated)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} onPlay={() => { track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); setThumbnailOverlay(null); }} onPause={() => { if (thumbnailEnabled && assetUrls.thumbnailPause && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onEnded={() => { track("complete", 100, duration); trackAnalytics("complete", 100, duration); if (!Boolean(c.loop)) localStorage.removeItem(resumeStorageKey); if (thumbnailEnabled && assetUrls.thumbnailEnd) setThumbnailOverlay("end"); }} onTimeUpdate={(time) => { setCurrentTime(time); if (resumeEnabled && time > 0) localStorage.setItem(resumeStorageKey, String(Math.floor(time))); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => { setDuration(metadata.duration); if (metadata.width > 0 && metadata.height > 0) setVideoRatio(metadata.width / metadata.height); if (resumeEnabled) { const saved = Number(localStorage.getItem(resumeStorageKey)); if (Number.isFinite(saved) && saved >= 5 && saved < metadata.duration - 5) setResumePoint(saved); } setResumeChecked(true); }} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
         {resumePoint !== null && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{String(c.resumeMessage || "Você já começou a assistir este vídeo")}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); setResumePlaybackSignal((value) => value + 1); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); setAutoplayActivated(true); setRestartWithSoundSignal((value) => value + 1); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
