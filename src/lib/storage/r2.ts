@@ -11,6 +11,49 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+type R2ErrorShape = Error & {
+  Code?: string;
+  code?: string;
+  $metadata?: { httpStatusCode?: number; requestId?: string };
+};
+
+export function describeR2Error(error: unknown) {
+  const candidate = error as R2ErrorShape;
+  const providerCode = String(candidate?.Code || candidate?.code || candidate?.name || "unknown");
+  const normalized = providerCode.toLowerCase();
+  const internalMessage = String(candidate?.message || "");
+  let code = "r2_operation_failed";
+  let message = "O R2 recusou a operação. Confira as credenciais e a configuração do bucket.";
+
+  if (internalMessage.startsWith("invalid_cloudflare_r2_")) {
+    code = "r2_invalid_configuration";
+    message = "Uma variável CLOUDFLARE_R2 está ausente, contém quebra de linha ou usa um endpoint inválido.";
+  } else if (["accessdenied", "forbidden"].includes(normalized)) {
+    code = "r2_access_denied";
+    message = "O token do R2 não tem permissão Object Read & Write neste bucket.";
+  } else if (["invalidaccesskeyid", "signaturedoesnotmatch", "invalidtoken", "invalidsignatureexception"].includes(normalized)) {
+    code = "r2_invalid_credentials";
+    message = "Access Key ID ou Secret Access Key do R2 inválidos. Não use o valor do API Token como credencial S3.";
+  } else if (normalized === "nosuchbucket") {
+    code = "r2_bucket_not_found";
+    message = "O bucket configurado não existe nesta conta do Cloudflare R2.";
+  } else if (["permanentredirect", "authorizationheadermalformed", "illegallocationconstraintexception"].includes(normalized)) {
+    code = "r2_endpoint_mismatch";
+    message = "O endpoint não corresponde à conta ou à jurisdição do bucket R2.";
+  } else if (["timeouterror", "networkingerror", "enotfound", "econnrefused"].includes(normalized) || candidate?.message === "fetch failed") {
+    code = "r2_unreachable";
+    message = "Não foi possível alcançar o endpoint S3 do Cloudflare R2.";
+  }
+
+  return {
+    code,
+    message,
+    providerCode,
+    status: candidate?.$metadata?.httpStatusCode,
+    requestId: candidate?.$metadata?.requestId,
+  };
+}
+
 function endpoint() {
   const configured = process.env.CLOUDFLARE_R2_ENDPOINT?.trim();
   if (!configured) return `https://${required("CLOUDFLARE_R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`;

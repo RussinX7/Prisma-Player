@@ -91,8 +91,8 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
           const initResponse = await fetch(`/api/videos/${video.id}/multipart`, {
             method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create" }),
           });
-          const init = await initResponse.json() as { uploadId?: string; partSize?: number; error?: string };
-          if (!initResponse.ok || !init.uploadId || !init.partSize) throw new Error(init.error || "Não foi possível iniciar o upload no R2.");
+          const init = await initResponse.json() as { uploadId?: string; partSize?: number; error?: string; message?: string };
+          if (!initResponse.ok || !init.uploadId || !init.partSize) throw new Error(init.message || init.error || "Não foi possível iniciar o upload no R2.");
           uploadId = init.uploadId;
           const partCount = Math.ceil(file.size / init.partSize);
           const completed: Array<{ etag: string; partNumber: number }> = [];
@@ -107,8 +107,8 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
               const signResponse = await fetch(`/api/videos/${video.id}/multipart`, {
                 method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sign", uploadId, partNumber }),
               });
-              const signed = await signResponse.json() as { url?: string; error?: string };
-              if (!signResponse.ok || !signed.url) throw new Error(signed.error || "Falha ao autorizar uma parte do upload.");
+              const signed = await signResponse.json() as { url?: string; error?: string; message?: string };
+              if (!signResponse.ok || !signed.url) throw new Error(signed.message || signed.error || "Falha ao autorizar uma parte do upload.");
               const uploadResponse = await fetch(signed.url, { method: "PUT", body: file.slice(start, end) });
               const etag = uploadResponse.headers.get("etag");
               if (!uploadResponse.ok || !etag) throw new Error("O R2 não confirmou uma parte do arquivo. Confira o CORS do bucket.");
@@ -123,8 +123,8 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
             method: "POST", headers: { "content-type": "application/json" },
             body: JSON.stringify({ action: "complete", uploadId, parts: completed, durationSeconds: duration || null }),
           });
-          const complete = await completeResponse.json().catch(() => null) as { error?: string } | null;
-          if (!completeResponse.ok) throw new Error(complete?.error || "O arquivo chegou ao R2, mas não foi publicado.");
+          const complete = await completeResponse.json().catch(() => null) as { error?: string; message?: string } | null;
+          if (!completeResponse.ok) throw new Error(complete?.message || complete?.error || "O arquivo chegou ao R2, mas não foi publicado.");
           updateTask(video.id, { progress: 100, state: "completed" });
         } catch (error) {
           if (uploadId) await fetch(`/api/videos/${video.id}/multipart`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "abort", uploadId }) }).catch(() => undefined);

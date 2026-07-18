@@ -14,6 +14,8 @@
 1. Em **R2 Object Storage**, crie o bucket `prisma-videos` na classe **Standard**.
 2. Mantenha **Public Development URL (r2.dev) desativada**.
 3. Em **Manage R2 API Tokens**, crie um token **Object Read & Write**, limitado somente ao bucket.
+   - Copie especificamente **Access Key ID** e **Secret Access Key** exibidos ao criar o token.
+   - O valor chamado apenas de **API Token** não substitui essas duas credenciais S3.
 4. Em **Bucket > Settings > CORS**, aplique:
 
 ```json
@@ -45,6 +47,8 @@ R2_MAX_UPLOAD_BYTES=21474836480
 Configure nos ambientes necessários e faça um novo deploy. Nunca use `NEXT_PUBLIC_` nessas credenciais.
 
 O endpoint padrão tem o formato `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` e já é montado pela aplicação. Preencha `CLOUDFLARE_R2_ENDPOINT` somente quando o bucket estiver vinculado a uma jurisdição específica, como União Europeia. Não use o endpoint público `r2.dev` neste campo.
+
+Depois de alterar qualquer variável na Vercel, faça um novo deploy. Confirme também que `CLOUDFLARE_R2_BUCKET` é exatamente o nome do bucket e que o token foi limitado a esse mesmo bucket.
 
 ## Banco e produção
 

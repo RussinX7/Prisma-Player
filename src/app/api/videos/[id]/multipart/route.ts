@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
-import { abortR2MultipartUpload, completeR2MultipartUpload, createR2MultipartUpload, signR2UploadPart } from "@/lib/storage/r2";
+import { abortR2MultipartUpload, completeR2MultipartUpload, createR2MultipartUpload, describeR2Error, signR2UploadPart } from "@/lib/storage/r2";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -47,7 +47,15 @@ export async function POST(request: Request, { params }: Context) {
     }
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
   } catch (error) {
-    console.error("r2 multipart operation failed", { action, videoId: id, message: error instanceof Error ? error.message : "unknown" });
-    return NextResponse.json({ error: "r2_operation_failed" }, { status: 502 });
+    const diagnostic = describeR2Error(error);
+    console.error("r2 multipart operation failed", {
+      action,
+      videoId: id,
+      code: diagnostic.providerCode,
+      status: diagnostic.status,
+      requestId: diagnostic.requestId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return NextResponse.json({ error: diagnostic.code, message: diagnostic.message }, { status: 502 });
   }
 }
