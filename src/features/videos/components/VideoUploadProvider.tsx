@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import * as tus from "tus-js-client";
 import { createClient } from "@/lib/supabase/client";
 import { getSupabaseUrl } from "@/lib/supabase/env";
+import posthog from "posthog-js";
 
 export interface VideoUploadTask {
   videoId: string;
@@ -125,9 +126,11 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
           });
           const complete = await completeResponse.json().catch(() => null) as { error?: string; message?: string } | null;
           if (!completeResponse.ok) throw new Error(complete?.message || complete?.error || "O arquivo chegou ao R2, mas não foi publicado.");
+          posthog.capture("video_upload_completed", { storage_provider: "r2", file_name: file.name, size_bytes: file.size });
           updateTask(video.id, { progress: 100, state: "completed" });
         } catch (error) {
           if (uploadId) await fetch(`/api/videos/${video.id}/multipart`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "abort", uploadId }) }).catch(() => undefined);
+          posthog.capture("video_upload_failed", { storage_provider: "r2", file_name: file.name, size_bytes: file.size, error: error instanceof Error ? error.message : "unknown" });
           updateTask(video.id, { state: "failed", error: error instanceof Error ? error.message : "Falha no envio ao R2." });
         } finally {
           notifyVideosChanged();
@@ -166,11 +169,17 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ status: "ready", durationSeconds: duration || null }),
         });
-        updateTask(video.id, finalize.ok ? { progress: 100, state: "completed" } : { state: "failed", error: "O arquivo chegou ao Storage, mas não foi publicado." });
+        if (finalize.ok) {
+          posthog.capture("video_upload_completed", { storage_provider: "supabase", file_name: file.name, size_bytes: file.size });
+          updateTask(video.id, { progress: 100, state: "completed" });
+        } else {
+          updateTask(video.id, { state: "failed", error: "O arquivo chegou ao Storage, mas não foi publicado." });
+        }
         notifyVideosChanged();
       },
       async onError(error) {
         activeUploads.current.delete(video.id);
+        posthog.capture("video_upload_failed", { storage_provider: "supabase", file_name: file.name, size_bytes: file.size, error: error.message || "unknown" });
         updateTask(video.id, { state: "failed", error: error.message || "Falha no envio." });
         await fetch(`/api/videos/${video.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "failed" }) });
         notifyVideosChanged();
