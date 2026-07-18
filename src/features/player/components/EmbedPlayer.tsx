@@ -7,6 +7,24 @@ interface Payload { videoId: string; title: string; source: string; type: string
 
 interface Tracking { testId: string; variantId: string; sessionId: string }
 
+const EMBED_ERROR_MESSAGES: Record<string, string> = {
+  domain_not_allowed: "Este vídeo não pode ser reproduzido neste domínio.",
+  country_not_allowed: "Este vídeo não está disponível no seu país.",
+  device_not_allowed: "Este vídeo não está disponível neste dispositivo.",
+  language_not_allowed: "Este vídeo não está disponível para o idioma do seu navegador.",
+  player_not_found: "Este vídeo não foi encontrado ou ainda não foi publicado.",
+  video_not_found: "Este vídeo não está disponível no momento.",
+  player_lookup_failed: "Não foi possível consultar este vídeo agora. Tente novamente em instantes.",
+  source_unavailable: "Não foi possível carregar o vídeo agora. Tente novamente em instantes.",
+};
+
+function embedErrorMessage(code: string, status: number): string {
+  if (EMBED_ERROR_MESSAGES[code]) return EMBED_ERROR_MESSAGES[code];
+  if (status === 403) return "Este vídeo não está disponível para este acesso.";
+  if (status >= 500) return "O player está temporariamente indisponível. Tente novamente em instantes.";
+  return "Este vídeo não foi encontrado ou ainda não foi publicado.";
+}
+
 export default function EmbedPlayer({ playerId, tracking, originToken }: { playerId: string; tracking?: Tracking; originToken?: string }) {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [error, setError] = useState("");
@@ -53,7 +71,12 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     const params = new URLSearchParams();
     if (originToken) params.set("originToken", originToken);
     fetch(`/api/embed/${encodeURIComponent(playerId)}${params.size ? `?${params.toString()}` : ""}`, { cache: "no-store" })
-      .then(async (response) => { if (!response.ok) throw new Error(String(response.status)); return response.json() as Promise<Payload>; })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null) as (Payload & { error?: string }) | null;
+        if (!response.ok) throw new Error(embedErrorMessage(data?.error ?? "", response.status));
+        if (!data) throw new Error(embedErrorMessage("", response.status));
+        return data;
+      })
       .then((data) => {
         const config = { ...data.config };
         const variants = Array.isArray(config.headlineVariants) ? config.headlineVariants.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
@@ -78,7 +101,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         }
         setPayload({ ...data, config });
       })
-      .catch((reason: Error) => setError(reason.message === "403" ? "Este domínio não está autorizado a exibir o player." : "Player não encontrado ou ainda não publicado."));
+      .catch((reason: Error) => setError(reason.message));
   }, [originToken, playerId, trackingSessionId]);
 
   useEffect(() => {
@@ -167,7 +190,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     cta.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [currentTime, payload]);
 
-  if (error) return <main className="grid min-h-dvh place-items-center bg-transparent p-6 text-center text-sm text-[#7a7a7a]">{error}</main>;
+  if (error) return <main className="grid min-h-dvh place-items-center bg-transparent p-6 text-center text-[#6e6e73]"><section role="alert" className="max-w-sm"><h1 className="mb-2 text-base font-semibold text-[#1d1d1f]">Reprodução indisponível</h1><p className="text-sm leading-6">{error}</p></section></main>;
   if (!payload) return <main className="grid min-h-dvh place-items-center bg-transparent text-[#7a7a7a]"><span className="animate-pulse">Carregando player…</span></main>;
 
   const c = payload.config;

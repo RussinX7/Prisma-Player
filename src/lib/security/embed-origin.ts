@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { safeLog } from "@/lib/utils/log";
 
 const TOKEN_VERSION = "v1";
 const DEFAULT_MAX_AGE_SECONDS = 10 * 60;
@@ -61,6 +62,24 @@ export function createEmbedOriginToken(input: { playerId: string; host: string; 
   }));
   const signature = sign(payload);
   return `${payload}.${signature}`;
+}
+
+/**
+ * Creates the short-lived origin token used by the embed without allowing a
+ * missing production secret to crash the whole iframe during server render.
+ *
+ * Returning an empty token does not bypass domain protection: the embed API
+ * rejects protected players when the token cannot be verified.
+ */
+export function createEmbedOriginTokenSafely(input: { playerId: string; host: string; maxAgeSeconds?: number }): string {
+  try {
+    return createEmbedOriginToken(input);
+  } catch (error) {
+    safeLog("embed_origin_token_unavailable", {
+      reason: error instanceof Error ? error.message : "unknown_error",
+    });
+    return "";
+  }
 }
 
 export function verifyEmbedOriginToken(token: string | null | undefined, playerId: string): { host: string } | null {
