@@ -184,7 +184,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [aiBalance, setAiBalance] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiFullscreen, setAiFullscreen] = useState(false);
+  const [aiFullscreen, setAiFullscreen] = useState(true);
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
   const [aiConversations, setAiConversations] = useState<AiConversation[]>([]);
 
@@ -515,8 +515,8 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
           <div className="relative flex items-center gap-1"><button onClick={() => setAiHistoryOpen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Histórico de conversas"><History size={18} /></button><button onClick={() => setAiFullscreen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label={aiFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}>{aiFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button><button onClick={() => setAiOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]" aria-label="Fechar Ask IA"><X size={18} /></button>{aiHistoryOpen && <div className="absolute right-0 top-12 z-20 w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-[18px] border bg-white p-2 shadow-2xl themeable-border-hairline dark:bg-[#151518]"><div className="flex items-center justify-between px-3 py-2"><strong className="text-[13px] themeable-text-ink">Histórico</strong><span className="text-[11px] themeable-text-ink-muted-48">{aiConversations.length} conversas</span></div><div className="max-h-[55dvh] space-y-1 overflow-y-auto">{aiConversations.length === 0 ? <p className="px-3 py-6 text-center text-[12px] themeable-text-ink-muted-48">Suas análises aparecerão aqui.</p> : aiConversations.map((conversation) => <button key={conversation.id} type="button" onClick={() => { setAiQuestion(conversation.question); setAiResult(conversation.result); setAiHistoryOpen(false); }} className="block w-full rounded-[12px] px-3 py-2 text-left hover:bg-[#f5f5f7] dark:hover:bg-white/[0.06]"><span className="block truncate text-[12px] font-semibold themeable-text-ink">{conversation.title}</span><span className="mt-1 block truncate text-[11px] themeable-text-ink-muted-48">{conversation.question}</span></button>)}</div></div>}</div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle,#d8dee8_1px,transparent_1px)] p-5 [background-size:18px_18px] dark:bg-[radial-gradient(circle,rgba(255,255,255,0.12)_1px,transparent_1px)]">
-          <div className="rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+        <div className="flex-1 overflow-y-auto bg-[#f7f8fa] px-4 py-8 dark:bg-[#0b0b0d] sm:px-6">
+          <div className="mx-auto w-full max-w-3xl rounded-[24px] border bg-white p-5 themeable-border-hairline dark:bg-[#101014]">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-prisma-blue text-white"><Sparkles size={19} /></span>
               <div>
@@ -533,17 +533,17 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             </div>
           </div>
 
-          {aiError && <p className="mt-4 rounded-[18px] bg-red-500/10 p-3 text-[13px] text-red-600">{aiError}</p>}
+          {aiError && <p className="mx-auto mt-4 max-w-3xl rounded-[18px] bg-red-500/10 p-3 text-[13px] text-red-600">{aiError}</p>}
 
           {aiLoading && (
-            <div className="mt-4 rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
+            <div className="mx-auto mt-4 max-w-3xl rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
               <RefreshCw size={18} className="animate-spin text-prisma-blue" />
               <p className="mt-3 text-[14px] themeable-text-ink">Analisando retenção, funil e sinais de campanha...</p>
             </div>
           )}
 
           {aiResult && !aiLoading && (
-            <div className="mt-4 space-y-3">
+            <div className="mx-auto mt-4 max-w-3xl space-y-3">
               <article className="rounded-[24px] border bg-white p-4 themeable-border-hairline dark:bg-[#101014]">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-prisma-blue">{aiResult.headline}</p>
                 <p className="mt-2 text-[14px] leading-relaxed themeable-text-ink">{aiResult.executiveSummary}</p>
@@ -574,21 +574,25 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
           )}
         </div>
 
-        <div className="border-t bg-white p-4 themeable-border-hairline dark:bg-[#070709]">
-          <textarea
-            value={aiQuestion}
-            onChange={(event) => setAiQuestion(event.target.value.slice(0, 500))}
-            placeholder="Pergunte sobre retenção, CTA, headline, tráfego..."
-            className="min-h-24 w-full resize-none rounded-[20px] border bg-white p-3 text-[14px] outline-none focus:border-prisma-blue themeable-border-hairline themeable-text-ink dark:bg-white/[0.04]"
-          />
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-[12px] themeable-text-ink-muted-48">
-              {aiBalance !== null ? `${aiBalance} créditos` : `${500 - aiQuestion.length} caracteres`}
-            </p>
-            <button type="button" onClick={() => void askAi()} disabled={aiLoading || !aiQuestion.trim()} className="inline-flex h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
-              {aiLoading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />} Ask
-            </button>
+        <div className="border-t bg-white px-4 py-4 themeable-border-hairline dark:bg-[#070709] sm:px-6">
+          <div className="mx-auto w-full max-w-3xl rounded-[22px] border bg-white p-3 shadow-[0_8px_30px_rgba(0,46,110,.09)] transition-shadow focus-within:shadow-[0_12px_38px_rgba(0,102,204,.15)] themeable-border-hairline dark:bg-[#202024]">
+            <textarea
+              value={aiQuestion}
+              onChange={(event) => setAiQuestion(event.target.value.slice(0, 500))}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!aiLoading && aiQuestion.trim()) void askAi(); } }}
+              placeholder="Pergunte à Prisma IA sobre retenção, CTA, headline ou tráfego..."
+              rows={2}
+              className="max-h-40 min-h-14 w-full resize-none bg-transparent px-1 py-1 text-[15px] leading-relaxed outline-none themeable-text-ink placeholder:themeable-text-ink-muted-48"
+            />
+            <div className="mt-2 flex items-center gap-2">
+              <span className="inline-flex h-8 items-center gap-2 rounded-[10px] bg-prisma-blue/8 px-3 text-[12px] font-semibold text-prisma-blue"><Sparkles size={14} /> Especialista em VSL</span>
+              <span className="ml-auto text-[11px] themeable-text-ink-muted-48">{aiBalance !== null ? `${aiBalance} créditos` : `${500 - aiQuestion.length} caracteres`}</span>
+              <button type="button" onClick={() => void askAi()} disabled={aiLoading || !aiQuestion.trim()} aria-label="Enviar pergunta" className="grid h-9 w-9 place-items-center rounded-[12px] bg-prisma-blue text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35">
+                {aiLoading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
+            </div>
           </div>
+          <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] themeable-text-ink-muted-48">A Prisma IA usa apenas as métricas autorizadas desta VSL. Confirme decisões importantes antes de publicar.</p>
         </div>
       </aside>
     </main>

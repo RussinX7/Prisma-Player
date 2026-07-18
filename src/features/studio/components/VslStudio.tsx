@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Captions, Check, ChevronRight, Clock3, Code2, FastForward, Gauge, Globe2, Heading, ImageIcon, LockKeyhole, Maximize, MonitorPlay, MousePointerClick, Palette, PauseCircle, PictureInPicture2, Play, Radio, Rewind, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Volume2, Zap } from "lucide-react";
+import { ArrowLeft, Captions, Check, ChevronRight, Clock3, Code2, FastForward, Gauge, Globe2, Heading, ImageIcon, LockKeyhole, Maximize, MonitorPlay, MousePointerClick, Palette, PauseCircle, PictureInPicture2, Play, Radio, Rewind, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Volume2, X, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/features/player/components";
@@ -57,7 +57,7 @@ const initialConfig: StudioConfig = {
 export default function VslStudio() {
   const router = useRouter();
   const [video] = useState<StoredVideo | null>(() => { if (typeof window === "undefined") return null; try { return JSON.parse(sessionStorage.getItem("prisma-mvp-video") ?? "null") as StoredVideo | null; } catch { return null; } });
-  const [active, setActiveState] = useState<ModuleId | null>("style");
+  const [active, setActiveState] = useState<ModuleId | null>(null);
   const [config, setConfig] = useState<StudioConfig>(() => {
     if (typeof window === "undefined") return initialConfig;
     try { return { ...initialConfig, ...JSON.parse(localStorage.getItem("prisma-studio-config") ?? "{}") as Partial<StudioConfig> }; }
@@ -221,28 +221,53 @@ export default function VslStudio() {
     }
   }
 
-  return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
+  function handlePoster(file: File, kind: "start" | "pause" | "end") {
+    const nextUrl = URL.createObjectURL(file);
+    if (kind === "start") {
+      if (posterUrl) URL.revokeObjectURL(posterUrl);
+      setPosterUrl(nextUrl);
+      setPosterPreviewActive(true);
+      setAssetFiles((items) => ({ ...items, thumbnailStart: file }));
+    } else if (kind === "pause") {
+      if (pausePosterUrl) URL.revokeObjectURL(pausePosterUrl);
+      setPausePosterUrl(nextUrl);
+      setAssetFiles((items) => ({ ...items, thumbnailPause: file }));
+    } else {
+      if (endPosterUrl) URL.revokeObjectURL(endPosterUrl);
+      setEndPosterUrl(nextUrl);
+      setAssetFiles((items) => ({ ...items, thumbnailEnd: file }));
+    }
+  }
+
+  function handleCaption(file: File) {
+    if (captionTrack) URL.revokeObjectURL(captionTrack.src);
+    setCaptionTrack({ src: URL.createObjectURL(file), kind: "subtitles", label: file.name, srclang: "pt-BR", default: true });
+    setAssetFiles((items) => ({ ...items, captions: file }));
+  }
+
+  return <div className="h-dvh overflow-hidden bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#1d1d1f] dark:text-white">
     <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-4 border-b border-black/10 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-black/85 sm:px-6">
       <div className="flex min-w-0 items-center gap-4"><BrandLogo className="hidden h-8 w-[154px] sm:inline-block" /><div className="hidden h-7 w-px bg-black/10 dark:bg-white/10 sm:block" /><div className="min-w-0"><p className="text-[12px] text-[#7a7a7a]">Studio Prisma</p><h1 className="truncate text-[15px] font-semibold">{video?.name ?? "Personalizador de VSL"}</h1></div></div>
       <div className="flex shrink-0 items-center gap-2">{saveError && <span className="hidden text-[12px] text-red-500 md:inline">{saveError}</span>}{video?.id && <button type="button" onClick={() => void removeVsl()} disabled={deleting} title="Apagar VSL definitivamente" className="flex min-h-11 items-center gap-2 rounded-full px-3 text-red-500 hover:bg-red-500/10 disabled:opacity-40"><Trash2 size={17} /><span className="hidden xl:inline">{deleting ? "Apagando…" : "Apagar"}</span></button>}<button type="button" disabled={saving} onClick={() => void save().then((id) => { if (id) setEmbedOpen(true); else setSaveError("Não foi possível publicar o player."); })} className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-[14px] disabled:opacity-50 dark:border-white/15"><Code2 size={16} /><span className="hidden sm:inline">{saving ? "Publicando…" : "Embed"}</span></button><button type="button" onClick={() => void save()} className="flex min-h-11 items-center gap-2 rounded-full bg-[#0066cc] px-5 text-[14px] text-white">{saved ? <Check size={16} /> : <Save size={16} />}{saved ? "Salvo" : "Salvar"}</button></div>
     </header>
 
-    <div className="grid min-h-[calc(100dvh-64px)] lg:grid-cols-[76px_minmax(0,1fr)_340px] lg:grid-rows-[minmax(0,1fr)_190px]">
+    <div className="grid h-[calc(100dvh-64px)] min-h-0 grid-cols-1 grid-rows-[58px_minmax(0,1fr)_150px] overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)_340px] lg:grid-rows-[minmax(0,1fr)_180px]">
       <StudioToolRail active={active} config={config} onSelect={setActive} />
-      <aside className="order-3 border-b border-black/10 bg-white dark:border-white/10 dark:bg-[#272729] lg:border-b-0 lg:border-l">
-        <div className="sticky top-16 max-h-[calc(100dvh-64px)] overflow-y-auto p-3 sm:p-4">
-          {active ? <ModulePanel module={active} config={config} update={update} onBack={() => setActive(null)} onPoster={(file, kind) => { const nextUrl = URL.createObjectURL(file); if (kind === "start") { if (posterUrl) URL.revokeObjectURL(posterUrl); setPosterUrl(nextUrl); setPosterPreviewActive(true); setAssetFiles((items) => ({ ...items, thumbnailStart: file })); } else if (kind === "pause") { if (pausePosterUrl) URL.revokeObjectURL(pausePosterUrl); setPausePosterUrl(nextUrl); setAssetFiles((items) => ({ ...items, thumbnailPause: file })); } else { if (endPosterUrl) URL.revokeObjectURL(endPosterUrl); setEndPosterUrl(nextUrl); setAssetFiles((items) => ({ ...items, thumbnailEnd: file })); } }} onCaption={(file) => { if (captionTrack) URL.revokeObjectURL(captionTrack.src); setCaptionTrack({ src: URL.createObjectURL(file), kind: "subtitles", label: file.name, srclang: "pt-BR", default: true }); setAssetFiles((items) => ({ ...items, captions: file })); }} /> : <>
-            <Link href="/dashboard/videos" className="mb-3 flex min-h-11 items-center gap-2 px-3 text-[14px] text-[#0066cc]"><ArrowLeft size={16} />Voltar aos vídeos</Link>
-            <div className="mb-4 px-3"><h2 className="text-[20px] font-semibold">Personalização</h2><p className="mt-1 text-[13px] text-[#7a7a7a] dark:text-[#a1a1a6]">Escolha um módulo para configurar.</p></div>
-            <nav className="space-y-1">{modules.map((item) => { const enabled = item.status ? Boolean(config[item.status]) : undefined; return <button key={item.id} type="button" onClick={() => setActive(item.id)} className="flex min-h-12 w-full items-center gap-3 rounded-[11px] px-3 text-left transition-colors hover:bg-[#f5f5f7] dark:hover:bg-[#2a2a2c]"><item.icon size={18} className="text-[#0066cc] dark:text-[#2997ff]" /><span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{item.label}</span>{item.badge && <span className="rounded bg-[#0066cc] px-1.5 py-0.5 text-[9px] text-white">{item.badge}</span>}{enabled !== undefined && <span className={`text-[11px] font-semibold ${enabled ? "text-green-500" : "text-red-500"}`}>{enabled ? "On" : "Off"}</span>}<ChevronRight size={15} className="text-[#7a7a7a]" /></button>; })}</nav>
-          </>}
+      <aside className="order-3 hidden min-h-0 overflow-hidden border-l border-black/10 bg-white dark:border-white/10 dark:bg-[#272729] lg:block">
+        <div className="h-full overflow-y-auto overscroll-contain p-4">
+          <ModulePanel module={active ?? "style"} config={config} update={update} onPoster={handlePoster} onCaption={handleCaption} />
         </div>
       </aside>
 
-      <main className="order-2 flex min-w-0 flex-col bg-[#f5f5f7] p-4 text-[#1d1d1f] dark:bg-black dark:text-white sm:p-6 lg:p-8">
+      {active && <aside className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden bg-white/98 backdrop-blur-xl dark:bg-[#1d1d1f]/98 lg:hidden">
+        <div className="flex h-14 items-center justify-between border-b border-black/10 px-4 dark:border-white/10"><strong className="text-[14px]">Configurar {modules.find((item) => item.id === active)?.label}</strong><button type="button" onClick={() => setActiveState(null)} className="grid h-10 w-10 place-items-center rounded-full bg-black/5 dark:bg-white/10" aria-label="Fechar configurações"><X size={18} /></button></div>
+        <div className="h-[calc(100%-56px)] overflow-y-auto overscroll-contain p-4"><ModulePanel module={active} config={config} update={update} onPoster={handlePoster} onCaption={handleCaption} /></div>
+      </aside>}
+
+      <main className="order-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#f5f5f7] p-3 text-[#1d1d1f] dark:bg-black dark:text-white sm:p-4 lg:p-5">
         <div className="mb-4 flex items-center justify-between"><div><p className="text-[12px] text-black/50 dark:text-white/50">Prévia ao vivo</p><p className="text-[14px] font-semibold">{active ? modules.find((item) => item.id === active)?.label : "Visão geral"}</p></div><span className="rounded-full bg-black/5 px-3 py-2 text-[12px] dark:bg-white/10">{config.playbackRate.toFixed(2)}x</span></div>
-        <div className="flex flex-1 items-center justify-center overflow-hidden bg-transparent p-4 sm:p-8">
-          <div className="w-full">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-2 sm:p-3">
+          <div className="max-h-full w-full overflow-auto">
             {config.headlineEnabled && (config.headlineFormat === "image" && (headlineDesktopUrl || headlineMobileUrl) ? <picture className="mx-auto mb-4 block max-w-2xl"><source media="(max-width: 767px)" srcSet={headlineMobileUrl || headlineDesktopUrl} /><img src={headlineDesktopUrl || headlineMobileUrl} alt="Prévia da headline" className="block h-auto w-full object-contain" /></picture> : <h2 className="mx-auto mb-4 max-w-2xl px-4 py-3 font-semibold leading-tight" style={{ color: config.headlineColor, backgroundColor: config.headlineBackground, fontSize: `${config.headlineSize}px`, textAlign: config.headlineAlign, borderRadius: `${Math.min(config.radius, 16)}px` }}>{config.headline}</h2>)}
             {video ? <div style={previewStyle} className="relative mx-auto max-h-[62dvh] overflow-hidden"><VideoPlayer key={`${posterUrl ?? "video-without-poster"}-${config.smartAutoplay}-${active === "thumbnail"}`} className={`${config.smartProgress ? "prisma-player--smart-progress" : ""} ${config.playPause ? "" : "prisma-player--play-pause-hidden"} ${config.fullscreenDesktop ? "" : "prisma-player--fullscreen-desktop-hidden"} ${config.fullscreenMobile ? "" : "prisma-player--fullscreen-mobile-hidden"}`} sources={sources} poster={config.thumbnailEnabled && !config.smartAutoplay ? posterUrl : undefined} textTracks={config.captionsEnabled && captionTrack ? [captionTrack] : []} autoplay={config.smartAutoplay && resumePoint === null && !posterPreviewActive} muted={config.muted || (config.smartAutoplay && !autoplayActivated)} controls playbackRate={config.playbackRate} playbackRates={rates} loop={config.loop} bigPlayButton={config.bigPlay} pauseWhenHidden={config.smartPause} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} controlVisibility={controlVisibility} onLoadedMetadata={handleMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => { if (config.thumbnailEnabled && pausePosterUrl && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onPlay={() => setThumbnailOverlay(null)} onEnded={() => { if (!config.loop) localStorage.removeItem(resumeStorageKey); if (config.thumbnailEnabled && endPosterUrl) setThumbnailOverlay("end"); }} />
               {resumePoint !== null && <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-5 text-center text-white backdrop-blur-sm"><div><p className="mb-4 text-[16px] font-semibold">{config.resumeMessage}</p><div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setStartTime(resumePoint); setResumePoint(null); setAutoplayActivated(true); }} className="min-h-11 rounded-full bg-white px-5 text-[13px] font-semibold text-black">Continuar em {Math.floor(resumePoint / 60)}:{String(Math.floor(resumePoint % 60)).padStart(2, "0")}</button><button type="button" onClick={() => { localStorage.removeItem(resumeStorageKey); setStartTime(0); setResumePoint(null); }} className="min-h-11 rounded-full border border-white/30 px-5 text-[13px] font-semibold">Assistir do início</button></div></div></div>}
@@ -291,12 +316,12 @@ function EmbedDialog({ open, onClose, playerId, ratio }: { open: boolean; onClos
 }
 
 function StudioToolRail({ active, config, onSelect }: { active: ModuleId | null; config: StudioConfig; onSelect: (module: ModuleId) => void }) {
-  return <aside className="order-1 z-20 flex gap-1 overflow-x-auto border-b border-black/10 bg-white p-2 dark:border-white/10 dark:bg-[#171719] lg:row-start-1 lg:flex-col lg:overflow-x-hidden lg:border-b-0 lg:border-r">
-    <Link href="/dashboard/videos" title="Voltar aos vídeos" className="group mb-1 grid h-12 min-w-12 place-items-center rounded-[14px] text-[#515154] hover:bg-black/5 dark:text-[#a1a1a6] dark:hover:bg-white/5"><ArrowLeft size={19} className="transition-transform group-hover:-translate-x-1" /></Link>
+  return <aside className="order-1 z-20 flex min-h-0 gap-1 overflow-x-auto border-b border-black/10 bg-white p-2 dark:border-white/10 dark:bg-[#171719] lg:row-start-1 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:border-b-0 lg:border-r lg:p-3">
+    <Link href="/dashboard/videos" className="group mb-1 flex h-11 min-w-12 items-center gap-3 rounded-[12px] px-3 text-[#515154] hover:bg-black/5 dark:text-[#a1a1a6] dark:hover:bg-white/5"><ArrowLeft size={18} className="shrink-0 transition-transform group-hover:-translate-x-1" /><span className="hidden text-[13px] font-semibold lg:inline">Voltar aos vídeos</span></Link>
     {modules.map((item) => {
       const Icon = item.icon;
       const enabled = item.status ? Boolean(config[item.status]) : true;
-      return <button key={item.id} type="button" title={item.label} onClick={() => onSelect(item.id)} className={`group relative grid h-12 min-w-12 place-items-center rounded-[14px] transition ${active === item.id ? "bg-[#0066cc] text-white shadow-[0_8px_22px_rgba(0,102,204,.25)]" : "text-[#515154] hover:bg-black/5 dark:text-[#a1a1a6] dark:hover:bg-white/5"}`}><Icon size={20} strokeWidth={1.75} className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110" /><span className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-400" : "bg-[#c7c7cc]"}`} /><span className="pointer-events-none absolute left-[58px] z-50 hidden whitespace-nowrap rounded-lg bg-[#1d1d1f] px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-xl group-hover:lg:block">{item.label}</span></button>;
+      return <button key={item.id} type="button" title={item.label} onClick={() => onSelect(item.id)} className={`group relative flex h-11 min-w-12 items-center gap-3 rounded-[12px] px-3 transition ${active === item.id ? "bg-[#0066cc] text-white shadow-[0_8px_22px_rgba(0,102,204,.2)]" : "text-[#515154] hover:bg-black/5 dark:text-[#a1a1a6] dark:hover:bg-white/5"}`}><Icon size={18} strokeWidth={1.75} className="shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110" /><span className="hidden min-w-0 flex-1 truncate text-left text-[13px] font-semibold lg:block">{item.label}</span>{item.badge && <span className={`hidden rounded px-1.5 py-0.5 text-[9px] font-semibold lg:inline ${active === item.id ? "bg-white/20 text-white" : "bg-[#0066cc]/10 text-[#0066cc]"}`}>{item.badge}</span>}<span className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full lg:static lg:h-2 lg:w-2 ${enabled ? "bg-emerald-400" : "bg-[#c7c7cc]"}`} /></button>;
     })}
   </aside>;
 }
@@ -324,13 +349,13 @@ function StudioTimeline({ currentTime, duration, config, onSeek, onSelect }: { c
   </section>;
 }
 
-function ModulePanel({ module, config, update, onBack, onPoster, onCaption }: { module: ModuleId; config: StudioConfig; update: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void; onBack: () => void; onPoster: (file: File, kind: "start" | "pause" | "end") => void; onCaption: (file: File) => void }) {
+function ModulePanel({ module, config, update, onPoster, onCaption }: { module: ModuleId; config: StudioConfig; update: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void; onPoster: (file: File, kind: "start" | "pause" | "end") => void; onCaption: (file: File) => void }) {
   const definition = modules.find((item) => item.id === module)!;
   const Icon = definition.icon;
   const toggleStatus = (value: boolean) => {
     if (definition.status) update(definition.status, value as StudioConfig[typeof definition.status]);
   };
-  return <div><button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 text-[13px] text-[#0066cc] dark:text-[#2997ff]"><ArrowLeft size={15} />Voltar à personalização</button><div className="mb-5 flex items-center gap-3 border-b border-black/10 pb-5 dark:border-white/10"><Icon size={21} className="text-[#0066cc] dark:text-[#2997ff]" /><h2 className="text-[18px] font-semibold">{definition.label}</h2>{definition.status && <Switch checked={Boolean(config[definition.status])} onChange={toggleStatus} />}</div><div className="space-y-6">{renderPanel(module, config, update, onPoster, onCaption)}</div></div>;
+  return <div className="mx-auto w-full max-w-[310px]"><div className="mb-5 flex items-center gap-3 border-b border-black/10 pb-5 dark:border-white/10"><Icon size={21} className="shrink-0 text-[#0066cc] dark:text-[#2997ff]" /><h2 className="min-w-0 flex-1 truncate text-[18px] font-semibold">{definition.label}</h2>{definition.status && <Switch checked={Boolean(config[definition.status])} onChange={toggleStatus} />}</div><div className="space-y-6">{renderPanel(module, config, update, onPoster, onCaption)}</div></div>;
 }
 
 function renderPanel(module: ModuleId, c: StudioConfig, u: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void, onPoster: (file: File, kind: "start" | "pause" | "end") => void, onCaption: (file: File) => void) {

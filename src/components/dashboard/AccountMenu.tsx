@@ -4,17 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { LocaleFlag } from "@/i18n/flags";
+import { useI18n } from "@/i18n/I18nProvider";
+import type { AppLocale } from "@/i18n/types";
 
 const languages = [
-  { code: "pt-BR", label: "Português", flag: "🇧🇷" },
-  { code: "es", label: "Español", flag: "🇪🇸" },
-  { code: "en", label: "English", flag: "🇺🇸" },
-];
+  { code: "pt-BR", label: "Português" },
+  { code: "en-US", label: "English" },
+  { code: "es-ES", label: "Español" },
+] satisfies Array<{ code: AppLocale; label: string }>;
 
 export default function AccountMenu() {
   const [open, setOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
-  const [language, setLanguage] = useState("pt-BR");
+  const { locale, setLocale, t } = useI18n();
   const [profile, setProfile] = useState({ name: "Conta Prisma", email: "" });
   const [isAdmin, setIsAdmin] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,22 +66,22 @@ export default function AccountMenu() {
           <div className="border-t py-2 themeable-border-hairline">
             <button type="button" onClick={() => setLanguageOpen((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-[11px] px-3 text-left text-[14px] themeable-text-ink">
               <Languages size={17} className="text-prisma-blue" />
-              <span className="flex-1">Idioma</span>
+              <span className="flex-1">{t("language")}</span>
               <ChevronDown size={15} className={languageOpen ? "rotate-180" : ""} />
             </button>
             {languageOpen && (
               <div className="mt-1 rounded-[11px] themeable-bg-surface-pearl p-1">
                 {languages.map((item) => (
-                  <button key={item.code} type="button" onClick={() => setLanguage(item.code)} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-[14px] themeable-text-ink">
-                    <span>{item.flag}</span><span className="flex-1 text-left">{item.label}</span>{language === item.code && <Check size={16} className="text-prisma-blue" />}
+                  <button key={item.code} type="button" onClick={() => { setLocale(item.code); setLanguageOpen(false); }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-[14px] themeable-text-ink hover:bg-prisma-blue/10">
+                    <LocaleFlag locale={item.code} className="h-6 w-6" /><span className="flex-1 text-left">{item.label}</span>{locale === item.code && <Check size={16} className="text-prisma-blue" />}
                   </button>
                 ))}
               </div>
             )}
-            <Link href="/dashboard/settings" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Settings size={17} /><span>Conta</span></Link>
+            <Link href="/dashboard/settings" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Settings size={17} /><span>{t("account")}</span></Link>
             {isAdmin && <Link href="/admin" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><ShieldCheck size={17} className="text-prisma-blue" /><span>Administração</span></Link>}
           </div>
-          <button type="button" onClick={logout} className="flex min-h-11 w-full items-center gap-3 border-t px-3 pt-2 text-[14px] text-red-500 themeable-border-hairline"><LogOut size={17} /><span>Sair</span></button>
+          <button type="button" onClick={logout} className="flex min-h-11 w-full items-center gap-3 border-t px-3 pt-2 text-[14px] text-red-500 themeable-border-hairline"><LogOut size={17} /><span>{t("logout")}</span></button>
         </div>
       )}
     </div>

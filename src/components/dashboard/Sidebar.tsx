@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const menuItems = [
   { label: "Meus vídeos", href: "/dashboard/videos", icon: Video },
@@ -31,6 +32,7 @@ const menuItems = [
 ];
 
 export default function Sidebar({ collapsed = false, onCollapsedChange }: { collapsed?: boolean; onCollapsedChange?: (collapsed: boolean) => void }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasAccess, setHasAccess] = useState(true);
@@ -140,7 +142,7 @@ export default function Sidebar({ collapsed = false, onCollapsedChange }: { coll
             `}
           >
             <LifeBuoy size={20} className="flex-shrink-0" />
-            <span className={`text-[15px] font-semibold tracking-[-0.2px] ${collapsed ? "lg:hidden" : ""}`}>Ajuda</span>
+            <span className={`text-[15px] font-semibold tracking-[-0.2px] ${collapsed ? "lg:hidden" : ""}`}>{t("help")}</span>
           </Link>
         </div>
       </aside>
