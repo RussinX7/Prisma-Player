@@ -20,6 +20,7 @@ interface CreatedVideo {
   mime_type: string;
   status: "processing";
   created_at: string;
+  storage_provider: "supabase" | "r2";
 }
 
 interface VideoUploadContextValue {
@@ -82,6 +83,58 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
     const video = payload.video;
     setTasks((current) => [{ videoId: video.id, fileName: file.name, progress: 0, state: "uploading" }, ...current.filter((task) => task.videoId !== video.id)]);
     notifyVideosChanged();
+
+    if (video.storage_provider === "r2") {
+      void (async () => {
+        let uploadId = "";
+        try {
+          const initResponse = await fetch(`/api/videos/${video.id}/multipart`, {
+            method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create" }),
+          });
+          const init = await initResponse.json() as { uploadId?: string; partSize?: number; error?: string };
+          if (!initResponse.ok || !init.uploadId || !init.partSize) throw new Error(init.error || "Não foi possível iniciar o upload no R2.");
+          uploadId = init.uploadId;
+          const partCount = Math.ceil(file.size / init.partSize);
+          const completed: Array<{ etag: string; partNumber: number }> = [];
+          let nextPart = 1;
+          let uploadedBytes = 0;
+
+          const worker = async () => {
+            while (nextPart <= partCount) {
+              const partNumber = nextPart++;
+              const start = (partNumber - 1) * init.partSize!;
+              const end = Math.min(file.size, start + init.partSize!);
+              const signResponse = await fetch(`/api/videos/${video.id}/multipart`, {
+                method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sign", uploadId, partNumber }),
+              });
+              const signed = await signResponse.json() as { url?: string; error?: string };
+              if (!signResponse.ok || !signed.url) throw new Error(signed.error || "Falha ao autorizar uma parte do upload.");
+              const uploadResponse = await fetch(signed.url, { method: "PUT", body: file.slice(start, end) });
+              const etag = uploadResponse.headers.get("etag");
+              if (!uploadResponse.ok || !etag) throw new Error("O R2 não confirmou uma parte do arquivo. Confira o CORS do bucket.");
+              completed.push({ etag, partNumber });
+              uploadedBytes += end - start;
+              updateTask(video.id, { progress: Math.min(99, Math.round((uploadedBytes / file.size) * 100)) });
+            }
+          };
+          await Promise.all(Array.from({ length: Math.min(3, partCount) }, () => worker()));
+          const duration = await durationPromise;
+          const completeResponse = await fetch(`/api/videos/${video.id}/multipart`, {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "complete", uploadId, parts: completed, durationSeconds: duration || null }),
+          });
+          const complete = await completeResponse.json().catch(() => null) as { error?: string } | null;
+          if (!completeResponse.ok) throw new Error(complete?.error || "O arquivo chegou ao R2, mas não foi publicado.");
+          updateTask(video.id, { progress: 100, state: "completed" });
+        } catch (error) {
+          if (uploadId) await fetch(`/api/videos/${video.id}/multipart`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "abort", uploadId }) }).catch(() => undefined);
+          updateTask(video.id, { state: "failed", error: error instanceof Error ? error.message : "Falha no envio ao R2." });
+        } finally {
+          notifyVideosChanged();
+        }
+      })();
+      return video;
+    }
 
     const upload = new tus.Upload(file, {
       endpoint: storageEndpoint(),

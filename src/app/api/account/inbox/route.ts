@@ -18,3 +18,12 @@ export async function PATCH(request: Request) {
   const { error } = await createAdminClient().from("user_inbox").update({ read_at: new Date().toISOString() }).eq("id", body.id).eq("user_id", userId);
   return error ? NextResponse.json({ error: "inbox_update_failed" }, { status: 500 }) : NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const body = await request.json().catch(() => null) as { id?: unknown } | null;
+  if (typeof body?.id !== "string") return NextResponse.json({ error: "invalid_notification" }, { status: 400 });
+  const { error } = await createAdminClient().from("user_inbox").update({ dismissed_at: new Date().toISOString() }).eq("id", body.id).eq("user_id", userId);
+  return error ? NextResponse.json({ error: "inbox_delete_failed" }, { status: 500 }) : NextResponse.json({ ok: true });
+}

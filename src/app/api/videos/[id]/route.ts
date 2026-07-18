@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
+import { deleteR2Object } from "@/lib/storage/r2";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const userId = await getCurrentUserId();
@@ -40,7 +41,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await context.params;
   const supabase = await createClient();
-  const { data: video, error: videoError } = await supabase.from("videos").select("id,object_path").eq("id", id).eq("user_id", userId).maybeSingle();
+  const { data: video, error: videoError } = await supabase.from("videos").select("id,object_path,storage_provider").eq("id", id).eq("user_id", userId).maybeSingle();
   if (videoError || !video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
 
   const { data: playerConfig } = await supabase.from("player_configs").select("config").eq("video_id", id).eq("user_id", userId).maybeSingle();
@@ -51,8 +52,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const { error: assetError } = await supabase.storage.from("player-assets").remove(assets);
     if (assetError) return NextResponse.json({ error: "player_assets_delete_failed" }, { status: 500 });
   }
-  const { error: videoStorageError } = await supabase.storage.from("videos").remove([video.object_path]);
-  if (videoStorageError) return NextResponse.json({ error: "video_file_delete_failed" }, { status: 500 });
+  if (video.storage_provider === "r2") {
+    try { await deleteR2Object(video.object_path); } catch { return NextResponse.json({ error: "video_file_delete_failed" }, { status: 500 }); }
+  } else {
+    const { error: videoStorageError } = await supabase.storage.from("videos").remove([video.object_path]);
+    if (videoStorageError) return NextResponse.json({ error: "video_file_delete_failed" }, { status: 500 });
+  }
   const { error: deleteError } = await supabase.from("videos").delete().eq("id", id).eq("user_id", userId);
   return deleteError ? NextResponse.json({ error: "video_delete_failed" }, { status: 500 }) : NextResponse.json({ ok: true });
 }

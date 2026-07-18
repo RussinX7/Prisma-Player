@@ -63,39 +63,52 @@ function cleanElement(value: unknown): "headline" | "autoplay" | "cta" | "thumbn
     : "headline";
 }
 
-function normalizeResult(value: unknown): PrismaAiResult {
+function normalizedKey(value: string) {
+  return value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normalizeResult(value: unknown, input: AnalysisInput): PrismaAiResult {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const opportunities = Array.isArray(source.opportunities) ? source.opportunities : [];
   const experiments = Array.isArray(source.experiments) ? source.experiments : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings : [];
 
+  const enoughData = Number(input.summary.impressions ?? 0) >= 30 && Number(input.summary.plays ?? 0) >= 20;
+  const seenOpportunities = new Set<string>();
+  const cleanOpportunities = opportunities.flatMap((item) => {
+    const row = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const title = cleanText(row.title);
+    const evidence = cleanText(row.evidence);
+    const action = cleanText(row.action);
+    const key = normalizedKey(`${title} ${action}`);
+    if (!title || !evidence || !action || !/\d/.test(evidence) || seenOpportunities.has(key)) return [];
+    seenOpportunities.add(key);
+    return [{ priority: cleanPriority(row.priority), title, evidence, action }];
+  }).slice(0, 5);
+  const seenExperiments = new Set<string>();
+  const cleanExperiments = experiments.flatMap((item) => {
+    const row = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const element = cleanElement(row.element);
+    const hypothesis = cleanText(row.hypothesis);
+    const successMetric = cleanText(row.successMetric);
+    const key = `${element}:${normalizedKey(hypothesis)}`;
+    if (!hypothesis || !successMetric || seenExperiments.has(key) || [...seenExperiments].some((seen) => seen.startsWith(`${element}:`))) return [];
+    seenExperiments.add(key);
+    return [{ element, hypothesis, successMetric }];
+  }).slice(0, 4);
+
   return {
     headline: cleanText(source.headline, "Leitura da Prisma IA"),
     executiveSummary: cleanText(source.executiveSummary, "Nao encontrei dados suficientes para uma conclusao forte."),
-    opportunities: opportunities.slice(0, 5).map((item) => {
-      const row = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
-      return {
-        priority: cleanPriority(row.priority),
-        title: cleanText(row.title, "Oportunidade"),
-        evidence: cleanText(row.evidence, "Sem evidencia numerica suficiente."),
-        action: cleanText(row.action, "Colete mais dados antes de alterar a VSL."),
-      };
-    }),
-    experiments: experiments.slice(0, 4).map((item) => {
-      const row = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
-      return {
-        element: cleanElement(row.element),
-        hypothesis: cleanText(row.hypothesis, "Testar uma variacao controlada."),
-        successMetric: cleanText(row.successMetric, "Play rate e retencao."),
-      };
-    }),
+    opportunities: enoughData ? cleanOpportunities : [],
+    experiments: enoughData ? cleanExperiments : [],
     warnings: warnings.slice(0, 5).map((warning) => cleanText(warning)),
   };
 }
 
-function parseNvidiaResult(content: string) {
+function parseNvidiaResult(content: string, input: AnalysisInput) {
   try {
-    return normalizeResult(JSON.parse(content));
+    return normalizeResult(JSON.parse(content), input);
   } catch {
     throw new Error("nvidia_invalid_json");
   }
@@ -129,6 +142,9 @@ export async function analyzeWithNvidia(input: AnalysisInput): Promise<{ model: 
             "Se existir uma pergunta do usuario, responda ela diretamente dentro de executiveSummary, sem sair do escopo de VSL, metricas, retencao, conversao, testes e proximas acoes.",
             "Responda apenas JSON valido com headline, executiveSummary, opportunities, experiments e warnings.",
             "Limite-se a acoes praticas e cite evidencias numericas quando existirem. Nao prometa resultados.",
+            "Nunca repita oportunidades ou testes, nunca use placeholders e nunca gere cards genericos.",
+            "Com menos de 30 impressoes ou 20 plays, retorne opportunities e experiments vazios; use o resumo para explicar a insuficiencia e definir uma meta objetiva de coleta.",
+            "Cada oportunidade deve ter titulo unico, evidencia numerica real e uma acao especifica. Cada experimento deve usar um elemento diferente e declarar hipotese e metrica de sucesso completas.",
           ].join(" "),
         },
         { role: "user", content: `Metricas agregadas e nao confidenciais da VSL:\n${safeJson(input)}` },
@@ -142,5 +158,5 @@ export async function analyzeWithNvidia(input: AnalysisInput): Promise<{ model: 
   const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new Error("nvidia_empty_response");
 
-  return { model, result: parseNvidiaResult(content) };
+  return { model, result: parseNvidiaResult(content, input) };
 }

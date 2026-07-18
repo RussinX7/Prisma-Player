@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signR2ReadUrl } from "@/lib/storage/r2";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -42,10 +43,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((domain) => domain.trim()).filter(Boolean) : [];
   if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
-  const { data: video } = await supabase.from("videos").select("id,title,object_path,mime_type,user_id").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
+  const { data: video } = await supabase.from("videos").select("id,title,object_path,mime_type,user_id,storage_provider").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
-  const { data: signed, error } = await supabase.storage.from("videos").createSignedUrl(video.object_path, 900);
-  if (error || !signed) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });
+  const source = video.storage_provider === "r2"
+    ? await signR2ReadUrl(video.object_path, 6 * 60 * 60).catch(() => null)
+    : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 900)).data?.signedUrl ?? null;
+  if (!source) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });
 
   const config = playerConfig.config && typeof playerConfig.config === "object" ? { ...playerConfig.config } as Record<string, unknown> : {};
   if (Number(config.radius) === 12) config.radius = 0;
@@ -58,5 +61,5 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }));
   config.assetUrls = assetUrls;
 
-  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source: signed.signedUrl, type: video.mime_type, config }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
+  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
 }

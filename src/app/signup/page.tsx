@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
@@ -13,9 +13,12 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setMessage("");
     try {
@@ -29,6 +32,7 @@ export default function SignupPage() {
     } catch (error) {
       setMessage(getAuthErrorMessage(error, "Não foi possível criar a conta. Tente novamente."));
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -167,7 +171,7 @@ export default function SignupPage() {
                 "Criar conta gratuita"
               )}
             </button>
-            {message && <p role="status" className="text-center text-[13px] themeable-text-ink-muted-48">{message}</p>}
+            {message && <p role="status" aria-live="polite" className="text-center text-[13px] leading-relaxed themeable-text-ink-muted-48">{message}</p>}
           </form>
 
           <div className="relative my-8">

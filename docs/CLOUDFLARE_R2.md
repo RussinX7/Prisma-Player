@@ -1,0 +1,51 @@
+# Cloudflare R2 — vídeos da Prisma
+
+## Arquitetura
+
+- O bucket permanece privado.
+- O navegador envia partes de 25 MiB diretamente ao endpoint S3 do R2.
+- A API cria URLs pré-assinadas de 15 minutos; as chaves S3 nunca chegam ao cliente.
+- A reprodução usa uma URL GET temporária de seis horas para suportar VSLs longas e requisições HTTP Range tardias.
+- Vídeos antigos continuam no Supabase Storage por meio de `videos.storage_provider`.
+- Uploads incompletos são abortados pela aplicação e pelo lifecycle padrão do R2 após sete dias.
+
+## Configuração no Cloudflare
+
+1. Em **R2 Object Storage**, crie o bucket `prisma-videos` na classe **Standard**.
+2. Mantenha **Public Development URL (r2.dev) desativada**.
+3. Em **Manage R2 API Tokens**, crie um token **Object Read & Write**, limitado somente ao bucket.
+4. Em **Bucket > Settings > CORS**, aplique:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://prisma-player.vercel.app", "http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Remova `localhost` quando não for mais necessário. O `ETag` exposto é obrigatório para concluir o multipart.
+
+## Variáveis na Vercel
+
+```text
+CLOUDFLARE_R2_ACCOUNT_ID=
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET=prisma-videos
+R2_MAX_UPLOAD_BYTES=21474836480
+```
+
+Configure nos ambientes necessários e faça um novo deploy. Nunca use `NEXT_PUBLIC_` nessas credenciais.
+
+## Banco e produção
+
+- Execute `20260718000500_cloudflare_r2_video_storage.sql` antes do deploy.
+- Sem as quatro variáveis obrigatórias, a aplicação mantém o fallback do Supabase Storage.
+- Não use `r2.dev` em produção; ele possui rate limit.
+- Para VSLs, use Standard. Infrequent Access cobra recuperação e tem permanência mínima.
+- Monitore Storage, Class A e Class B. O egress é gratuito, mas armazenamento e operações não são.

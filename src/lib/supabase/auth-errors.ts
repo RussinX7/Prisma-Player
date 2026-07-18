@@ -4,6 +4,7 @@ export function getAuthErrorMessage(error: unknown, fallback: string) {
   if (message.includes("already registered") || message.includes("already been registered")) return "Este e-mail já possui uma conta. Faça login.";
   if (code === "user_already_exists" || code === "email_exists") return "Este e-mail já possui uma conta. Faça login.";
   if (message.includes("invalid login credentials")) return "E-mail ou senha inválidos.";
+  if (code === "over_email_send_rate_limit") return "O limite temporário de e-mails de confirmação foi atingido. Aguarde cerca de uma hora ou continue com Google.";
   if (message.includes("email rate limit") || code.includes("rate_limit")) return "Muitos cadastros foram solicitados. Aguarde alguns minutos e tente novamente.";
   if (message.includes("signup is disabled") || code === "signup_disabled") return "Novos cadastros estão temporariamente pausados.";
   if (message.includes("database error saving new user") || code === "unexpected_failure") return "O cadastro não foi concluído no banco. A correção já foi preparada; tente novamente após a atualização.";
