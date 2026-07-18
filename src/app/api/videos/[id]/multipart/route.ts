@@ -56,6 +56,6 @@ export async function POST(request: Request, { params }: Context) {
       requestId: diagnostic.requestId,
       message: error instanceof Error ? error.message : "unknown",
     });
-    return NextResponse.json({ error: diagnostic.code, message: diagnostic.message }, { status: 502 });
+    return NextResponse.json({ error: diagnostic.code }, { status: 502 });
   }
 }

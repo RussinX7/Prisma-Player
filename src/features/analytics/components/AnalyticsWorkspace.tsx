@@ -184,7 +184,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [aiBalance, setAiBalance] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiFullscreen, setAiFullscreen] = useState(true);
+  const [aiFullscreen, setAiFullscreen] = useState(false);
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
   const [aiConversations, setAiConversations] = useState<AiConversation[]>([]);
 
@@ -271,7 +271,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   }
 
   return (
-    <main className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050507] dark:text-white">
+    <main className={`min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] transition-[padding] duration-300 dark:bg-[#050507] dark:text-white ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""}`}>
       <header className="sticky top-0 z-30 border-b bg-white/92 px-3 py-2 backdrop-blur-xl themeable-border-hairline dark:bg-black/82 sm:px-5">
         <div className="mx-auto flex max-w-[1540px] flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2 text-[13px] themeable-text-ink-muted-48">
@@ -505,7 +505,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </section>
       </div>
 
-      <div className={`fixed inset-0 z-40 bg-black/18 transition-opacity lg:bg-transparent ${aiOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
+      <div className={`fixed inset-0 z-40 bg-black/18 transition-opacity ${aiOpen ? "pointer-events-auto opacity-100 xl:pointer-events-none xl:opacity-0" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
       <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l bg-white shadow-2xl transition-[transform,max-width] duration-300 themeable-border-hairline dark:bg-[#070709] ${aiFullscreen ? "max-w-none" : "max-w-[480px]"} ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex min-h-16 items-center justify-between border-b px-5 themeable-border-hairline">
           <div>

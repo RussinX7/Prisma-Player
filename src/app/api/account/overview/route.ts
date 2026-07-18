@@ -17,7 +17,10 @@ export async function GET() {
     getAccountAccess(userId),
   ]);
   const plan = Array.isArray(subscription.data?.plan) ? subscription.data.plan[0] : subscription.data?.plan;
-  const storageBytes = (storage.data ?? []).reduce((total, item) => total + Number(item.size_bytes ?? 0), 0);
+  const storageBytes = (storage.data ?? []).reduce((total, item) => {
+    const bytes = Number(item.size_bytes);
+    return total + (Number.isFinite(bytes) && bytes > 0 ? bytes : 0);
+  }, 0);
   const uniquePlays = new Set((plays.data ?? []).map((item) => item.session_id)).size;
   return NextResponse.json({
     access,

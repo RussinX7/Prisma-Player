@@ -74,7 +74,8 @@ function TeamPanel({ setMessage }: { setMessage: (value: string) => void }) {
 
 function OverviewPanel({ overview, profile }: { overview: Overview | null; profile: Profile | null }) {
   if (!overview) return <Skeleton />;
-  const storageGb = overview.usage.storageBytes / 1024 ** 3;
+  const rawStorageBytes = Number(overview.usage.storageBytes);
+  const storageGb = (Number.isFinite(rawStorageBytes) && rawStorageBytes > 0 ? rawStorageBytes : 0) / 1024 ** 3;
   const plan = overview.plan;
   const playPercent = plan?.included_plays ? overview.usage.plays / plan.included_plays * 100 : 0;
   const storagePercent = plan?.storage_gb ? storageGb / plan.storage_gb * 100 : 0;

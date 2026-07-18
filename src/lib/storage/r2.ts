@@ -77,6 +77,7 @@ function client() {
   return new S3Client({
     region: "auto",
     endpoint: endpoint(),
+    forcePathStyle: true,
     credentials: {
       accessKeyId: required("CLOUDFLARE_R2_ACCESS_KEY_ID"),
       secretAccessKey: required("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
@@ -95,7 +96,7 @@ export async function createR2MultipartUpload(key: string, contentType: string, 
 }
 
 export function signR2UploadPart(key: string, uploadId: string, partNumber: number) {
-  return getSignedUrl(client(), new UploadPartCommand({ Bucket: bucket(), Key: key, UploadId: uploadId, PartNumber: partNumber }), { expiresIn: 900 });
+  return getSignedUrl(client(), new UploadPartCommand({ Bucket: bucket(), Key: key, UploadId: uploadId, PartNumber: partNumber }), { expiresIn: 300 });
 }
 
 export async function completeR2MultipartUpload(key: string, uploadId: string, parts: Array<{ ETag: string; PartNumber: number }>) {

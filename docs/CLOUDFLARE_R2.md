@@ -32,6 +32,29 @@
 
 Remova `localhost` quando não for mais necessário. O `ETag` exposto é obrigatório para concluir o multipart.
 
+Use esta política no bucket que recebe uploads pelo navegador. A origem não pode
+conter barra no final nem caminho. Depois de salvar, aguarde até 30 segundos:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://prisma-player.vercel.app",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["Content-Type", "x-amz-checksum-crc32", "x-amz-sdk-checksum-algorithm"],
+    "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Um `OPTIONS 403` indica que a origem ou o método `PUT` não corresponde à regra
+do bucket. Os parâmetros `X-Amz-*`, `uploadId` e `partNumber` no Network são a
+autorização temporária normal do multipart; a Secret Access Key nunca é enviada
+ao navegador. As URLs de upload expiram em cinco minutos.
+
 ## Variáveis na Vercel
 
 ```text
