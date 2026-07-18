@@ -11,15 +11,15 @@ const inter = Inter({
   weight: ["300", "400", "600", "700"],
 });
 
-const siteUrl = "https://prismaplayer.com.br";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://prisma-player.vercel.app").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   title: {
-    default: "Prisma Player — O player de vídeo que transforma viewers em customers",
+    default: "Player de VSL para aumentar conversões | Prisma Player",
     template: "%s | Prisma Player",
   },
   description:
-    "Prisma Player é o player de vídeo focado em conversão. Aumente sua play rate, engajamento e vendas com recursos inteligentes como Headlines AI, Smart Autoplay e Turbo Playback.",
+    "Publique, personalize e otimize suas VSLs com analytics de retenção, testes A/B, proteção, automações e inteligência para aumentar conversões.",
   keywords: [
     "player de vídeo",
     "conversão de vendas",
@@ -30,20 +30,17 @@ export const metadata: Metadata = {
     "otimização de vídeo",
   ],
   metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
-    title: "Prisma Player — O player de vídeo que vende mais",
+    title: "Player de VSL para aumentar conversões | Prisma Player",
     description:
-      "Transforme qualquer vídeo em uma máquina de vendas. Teste grátis por 14 dias.",
+      "Analytics, testes A/B, proteção e inteligência para transformar sua VSL em uma operação de conversão.",
     url: siteUrl,
     siteName: "Prisma Player",
     locale: "pt_BR",
     type: "website",
     images: [
       {
-        url: "/assets/og-image.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Prisma Player",
@@ -52,10 +49,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Prisma Player — Vídeo que vende",
+    title: "Player de VSL para aumentar conversões | Prisma Player",
     description:
-      "Transforme qualquer vídeo em uma máquina de vendas. Teste grátis por 14 dias.",
-    images: ["/assets/og-image.png"],
+      "Analytics, testes A/B, proteção e inteligência para transformar sua VSL em uma operação de conversão.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
@@ -76,7 +73,6 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
       <head>
         <ThemeScript />
-        <link rel="canonical" href={siteUrl} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -87,7 +83,14 @@ export default function RootLayout({
               applicationCategory: "Multimedia",
               operatingSystem: "Web",
               description:
-                "Player de vídeo focado em conversão de vendas. Aumente play rate, engajamento e vendas.",
+                "Player de vídeo para publicar, personalizar, proteger e otimizar VSLs com dados de conversão.",
+              url: siteUrl,
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "BRL",
+                description: "Teste gratuito de 14 dias",
+              },
             }),
           }}
         />

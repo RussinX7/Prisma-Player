@@ -110,7 +110,15 @@ export default function VslStudio() {
   const lastPersistedSecond = useRef(-1);
   const injectedResumePreview = useRef(false);
   const previewRatio = videoSize.width > 0 && videoSize.height > 0 ? videoSize.width / videoSize.height : 16 / 9;
-  const previewStyle = { ...playerStyle, aspectRatio: `${videoSize.width} / ${videoSize.height}`, width: `min(100%, calc((100dvh - 390px) * ${previewRatio}))`, maxWidth: "680px", maxHeight: "100%" } as CSSProperties;
+  const portraitPreview = previewRatio < 0.9;
+  const previewStyle = {
+    ...playerStyle,
+    aspectRatio: `${videoSize.width} / ${videoSize.height}`,
+    width: portraitPreview ? "auto" : "min(100%, 720px)",
+    height: portraitPreview ? "min(100%, calc(100dvh - 350px))" : "auto",
+    maxWidth: "100%",
+    maxHeight: "100%",
+  } as CSSProperties;
   const actualProgress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   // Avança rapidamente no início e desacelera perto do fim, sem nunca concluir antes do vídeo.
   const smartProgress = actualProgress >= 1 ? 100 : Math.min(99.5, (1 - Math.pow(1 - actualProgress, 2.4)) * 100);

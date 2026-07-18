@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import MarketingLanding from "@/features/marketing/components/MarketingLanding";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   const userId = await getCurrentUserId();

@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import CheckoutResult from "@/features/billing/components/CheckoutResult";
 import { requireUser } from "@/lib/auth/server";
+
+export const metadata: Metadata = { title: "Resultado do pagamento", robots: { index: false, follow: false } };
 
 export default async function CheckoutResultPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   await requireUser("/checkout/result");

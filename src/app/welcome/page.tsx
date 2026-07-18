@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { PartyPopper, ShieldCheck, Sparkles } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import WelcomeActions from "@/features/access/components/WelcomeActions";
@@ -6,6 +7,7 @@ import { requireUser } from "@/lib/auth/server";
 import { getAccountAccess } from "@/lib/access/service";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Boas-vindas", robots: { index: false, follow: false } };
 export default async function WelcomePage() {
   const userId = await requireUser("/welcome");
   const access = await getAccountAccess(userId);

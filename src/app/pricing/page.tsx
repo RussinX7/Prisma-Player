@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Check, Info, Sparkles } from "lucide-react";
 import Nav from "@/features/marketing/components/Nav";
 import Footer from "@/features/marketing/components/Footer";
@@ -6,6 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { formatBRL, formatPlayOverage, formatStorageOverage, sharedFeatures, type BillingPlan } from "@/lib/billing/catalog";
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Planos e preços do player de VSL",
+  description: "Compare os planos Prisma Player e escolha a capacidade de plays, armazenamento e equipe ideal para sua operação de VSL.",
+  alternates: { canonical: "/pricing" },
+};
 export default async function PricingPage() {
   const [userId, supabase] = await Promise.all([getCurrentUserId(), createClient()]);
   const { data } = await supabase.from("billing_plans").select("*").eq("is_active", true).order("display_order"); const plans = (data ?? []) as BillingPlan[];

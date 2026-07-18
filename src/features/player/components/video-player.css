@@ -1,5 +1,7 @@
 .prisma-video-player {
   width: 100%;
+  height: 100%;
+  aspect-ratio: inherit;
   overflow: hidden;
   border-radius: inherit;
   background: transparent;
