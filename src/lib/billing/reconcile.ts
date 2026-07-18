@@ -1,8 +1,8 @@
 import "server-only";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abacateRequest } from "./abacatepay/client";
 import type { AbacateCheckout } from "./abacatepay/types";
+import { activateSubscription, cancelPreviousProviderSubscription } from "./shared-activation";
 
 type StoredCheckout = {
   id: string;
@@ -14,45 +14,28 @@ type StoredCheckout = {
   previous_provider_subscription_id?: string | null;
 };
 
-function nextPeriodEnd() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() + 1);
-  return date.toISOString();
-}
-
 export async function activatePaidCheckout(checkout: StoredCheckout, provider: AbacateCheckout) {
   const admin = createAdminClient();
   const now = new Date().toISOString();
-  const method = checkout.checkout_type === "pix" ? "pix" : "card";
-  const checkoutUpdate = await admin.from("billing_checkouts").update({
+
+  const { error: checkoutError } = await admin.from("billing_checkouts").update({
     status: "paid",
     paid_at: now,
     provider_checkout_id: provider.id,
     receipt_url: provider.receiptUrl ?? null,
     updated_at: now,
   }).eq("id", checkout.id).eq("user_id", checkout.user_id);
-  if (checkoutUpdate.error) throw new Error("billing_checkout_payment_save_failed");
+  if (checkoutError) throw new Error("billing_checkout_payment_save_failed");
 
+  await cancelPreviousProviderSubscription(
+    checkout.previous_provider_subscription_id,
+    provider.id,
+  );
   if (checkout.previous_provider_subscription_id && checkout.previous_provider_subscription_id !== provider.id) {
-    await abacateRequest("/subscriptions/cancel", {
-      method: "POST",
-      body: JSON.stringify({ id: checkout.previous_provider_subscription_id }),
-    });
     await admin.from("billing_checkouts").update({ previous_provider_subscription_id: null, updated_at: now }).eq("id", checkout.id);
   }
 
-  const subscriptionUpdate = await admin.from("subscriptions").upsert({
-    user_id: checkout.user_id,
-    plan_id: checkout.plan_id,
-    source_checkout_id: checkout.id,
-    billing_method: method,
-    status: "active",
-    current_period_start: now,
-    current_period_end: nextPeriodEnd(),
-    cancelled_at: null,
-    updated_at: now,
-  }, { onConflict: "user_id" });
-  if (subscriptionUpdate.error) throw new Error("subscription_save_failed");
+  await activateSubscription(checkout, provider.id);
 }
 
 export async function reconcileBillingCheckout(checkout: StoredCheckout) {

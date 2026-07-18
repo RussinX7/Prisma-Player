@@ -6,7 +6,7 @@ import { rateLimit } from "@/lib/security/rate-limit";
 export async function PATCH(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const limited = rateLimit(request, `account-password:${userId}`, { max: 5, windowMs: 10 * 60_000 });
+  const limited = await rateLimit(request, `account-password:${userId}`, { max: 5, windowMs: 10 * 60_000 });
   if (limited) return limited;
   const body = await request.json().catch(() => null) as { password?: unknown } | null;
   const password = typeof body?.password === "string" ? body.password : "";

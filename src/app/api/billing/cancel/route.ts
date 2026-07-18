@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abacateRequest } from "@/lib/billing/abacatepay/client";
+import { csrfGuard } from "@/lib/security/csrf";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const admin = createAdminClient();

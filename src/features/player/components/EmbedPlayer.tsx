@@ -133,7 +133,11 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     if (window.parent === window) return;
     const content = document.querySelector<HTMLElement>("main[data-prisma-embed]");
     if (!content) return;
-    const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.max(1, Math.ceil(content.getBoundingClientRect().height)) }, "*");
+    const targetOrigin = (() => {
+      try { return new URL(document.referrer || (window.parent !== window ? document.referrer : "")).origin || "*"; }
+      catch { return "*"; }
+    })();
+    const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.max(1, Math.ceil(content.getBoundingClientRect().height)) }, targetOrigin);
     const observer = new ResizeObserver(publishSize);
     observer.observe(content);
     publishSize();

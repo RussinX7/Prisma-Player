@@ -62,7 +62,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { data: video } = await supabase.from("videos").select("id,title,object_path,mime_type,user_id,storage_provider").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const source = video.storage_provider === "r2"
-    ? await signR2ReadUrl(video.object_path, 6 * 60 * 60).catch(() => null)
+    ? await signR2ReadUrl(video.object_path, 1800).catch(() => null)
     : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 900)).data?.signedUrl ?? null;
   if (!source) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });
 

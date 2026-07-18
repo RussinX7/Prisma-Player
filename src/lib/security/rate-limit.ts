@@ -1,34 +1,69 @@
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { SECURITY } from "@/lib/constants";
 
-type Bucket = { count: number; resetAt: number };
+let lastCleanup = 0;
 
-const buckets = new Map<string, Bucket>();
+async function cleanupExpired(): Promise<void> {
+  const now = Date.now();
+  if (now - lastCleanup < SECURITY.RATE_LIMIT_CLEANUP_INTERVAL_MS) return;
+  lastCleanup = now;
+  try {
+    const admin = createAdminClient();
+    await admin.rpc("cleanup_rate_limits");
+  } catch {
+  }
+}
 
-function clientIp(request: Request) {
+function clientIp(request: Request): string {
   return (request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown").split(",")[0].trim();
 }
 
-export function rateLimit(request: Request, scope: string, options: { max: number; windowMs: number }) {
+export async function rateLimit(
+  request: Request,
+  scope: string,
+  options: { max: number; windowMs: number }
+): Promise<NextResponse | null> {
+  await cleanupExpired();
+
   const now = Date.now();
   const key = `${scope}:${clientIp(request)}`;
-  const current = buckets.get(key);
+  const expiresAt = new Date(now + options.windowMs).toISOString();
 
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + options.windowMs });
+  try {
+    const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("rate_limits")
+      .select("count, expires_at")
+      .eq("key", key)
+      .maybeSingle();
+
+    if (!existing || new Date(existing.expires_at).getTime() <= now) {
+      await admin
+        .from("rate_limits")
+        .upsert({ key, count: 1, expires_at: expiresAt }, { onConflict: "key" });
+      return null;
+    }
+
+    const newCount = existing.count + 1;
+    await admin
+      .from("rate_limits")
+      .update({ count: newCount, expires_at: expiresAt })
+      .eq("key", key);
+
+    if (newCount <= options.max) return null;
+
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((new Date(existing.expires_at).getTime() - now) / 1000)),
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch {
     return null;
   }
-
-  current.count += 1;
-  if (current.count <= options.max) return null;
-
-  return NextResponse.json(
-    { error: "rate_limited" },
-    {
-      status: 429,
-      headers: {
-        "retry-after": String(Math.ceil((current.resetAt - now) / 1000)),
-        "cache-control": "no-store",
-      },
-    },
-  );
 }

@@ -3,8 +3,11 @@ import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAiCreditCheckout } from "@/lib/billing/ai-credits";
 import { AbacatePayError } from "@/lib/billing/abacatepay/client";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function POST(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId(); if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as { product?: unknown } | null;
   if (typeof body?.product !== "string") return NextResponse.json({ error: "invalid_product" }, { status: 400 });

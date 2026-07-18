@@ -22,7 +22,7 @@ type UiKey = keyof typeof uiMessages["pt-BR"];
 export function message(locale: AppLocale, key: UiKey) { return uiMessages[locale][key]; }
 
 const en: Record<string, string> = {
-  "R$ 97": "$19", "R$ 197": "$39", "R$ 397": "$79", "R$ 97": "$19", "R$ 197": "$39", "R$ 397": "$79",
+  "R$ 97": "$19", "R$ 197": "$39", "R$ 397": "$79",
   "Idioma": "Language", "Conta": "Account", "Administração": "Administration", "Sair": "Sign out",
   "Meus vídeos": "My videos", "Testes A/B": "A/B tests", "Segurança": "Security", "Conversões": "Conversions",
   "Inteligência": "Intelligence", "Configurações": "Settings", "Plano": "Plan", "Ajuda": "Help",
@@ -51,7 +51,7 @@ const en: Record<string, string> = {
 };
 
 const es: Record<string, string> = {
-  "R$ 97": "18 €", "R$ 197": "36 €", "R$ 397": "72 €", "R$ 97": "18 €", "R$ 197": "36 €", "R$ 397": "72 €",
+  "R$ 97": "18 €", "R$ 197": "36 €", "R$ 397": "72 €",
   "Idioma": "Idioma", "Conta": "Cuenta", "Administração": "Administración", "Sair": "Cerrar sesión",
   "Meus vídeos": "Mis videos", "Testes A/B": "Pruebas A/B", "Segurança": "Seguridad", "Conversões": "Conversiones",
   "Inteligência": "Inteligencia", "Configurações": "Configuración", "Plano": "Plan", "Ajuda": "Ayuda",

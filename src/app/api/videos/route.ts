@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { isR2Configured, r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r2";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function GET(request: Request) {
   const userId = await getCurrentUserId();
@@ -36,6 +37,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;

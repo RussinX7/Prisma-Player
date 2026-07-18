@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const progressPercent = Number(body?.progressPercent ?? 0);
   const watchedSeconds = Math.max(0, Math.min(Number(body?.watchedSeconds ?? 0), 86400));
   if (![testId, variantId, sessionId].every((id) => uuid.test(id)) || !allowedEvents.has(eventType) || ![0, 25, 50, 75, 100].includes(progressPercent)) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
-  const limited = rateLimit(request, `ab:${testId}:${variantId}:${sessionId}`, { max: 120, windowMs: 60_000 });
+  const limited = await rateLimit(request, `ab:${testId}:${variantId}:${sessionId}`, { max: 120, windowMs: 60_000 });
   if (limited) return limited;
   const supabase = createAdminClient();
   const { data: variant } = await supabase.from("ab_test_variants").select("user_id,video_id,test_id").eq("id", variantId).eq("test_id", testId).maybeSingle();

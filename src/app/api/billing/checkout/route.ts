@@ -4,8 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createBillingCheckout } from "@/lib/billing/service";
 import type { BillingPlan } from "@/lib/billing/catalog";
 import { AbacatePayError } from "@/lib/billing/abacatepay/client";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function POST(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

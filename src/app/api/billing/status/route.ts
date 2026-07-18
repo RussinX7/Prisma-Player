@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcileBillingCheckout } from "@/lib/billing/reconcile";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function GET(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const checkoutId = new URL(request.url).searchParams.get("checkout");

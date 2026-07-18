@@ -41,8 +41,7 @@ export async function POST(request: Request, { params }: Context) {
       if (Number(head.ContentLength) !== Number(video.size_bytes)) return NextResponse.json({ error: "uploaded_size_mismatch" }, { status: 409 });
       const durationSeconds = Number(body?.durationSeconds);
       await supabase.from("videos").update({ status: "ready", duration_seconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null }).eq("id", id).eq("user_id", userId);
-      const { data: existing } = await supabase.from("player_configs").select("id").eq("video_id", id).maybeSingle();
-      if (!existing) await supabase.from("player_configs").insert({ user_id: userId, video_id: id, config: {}, allowed_domains: [], published: true });
+      await supabase.from("player_configs").upsert({ user_id: userId, video_id: id, config: {}, allowed_domains: [], published: true }, { onConflict: "video_id", ignoreDuplicates: true });
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { csrfGuard } from "@/lib/security/csrf";
 
 const frequencies = new Set(["daily", "weekly", "monthly"]);
 const providers = new Set(["meta", "google", "tiktok", "kwai"]);
@@ -32,6 +33,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -77,6 +80,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as { action?: string } | null;

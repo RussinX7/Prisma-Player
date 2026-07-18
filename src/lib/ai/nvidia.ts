@@ -1,8 +1,8 @@
 import "server-only";
+import { AI } from "@/lib/constants";
 
 const DEFAULT_CHAT_MODEL = "z-ai/glm-5.2";
 const DEFAULT_CHAT_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MAX_OUTPUT_TOKENS = 1800;
 
 const SECRET_PATTERNS = [
   /sb_secret_[a-z0-9_\-]+/gi,
@@ -42,7 +42,7 @@ export type PrismaAiResult = {
 function redactSecrets(value: string) {
   return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, "[redacted]"), value)
     .replace(/[<>]/g, "")
-    .slice(0, 12000);
+    .slice(0, AI.REDACT_TEXT_LIMIT);
 }
 
 function safeJson(value: unknown) {
@@ -127,7 +127,7 @@ export async function analyzeWithNvidia(input: AnalysisInput): Promise<{ model: 
       model,
       temperature: 0.25,
       top_p: 1,
-      max_tokens: MAX_OUTPUT_TOKENS,
+      max_tokens: AI.MAX_OUTPUT_TOKENS,
       seed: 42,
       response_format: { type: "json_object" },
       messages: [

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validateOrigin } from "@/lib/security/csrf";
+import { ANALYTICS } from "@/lib/constants";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const events = new Set(["impression", "play", "progress", "complete", "cta_click", "conversion"]);
@@ -38,14 +40,16 @@ function first(params: URLSearchParams, names: string[]) {
 }
 
 export async function POST(request: Request) {
-  if (Number(request.headers.get("content-length") ?? 0) > 4096) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  if (Number(request.headers.get("content-length") ?? 0) > ANALYTICS.MAX_EVENT_PAYLOAD_BYTES) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  const isSameOrigin = validateOrigin(request);
+  if (!isSameOrigin) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const videoId = String(body?.videoId ?? "");
   const sessionId = String(body?.sessionId ?? "");
   const eventType = String(body?.eventType ?? "");
   const progressPercent = Number(body?.progressPercent ?? 0);
   if (!uuid.test(videoId) || !uuid.test(sessionId) || !events.has(eventType) || !milestones.has(progressPercent)) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
-  const limited = rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: 120, windowMs: 60_000 });
+  const limited = await rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: ANALYTICS.RATE_LIMIT_MAX_REQUESTS, windowMs: ANALYTICS.RATE_LIMIT_WINDOW_MS });
   if (limited) return limited;
 
   const supabase = createAdminClient();

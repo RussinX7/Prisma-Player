@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abacatepay/webhook";
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
 import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
-import { abacateRequest } from "@/lib/billing/abacatepay/client";
+import { cancelPreviousProviderSubscription, nextPeriodEnd } from "@/lib/billing/shared-activation";
 
 export const runtime = "nodejs";
 
@@ -22,22 +22,16 @@ function objectValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
-function stringValue(value: unknown) {
+function stringValue(value: unknown): string | null {
   return typeof value === "string" && value ? value : null;
 }
 
-function firstString(objects: Array<Record<string, unknown> | null>, key: string) {
+function firstString(objects: Array<Record<string, unknown> | null>, key: string): string | null {
   for (const object of objects) {
     const value = stringValue(object?.[key]);
     if (value) return value;
   }
   return null;
-}
-
-function nextPeriodEnd() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() + 1);
-  return date.toISOString();
 }
 
 export async function POST(request: Request) {
@@ -59,6 +53,10 @@ export async function POST(request: Request) {
   }
   if (!event?.event || !event.data) return NextResponse.json({ error: "invalid_webhook" }, { status: 400 });
   if (!supportedEvents.has(event.event)) return NextResponse.json({ ok: true, ignored: true });
+  if (event.devMode) {
+    console.warn("AbacatePay webhook received in devMode; ignoring", { event: event.event });
+    return NextResponse.json({ ok: true, ignored: true });
+  }
 
   const providerEventId = stringValue(event.id) || createHash("sha256").update(rawBody).digest("hex");
   const dataObject = objectValue(event.data);
@@ -105,24 +103,21 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     if (event.event === "checkout.completed" || event.event === "subscription.completed" || event.event === "subscription.renewed") {
-      const method = checkout.checkout_type === "pix" ? "pix" : "card";
-      const newProviderSubscriptionId = method === "card" ? stringValue(subscriptionObject?.id) : null;
-      if (checkout.previous_provider_subscription_id && checkout.previous_provider_subscription_id !== newProviderSubscriptionId) {
-        await abacateRequest("/subscriptions/cancel", { method: "POST", body: JSON.stringify({ id: checkout.previous_provider_subscription_id }) });
-      }
+      const newProviderSubscriptionId = checkout.checkout_type === "card_subscription" ? stringValue(subscriptionObject?.id) : null;
+      await cancelPreviousProviderSubscription(checkout.previous_provider_subscription_id, newProviderSubscriptionId);
       await admin.from("billing_checkouts").update({ status: "paid", paid_at: now, provider_checkout_id: providerObjectId, receipt_url: stringValue(checkoutObject?.receiptUrl), previous_provider_subscription_id: null, updated_at: now }).eq("id", checkout.id);
-      const subscriptionUpdate = {
+      const subscriptionUpdate: Record<string, unknown> = {
         user_id: checkout.user_id,
         plan_id: checkout.plan_id,
         source_checkout_id: checkout.id,
-        billing_method: method,
-        provider_subscription_id: newProviderSubscriptionId,
+        billing_method: checkout.checkout_type === "pix" ? "pix" : "card",
         status: "active",
         current_period_start: now,
         current_period_end: nextPeriodEnd(),
         cancelled_at: null,
         updated_at: now,
       };
+      if (newProviderSubscriptionId) subscriptionUpdate.provider_subscription_id = newProviderSubscriptionId;
       const saved = await admin.from("subscriptions").upsert(subscriptionUpdate, { onConflict: "user_id" });
       if (saved.error) throw new Error("subscription_save_failed");
     } else if (["checkout.refunded", "checkout.disputed", "checkout.lost"].includes(event.event)) {

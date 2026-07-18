@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import { deleteR2Object } from "@/lib/storage/r2";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await context.params;
@@ -36,7 +39,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return NextResponse.json({ video: data });
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await context.params;
