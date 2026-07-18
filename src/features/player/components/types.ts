@@ -31,6 +31,6 @@ export interface VideoPlayerProps {
   startTime?: number;
   restartWithSoundSignal?: number;
   resumePlaybackSignal?: number;
-  controlVisibility?: Partial<Record<"progressControl" | "currentTimeDisplay" | "durationDisplay" | "volumePanel" | "fullscreenToggle" | "playbackRateMenuButton" | "pictureInPictureToggle", boolean>>;
+  controlVisibility?: Partial<Record<"progressControl" | "currentTimeDisplay" | "durationDisplay" | "volumePanel" | "fullscreenToggle" | "playbackRateMenuButton" | "pictureInPictureToggle" | "seekBackward" | "seekForward", boolean>>;
   className?: string;
 }

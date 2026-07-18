@@ -42,6 +42,8 @@ export default function VideoPlayer({
     controlVisibility?.fullscreenToggle === false && "prisma-player--fullscreen-hidden",
     controlVisibility?.pictureInPictureToggle === false && "prisma-player--pip-hidden",
     controlVisibility?.playbackRateMenuButton === false && "prisma-player--settings-hidden",
+    controlVisibility?.seekBackward === false && "prisma-player--seek-back-hidden",
+    controlVisibility?.seekForward === false && "prisma-player--seek-forward-hidden",
   ].filter(Boolean).join(" "), [bigPlayButton, controlVisibility, controls]);
 
   useEffect(() => {

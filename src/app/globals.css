@@ -245,6 +245,22 @@ body {
 .studio-input:focus { border-color: #0066cc; outline: 2px solid rgba(0, 102, 204, 0.14); }
 .panel-help { border-radius: 11px; background: rgba(0, 102, 204, 0.08); padding: 13px; color: #0066cc; font-size: 13px; line-height: 1.5; }
 
+.studio-preview-cta,
+.prisma-embed-cta {
+  transition: transform 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+.studio-preview-cta:hover,
+.prisma-embed-cta:hover {
+  color: var(--cta-hover-color) !important;
+  background-color: var(--cta-hover-bg) !important;
+  transform: translateY(-1px);
+}
+@keyframes studio-cta-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+.studio-cta-pulse { animation: studio-cta-pulse 1.25s ease-in-out infinite; }
+
 @media (min-width: 640px) {
   .dashboard-content {
     padding: 24px 24px 0;
