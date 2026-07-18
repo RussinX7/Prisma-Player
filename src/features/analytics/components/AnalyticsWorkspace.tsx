@@ -189,10 +189,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [aiConversations, setAiConversations] = useState<AiConversation[]>([]);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(`prisma-ai-conversations:${videoId}`) ?? "[]") as AiConversation[];
-      setAiConversations(Array.isArray(stored) ? stored.slice(0, 30) : []);
-    } catch { setAiConversations([]); }
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(`prisma-ai-conversations:${videoId}`) ?? "[]") as AiConversation[];
+        setAiConversations(Array.isArray(stored) ? stored.slice(0, 30) : []);
+      } catch { setAiConversations([]); }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [videoId]);
 
   const load = useCallback(async () => {

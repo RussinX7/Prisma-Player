@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Captions, Check, ChevronRight, Clock3, Code2, FastForward, Gauge, Globe2, Heading, ImageIcon, LockKeyhole, Maximize, MonitorPlay, MousePointerClick, Palette, PauseCircle, PictureInPicture2, Play, Radio, Rewind, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Volume2, X, Zap } from "lucide-react";
+import { ArrowLeft, Captions, Check, Clock3, Code2, FastForward, Gauge, Globe2, Heading, ImageIcon, LockKeyhole, Maximize, MonitorPlay, MousePointerClick, Palette, PauseCircle, PictureInPicture2, Play, Radio, Rewind, RotateCcw, Save, Shield, Subtitles, TimerReset, Trash2, Volume2, X, Zap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/features/player/components";

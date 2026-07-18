@@ -4,8 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrandLogo from "@/components/BrandLogo";
+import { clientRateMessage, consumeClientAttempt } from "@/lib/security/client-rate-limit";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorMessage, oauthEnabled, withAuthTimeout } from "@/lib/supabase/auth-errors";
+
+function safeNext(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard/videos";
+  return value;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,15 +22,21 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    const attempt = consumeClientAttempt({ key: `login:${normalizedEmail}`, maxAttempts: 8, windowMs: 10 * 60_000 });
+    if (!attempt.allowed) {
+      setError(clientRateMessage(attempt.retryAfterSeconds));
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const supabase = createClient();
       const { error: authError } = await withAuthTimeout(
-        supabase.auth.signInWithPassword({ email: email.trim(), password }),
+        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
       );
       if (authError) throw authError;
-      router.replace("/dashboard/videos");
+      router.replace(safeNext(new URLSearchParams(window.location.search).get("next")));
       router.refresh();
     } catch (authError) {
       setError(getAuthErrorMessage(authError, "Não foi possível entrar agora. Tente novamente."));
@@ -44,10 +56,16 @@ export default function LoginPage() {
 
   async function recoverPassword() {
     if (!email.trim()) { setError("Informe seu e-mail para recuperar a senha."); return; }
+    const normalizedEmail = email.trim().toLowerCase();
+    const attempt = consumeClientAttempt({ key: `recover:${normalizedEmail}`, maxAttempts: 3, windowMs: 15 * 60_000 });
+    if (!attempt.allowed) {
+      setError(clientRateMessage(attempt.retryAfterSeconds));
+      return;
+    }
     try {
       const supabase = createClient();
       const { error: recoverError } = await withAuthTimeout(
-        supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/callback?next=/reset-password` }),
+        supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo: `${window.location.origin}/auth/callback?next=/reset-password` }),
       );
       if (recoverError) throw recoverError;
       setError("Enviamos o link de recuperação para seu e-mail.");

@@ -50,11 +50,10 @@ function localizeTree(root: ParentNode, locale: AppLocale) {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<AppLocale>(DEFAULT_LOCALE);
-  useEffect(() => {
-    const saved = localStorage.getItem("prisma-locale");
-    setLocaleState(normalizeLocale(saved || navigator.language));
-  }, []);
+  const [locale, setLocaleState] = useState<AppLocale>(() => {
+    if (typeof window === "undefined") return DEFAULT_LOCALE;
+    return normalizeLocale(localStorage.getItem("prisma-locale") || navigator.language);
+  });
   const setLocale = useCallback((next: AppLocale) => {
     localStorage.setItem("prisma-locale", next);
     document.cookie = `prisma-locale=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;

@@ -89,13 +89,17 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
 
   useEffect(() => {
     if (!payload || !Boolean(payload.config.ctaPersist)) return;
-    setCtaUnlocked(localStorage.getItem(`prisma-cta-unlocked:${payload.videoId}`) === "1");
+    const timer = window.setTimeout(() => {
+      setCtaUnlocked(localStorage.getItem(`prisma-cta-unlocked:${payload.videoId}`) === "1");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [payload]);
 
   useEffect(() => {
     if (!payload || !Boolean(payload.config.ctaPersist) || currentTime < Number(payload.config.ctaStart ?? 0)) return;
     localStorage.setItem(`prisma-cta-unlocked:${payload.videoId}`, "1");
-    setCtaUnlocked(true);
+    const timer = window.setTimeout(() => setCtaUnlocked(true), 0);
+    return () => window.clearTimeout(timer);
   }, [currentTime, payload]);
 
   useEffect(() => {
