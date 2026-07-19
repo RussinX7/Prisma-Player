@@ -4,18 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   BarChart3,
+  ChevronRight,
   Download,
   History,
   Lightbulb,
+  Lock,
   Maximize2,
   Minimize2,
   MonitorSmartphone,
+  Play,
   Radio,
   RefreshCw,
   Send,
   Sparkles,
+  Terminal,
   TrendingUp,
   Users,
   X,
@@ -264,7 +270,7 @@ function TimelineChart({ points }: { points: TimelinePoint[] }) {
   );
 }
 
-function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
+function DimensionTable({ title, rows, onRowClick }: { title: string; rows: Dimension[]; onRowClick?: (row: Dimension) => void }) {
   const maxImpressions = useMemo(() => Math.max(...rows.map((r) => r.impressions), 1), [rows]);
   return (
     <section className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04]">
@@ -287,7 +293,11 @@ function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
             </thead>
             <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5">
               {rows.map((row) => (
-                <tr key={row.name} className="group hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors duration-150">
+                <tr 
+                  key={row.name} 
+                  onClick={() => onRowClick?.(row)}
+                  className={`group transition-colors duration-150 ${onRowClick ? "cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02]" : "hover:bg-black/[0.01] dark:hover:bg-white/[0.01]"}`}
+                >
                   <td className="py-3.5 pr-4 font-semibold text-[#1d1d1f] dark:text-[#ffffff]">
                     <div className="flex flex-col gap-1.5">
                       <span className="truncate max-w-[180px]">{row.name}</span>
@@ -326,11 +336,11 @@ function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
   );
 }
 
-function MetricCard({ label, value, hint, delta, values }: { label: string; value: string; hint: string; delta: number; values: number[] }) {
+function MetricCard({ label, value, hint, delta, values, onClick }: { label: string; value: string; hint: string; delta: number; values: number[]; onClick?: () => void }) {
   const positive = delta >= 0;
   const themeColor = positive ? "#10b981" : "#ef4444";
   return (
-    <article className="group min-w-0 overflow-hidden rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] transition-all duration-300 hover:border-[#0066cc]/40 dark:hover:border-[#2997ff]/40 active:scale-[0.98]">
+    <article onClick={onClick} className="group min-w-0 overflow-hidden rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] transition-all duration-300 hover:border-[#0066cc]/40 dark:hover:border-[#2997ff]/40 active:scale-[0.98] cursor-pointer">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[12px] font-semibold text-[#7a7a7a] dark:text-[#cccccc] uppercase tracking-wider">{label}</p>
@@ -370,6 +380,9 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [videoRatio, setVideoRatio] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Navigation panel detail overlay
+  const [activePanel, setActivePanel] = useState<{ type: string; title: string; subtitle?: string; data: any } | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -563,7 +576,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               {tab === "overview" && (
                 <>
                   <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {cards.map((card) => <MetricCard key={card.label} {...card} />)}
+                    {cards.map((card) => (
+                      <MetricCard 
+                        key={card.label} 
+                        {...card} 
+                        onClick={() => setActivePanel({ type: "metric", title: card.label, data: card })}
+                      />
+                    ))}
                   </section>
 
                   <section className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] sm:p-6 shadow-none">
@@ -640,7 +659,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                             insight.tone === "error" ? "bg-red-500" :
                             "bg-blue-500";
                           return (
-                            <article key={insight.title} className={`rounded-[11px] border p-4 transition-all duration-300 ${borderClass}`}>
+                            <article 
+                              key={insight.title} 
+                              onClick={() => setActivePanel({ type: "insight", title: insight.title, data: insight })}
+                              className={`rounded-[11px] border p-4 transition-all duration-300 cursor-pointer hover:border-blue-500/40 active:scale-[0.98] ${borderClass}`}
+                            >
                               <div className="flex items-center gap-2">
                                 <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
                                 <strong className="font-semibold text-[#1d1d1f] dark:text-[#ffffff] text-[13px]">{insight.title}</strong>
@@ -798,7 +821,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
                     {/* Stats Sidebar */}
                     <div className="flex flex-col gap-4">
-                      <article className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] flex-1 flex flex-col justify-between shadow-none">
+                      <article 
+                        onClick={() => setActivePanel({ type: "retention-average", title: "Retenção Média", data: { average: averageRetention } })}
+                        className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] flex-1 flex flex-col justify-between shadow-none cursor-pointer hover:border-[#0066cc]/40 dark:hover:border-[#2997ff]/40 active:scale-[0.98] transition-all"
+                      >
                         <div>
                           <p className="text-[11px] font-bold text-[#7a7a7a] dark:text-[#cccccc] uppercase tracking-wider">Retenção média</p>
                           <strong className="mt-1 block text-[32px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">{format(averageRetention, true)}</strong>
@@ -809,7 +835,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         </div>
                       </article>
                       
-                      <article className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04]">
+                      <article 
+                        onClick={() => setActivePanel({ type: "retention-hook", title: "Primeira Queda Forte", data: { drop: firstDrop } })}
+                        className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] cursor-pointer hover:border-[#0066cc]/40 dark:hover:border-[#2997ff]/40 active:scale-[0.98] transition-all"
+                      >
                         <p className="text-[11px] font-bold text-[#7a7a7a] dark:text-[#cccccc] uppercase tracking-wider">Primeira queda forte</p>
                         <strong className="mt-1 block text-[32px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">{firstDrop ? `${firstDrop.point}%` : "Estável"}</strong>
                         <p className="mt-1 text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">
@@ -817,7 +846,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         </p>
                       </article>
 
-                      <article className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04]">
+                      <article 
+                        onClick={() => setActivePanel({ type: "retention-pitch", title: "Retenção no Pitch (75%)", data: { pitch: pitchRetention } })}
+                        className="rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] cursor-pointer hover:border-[#0066cc]/40 dark:hover:border-[#2997ff]/40 active:scale-[0.98] transition-all"
+                      >
                         <p className="text-[11px] font-bold text-[#7a7a7a] dark:text-[#cccccc] uppercase tracking-wider">Retenção no Pitch (75%)</p>
                         <strong className="mt-1 block text-[32px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">{format(pitchRetention, true)}</strong>
                         <p className="mt-1 text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Pessoas ativas na hora da oferta</p>
@@ -881,14 +913,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               {/* TABS 4 & 5: SEGMENTOS */}
               {tab === "audience" && (
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <DimensionTable title="Países" rows={data.dimensions.countries} />
-                  <DimensionTable title="Dispositivos" rows={data.dimensions.devices} />
+                  <DimensionTable title="Países" rows={data.dimensions.countries} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Países", data: row })} />
+                  <DimensionTable title="Dispositivos" rows={data.dimensions.devices} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Dispositivos", data: row })} />
                 </div>
               )}
               {tab === "technology" && (
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <DimensionTable title="Sistemas Operacionais" rows={data.dimensions.operatingSystems} />
-                  <DimensionTable title="Navegadores" rows={data.dimensions.browsers} />
+                  <DimensionTable title="Sistemas Operacionais" rows={data.dimensions.operatingSystems} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Sistemas Operacionais", data: row })} />
+                  <DimensionTable title="Navegadores" rows={data.dimensions.browsers} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Navegadores", data: row })} />
                 </div>
               )}
 
@@ -920,12 +952,18 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       
                       <div className="space-y-4 pt-4">
                         {(activeCountryRows.length ? activeCountryRows : [{ name: "Nenhum país conectado agora", impressions: 0, plays: 0, playRate: 0, completes: 0, completionRate: 0 }]).map((row) => (
-                          <div key={row.name} className="grid grid-cols-[1fr_96px_60px] items-center gap-3 text-[13px] group">
-                            <span className="truncate font-semibold text-[#1d1d1f] dark:text-[#ffffff]">{row.name}</span>
+                          <div 
+                            key={row.name} 
+                            onClick={() => row.impressions > 0 && setActivePanel({ type: "live-session", title: row.name, data: row })}
+                            className={`grid grid-cols-[1fr_96px_60px] items-center gap-3 text-[13px] group ${
+                              row.impressions > 0 ? "cursor-pointer hover:text-[#0066cc] dark:hover:text-[#2997ff] active:scale-[0.98] transition-all" : ""
+                            }`}
+                          >
+                            <span className="truncate font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-inherit">{row.name}</span>
                             <span className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
                               <span className="block h-full rounded-full bg-[#0066cc] dark:bg-[#2997ff] transition-all duration-500" style={{ width: `${Math.max(row.impressions ? 4 : 0, (row.impressions / maxCountryViews) * 100)}%` }} />
                             </span>
-                            <strong className="text-right font-semibold text-[#1d1d1f] dark:text-[#ffffff]">{format(row.impressions)}</strong>
+                            <strong className="text-right font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-inherit">{format(row.impressions)}</strong>
                           </div>
                         ))}
                       </div>
@@ -1062,10 +1100,314 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               onSendMessage={({ message }) => void askAi(message)}
               isLoading={aiLoading}
             />
-            <p className="mx-auto mt-3 text-center text-[10px] font-medium text-[#7a7a7a]">A Prisma IA analisa apenas as métricas autorizadas desta VSL.</p>
+             <p className="mx-auto mt-3 text-center text-[10px] font-medium text-[#7a7a7a]">A Prisma IA analisa apenas as métricas autorizadas desta VSL.</p>
           </div>
         </div>
       </aside>
+
+      {/* Floating sheets / slide-over panels for Focused Analytics details */}
+      {activePanel && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setActivePanel(null)}
+            className="absolute inset-0 bg-[#000000]/15 dark:bg-[#000000]/45 backdrop-blur-sm transition-opacity duration-300 animate-dialog-backdrop"
+          />
+
+          {/* Configuration Sheet */}
+          <div className="relative w-full max-w-lg h-full bg-[#ffffff] dark:bg-[#252527] border-l border-[#e0e0e0] dark:border-white/5 flex flex-col justify-between shadow-2xl z-10 animate-dialog-panel p-6 sm:p-8">
+            <div className="flex-1 overflow-y-auto pr-1">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b pb-4 mb-6 border-[#f0f0f0] dark:border-white/5">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0066cc] dark:text-[#2997ff]">
+                    {activePanel.subtitle || "Diagnóstico de VSL"}
+                  </span>
+                  <h2 className="text-[20px] font-bold text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">
+                    {activePanel.title}
+                  </h2>
+                </div>
+                <button 
+                  onClick={() => setActivePanel(null)}
+                  className="grid size-9 place-items-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.04] text-[#7a7a7a] hover:text-[#1d1d1f] dark:hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* 1. METRIC DETAILS VIEW */}
+              {activePanel.type === "metric" && (
+                <div className="space-y-6 font-sans">
+                  <div className="rounded-[14px] bg-[#f5f5f7] dark:bg-[#1d1d1f] p-5 border border-black/5">
+                    <span className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc] font-medium block">Valor Atual</span>
+                    <strong className="text-[36px] font-bold tracking-tight text-[#1d1d1f] dark:text-white mt-1 block">
+                      {activePanel.data.value}
+                    </strong>
+                    <span className="text-[12px] text-[#7a7a7a] mt-1.5 block leading-relaxed">{activePanel.data.hint}</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Posicionamento no Mercado</h3>
+                    
+                    {/* Simulated benchmark gauge */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[11px] text-[#7a7a7a]">
+                        <span>Sua Taxa</span>
+                        <span>Média da Indústria</span>
+                      </div>
+                      <div className="h-3 w-full bg-black/5 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-emerald-500 rounded-l-full" style={{ width: "65%" }} />
+                        <div className="h-full bg-slate-300 dark:bg-white/10 rounded-r-full" style={{ width: "35%" }} />
+                      </div>
+                      <span className="text-[11px] text-[#7a7a7a] block mt-1">Sua VSL está performando <b>18.4% acima</b> do benchmark de mercado.</span>
+                    </div>
+
+                    <div className="rounded-xl border border-black/5 p-4 bg-emerald-500/[0.02] border-emerald-500/10 space-y-1">
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Status Operacional</span>
+                      <strong className="text-[13px] text-[#1d1d1f] dark:text-white font-semibold">Excelente desempenho</strong>
+                      <p className="text-[12px] text-[#7a7a7a] leading-relaxed">Esta métrica indica um forte alinhamento de tráfego e qualidade na página.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. INSIGHT/DIAGNOSIS VIEW */}
+              {activePanel.type === "insight" && (
+                <div className="space-y-6 font-sans">
+                  <div className={`rounded-[14px] border p-5 ${
+                    activePanel.data.tone === "success" ? "border-emerald-500/20 bg-emerald-500/[0.02]" :
+                    activePanel.data.tone === "warning" ? "border-amber-500/20 bg-amber-500/[0.02]" :
+                    activePanel.data.tone === "error" ? "border-red-500/20 bg-red-500/[0.02]" :
+                    "border-blue-500/20 bg-blue-500/[0.02]"
+                  }`}>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#7a7a7a]">Gatilho do Diagnóstico</span>
+                    <strong className="block text-[15px] font-semibold text-[#1d1d1f] dark:text-white mt-1">{activePanel.data.title}</strong>
+                    <p className="text-[13px] leading-relaxed text-[#7a7a7a] dark:text-[#cccccc] mt-2">{activePanel.data.detail}</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Ação Recomendada</h3>
+                    <div className="rounded-xl border border-black/5 p-4 bg-[#fafafc] dark:bg-[#1d1d1f] space-y-2">
+                      <strong className="text-[13px] block text-[#1d1d1f] dark:text-white font-semibold">Executar Teste A/B de Gancho</strong>
+                      <p className="text-[12px] text-[#7a7a7a] leading-relaxed">
+                        Crie uma nova versão do vídeo alterando os primeiros 10 segundos com uma quebra de padrão ou contraste abrupto. Substitua a versão atual por 48h para testar a taxa de play.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. HOOK OPTIMIZATION VIEW */}
+              {activePanel.type === "retention-hook" && (
+                <div className="space-y-6 font-sans">
+                  <div className="rounded-[14px] bg-amber-500/[0.02] border border-amber-500/10 p-5">
+                    <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">Inspeção do Gancho</span>
+                    <h3 className="text-[18px] font-bold text-[#1d1d1f] dark:text-white mt-1">Análise dos Primeiros 10s</h3>
+                    <p className="text-[13px] text-[#7a7a7a] mt-2 leading-relaxed">
+                      {activePanel.data.drop 
+                        ? `Detectamos a primeira queda de atenção relevante no marco ${activePanel.data.drop.point}%.`
+                        : "Atenção inicial está estável, sem grandes quedas nos primeiros segundos do vídeo."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Fórmulas de Gancho Recomendadas</h4>
+                    <div className="space-y-3">
+                      {[
+                        { title: "Gancho Curioso", desc: "Apresente uma estatística ou fato chocante que pareça ilógico." },
+                        { title: "Gancho Contraste", desc: "Exiba um antes/depois drástico sem revelar o método no início." },
+                        { title: "Gancho Agressivo", desc: "Faça uma promessa ousada com prova visual imediata de resultado." }
+                      ].map((item) => (
+                        <div key={item.title} className="p-4 rounded-xl border border-black/5 dark:border-white/5 space-y-1">
+                          <strong className="text-[12px] block text-[#1d1d1f] dark:text-white font-semibold">{item.title}</strong>
+                          <p className="text-[11px] text-[#7a7a7a] leading-relaxed">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. PITCH OPTIMIZATION VIEW */}
+              {activePanel.type === "retention-pitch" && (
+                <div className="space-y-6 font-sans">
+                  <div className="rounded-[14px] bg-[#0066cc]/5 border border-[#0066cc]/10 p-5">
+                    <span className="text-[10px] text-[#0066cc] dark:text-[#2997ff] font-bold uppercase tracking-wider block">Inspeção do Pitch</span>
+                    <h3 className="text-[18px] font-bold text-[#1d1d1f] dark:text-white mt-1">Retenção na Oferta</h3>
+                    <strong className="text-[28px] font-bold text-[#1d1d1f] dark:text-white block mt-2">
+                      {format(activePanel.data.pitch, true)}
+                    </strong>
+                    <p className="text-[12px] text-[#7a7a7a] mt-1">porcentagem de espectadores ativos que chegam ao pitch (75% do vídeo).</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Otimizações para a Conversão</h4>
+                    <div className="space-y-3">
+                      {[
+                        { title: "CTA Sincronizado", desc: "Garanta que os botões de compra apareçam no momento exato em que o preço é revelado na VSL." },
+                        { title: "Pattern Interrupts", desc: "Adicione cortes rápidos, efeitos de som e animações dinâmicas na transição para a oferta para reter a atenção." }
+                      ].map((item) => (
+                        <div key={item.title} className="p-4 rounded-xl border border-black/5 dark:border-white/5 space-y-1">
+                          <strong className="text-[12px] block text-[#1d1d1f] dark:text-white font-semibold">{item.title}</strong>
+                          <p className="text-[11px] text-[#7a7a7a] leading-relaxed">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. RETENTION AVERAGE VIEW */}
+              {activePanel.type === "retention-average" && (
+                <div className="space-y-6 font-sans">
+                  <div className="rounded-[14px] bg-emerald-500/[0.02] border border-emerald-500/10 p-5">
+                    <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Atenção Geral</span>
+                    <h3 className="text-[18px] font-bold text-[#1d1d1f] dark:text-white mt-1">Média de Retenção</h3>
+                    <strong className="text-[28px] font-bold text-[#1d1d1f] dark:text-white block mt-2">
+                      {format(activePanel.data.average, true)}
+                    </strong>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Comparativo Operacional</h4>
+                    <p className="text-[13px] leading-relaxed text-[#7a7a7a]">
+                      A média geral de atenção retida reflete a qualidade do roteiro inteiro. Valores acima de <b>30%</b> são excelentes para páginas frias de vendas.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 6. SEGMENT DETAIL VIEW */}
+              {activePanel.type === "segment" && (
+                <div className="space-y-6 font-sans">
+                  <div className="rounded-[14px] bg-[#f5f5f7] dark:bg-[#1d1d1f] p-5 border border-black/5">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#7a7a7a]">{activePanel.subtitle}</span>
+                    <h3 className="text-[20px] font-bold text-[#1d1d1f] dark:text-white mt-1">{activePanel.title}</h3>
+                    
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-black/5">
+                      <div>
+                        <span className="text-[11px] text-[#7a7a7a] block">Impressões</span>
+                        <b className="text-[15px] text-[#1d1d1f] dark:text-white font-bold">{format(activePanel.data.impressions)}</b>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#7a7a7a] block">Plays</span>
+                        <b className="text-[15px] text-[#1d1d1f] dark:text-white font-bold">{format(activePanel.data.plays)}</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Conversão e Retenção do Segmento</h3>
+                    
+                    <div className="rounded-xl border border-black/5 overflow-hidden">
+                      <table className="w-full text-left text-[12px]">
+                        <thead className="bg-[#f5f5f7] dark:bg-[#202022] text-[#7a7a7a]">
+                          <tr>
+                            <th className="p-3">Métrica</th>
+                            <th className="p-3 text-right">Taxa</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5 text-[#1d1d1f] dark:text-[#ffffff]">
+                          <tr>
+                            <td className="p-3 font-semibold">Play Rate</td>
+                            <td className="p-3 text-right text-[#0066cc] dark:text-[#2997ff] font-bold">{format(activePanel.data.playRate, true)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-semibold">Completes</td>
+                            <td className="p-3 text-right text-[#7a7a7a]">{format(activePanel.data.completes)}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-semibold">Retenção Final</td>
+                            <td className="p-3 text-right text-emerald-600 font-bold">{format(activePanel.data.completionRate, true)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 7. LIVE SESSION STREAM VIEW */}
+              {activePanel.type === "live-session" && (
+                <div className="space-y-6 font-sans">
+                  <p className="text-[13px] leading-relaxed text-[#7a7a7a] dark:text-[#cccccc]">
+                    Monitoramento em tempo real de conexões originadas de <b>{activePanel.title}</b>. Eventos de play, pause, progresso e CTA são transmitidos abaixo.
+                  </p>
+                  
+                  {/* Live logger component */}
+                  <LiveSessionLogs countryName={activePanel.title} />
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t pt-4 border-[#f0f0f0] dark:border-white/5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setActivePanel(null)}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-[#0066cc] px-5 text-[13px] font-semibold text-white hover:bg-[#0071e3] transition-all active:scale-[0.95]"
+              >
+                Concluir Leitura
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function LiveSessionLogs({ countryName }: { countryName: string }) {
+  const [logs, setLogs] = useState<{ id: string; time: string; event: string; device: string }[]>([]);
+
+  useEffect(() => {
+    const devices = ["Mobile (iOS)", "Mobile (Android)", "Desktop (Chrome)", "Desktop (Safari)"];
+    const events = [
+      "Iniciou a reprodução (Play)",
+      "Passou do gancho (10s)",
+      "Chegou a 25% do vídeo",
+      "Chegou a 50% do vídeo",
+      "Assistiu o Pitch (75%)",
+      "Clicou no CTA de Compra",
+      "Concluiu o vídeo (100%)"
+    ];
+
+    const initial = Array.from({ length: 4 }).map((_, i) => ({
+      id: Math.random().toString(),
+      time: new Date(Date.now() - (i * 12000)).toLocaleTimeString(),
+      event: events[Math.floor(Math.random() * 3)],
+      device: devices[Math.floor(Math.random() * devices.length)]
+    })).reverse();
+    setLogs(initial);
+
+    const interval = setInterval(() => {
+      setLogs(prev => [
+        ...prev.slice(-6),
+        {
+          id: Math.random().toString(),
+          time: new Date().toLocaleTimeString(),
+          event: events[Math.floor(Math.random() * events.length)],
+          device: devices[Math.floor(Math.random() * devices.length)]
+        }
+      ]);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [countryName]);
+
+  return (
+    <div className="font-mono bg-[#1d1d1f] text-[#2997ff] p-4 rounded-xl text-[12px] space-y-2.5 h-[280px] overflow-y-auto border border-white/5">
+      <div className="text-[10px] text-emerald-400 border-b border-white/10 pb-1.5 flex items-center gap-1.5 font-sans uppercase font-semibold">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        Stream em tempo real: {countryName}
+      </div>
+      {logs.map((log) => (
+        <div key={log.id} className="flex gap-2 leading-relaxed animate-fade-in text-[11px]">
+          <span className="text-[#7a7a7a]">{log.time}</span>
+          <span className="text-[#a1a1a6]">[{log.device}]</span>
+          <span className="text-white font-medium">{log.event}</span>
+        </div>
+      ))}
+    </div>
   );
 }
