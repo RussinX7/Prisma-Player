@@ -8,9 +8,11 @@ import {
   BarChart3, 
   BellRing, 
   Check, 
+  Download,
   FileClock, 
   LoaderCircle, 
   Radio, 
+  RefreshCw,
   Send, 
   Webhook, 
   X, 
@@ -20,7 +22,8 @@ import {
   Play,
   Share2,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from "lucide-react";
 
 type Capabilities = Record<string, boolean>;
@@ -294,66 +297,12 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                 </div>
               )}
 
-              {/* 2. AUDIENCE SYNC VIEW */}
+              {/* 2. AUDIENCE SYNC VIEW — Real Audience Profile */}
               {activeTool === "audience" && (
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[13px] font-semibold text-[#1d1d1f] dark:text-[#ffffff] mb-1.5">Plataforma de Anúncio</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {[
-                          { id: "meta", label: "Meta Ads", color: "bg-[#0668e1]/10 text-[#0668e1] border-[#0668e1]/20" },
-                          { id: "google", label: "Google", color: "bg-[#ea4335]/10 text-[#ea4335] border-[#ea4335]/20" },
-                          { id: "tiktok", label: "TikTok", color: "bg-[#000000]/10 dark:bg-white/10 text-black dark:text-white border-black/10" },
-                          { id: "kwai", label: "Kwai Ads", color: "bg-[#f57c00]/10 text-[#f57c00] border-[#f57c00]/20" }
-                        ].map((provider) => (
-                          <button
-                            key={provider.id}
-                            type="button"
-                            onClick={() => setControls({ ...controls, audience_provider: provider.id })}
-                            className={`rounded-xl border p-2 text-center text-[12px] font-bold transition-all ${
-                              controls.audience_provider === provider.id 
-                                ? `${provider.color} ring-1 ring-offset-2 ring-blue-500 dark:ring-offset-slate-900` 
-                                : "border-[#e0e0e0] dark:border-white/5 text-[#7a7a7a] hover:bg-black/[0.02]"
-                            }`}
-                          >
-                            {provider.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[13px] font-semibold text-[#1d1d1f] dark:text-[#ffffff] mb-1.5">Gatilho de Retenção</label>
-                      <select 
-                        value={controls.audience_retention_threshold} 
-                        onChange={(e) => setControls({ ...controls, audience_retention_threshold: Number(e.target.value) })}
-                        className="h-11 w-full rounded-[11px] border bg-[#ffffff] dark:bg-[#1d1d1f] px-3 text-[14px] font-semibold outline-none border-[#e0e0e0] dark:border-white/10"
-                      >
-                        {[25, 50, 75, 90, 100].map((value) => (
-                          <option key={value} value={value}>Assistiu pelo menos {value}% da VSL</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Sync simulation visualizer */}
-                  <div className="rounded-[14px] border border-[#e0e0e0] dark:border-white/5 bg-[#fafafc] dark:bg-[#1d1d1f] p-4">
-                    <div className="flex items-center justify-between mb-3 text-[11px]">
-                      <span className="text-[#7a7a7a]">Tamanho estimado da audiência</span>
-                      <span className="font-bold text-emerald-600 animate-pulse">Sincronizado</span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-2 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#0066cc] rounded-full" style={{ width: "65%" }} />
-                      </div>
-                      <div className="flex justify-between text-[11px] font-semibold text-[#1d1d1f] dark:text-[#ffffff]">
-                        <span>~12,450 contatos</span>
-                        <span>{controls.audience_retention_threshold}% de retenção</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <AudienceSyncPanel
+                  controls={controls}
+                  setControls={setControls}
+                />
               )}
 
               {/* 3. WEBHOOKS VIEW */}
@@ -606,5 +555,205 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
         </div>
       )}
     </section>
+  );
+}
+
+type AudienceProfile = {
+  total_sessions: number;
+  total_buyers: number;
+  total_completers: number;
+  total_engagers: number;
+  total_cta_clickers: number;
+  conversion_rate: number;
+  completion_rate: number;
+  segments: {
+    all: SegmentBreakdown;
+    buyers: SegmentBreakdown;
+    completers: SegmentBreakdown;
+    engagers_75: SegmentBreakdown;
+  };
+  csv_rows: Record<string, string | number>[];
+};
+
+type SegmentBreakdown = {
+  top_countries: { name: string; count: number; percentage: number }[];
+  top_devices: { name: string; count: number; percentage: number }[];
+  top_os: { name: string; count: number; percentage: number }[];
+  top_browsers: { name: string; count: number; percentage: number }[];
+};
+
+function AudienceSyncPanel({ controls, setControls }: { controls: Controls; setControls: (c: Controls) => void }) {
+  const [profile, setProfile] = useState<AudienceProfile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [activeSegment, setActiveSegment] = useState<"all" | "buyers" | "completers" | "engagers_75">("buyers");
+
+  async function loadProfile() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/intelligence/controls", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "export_audience" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error);
+      setProfile(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao carregar perfil de audiência.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function exportCSV() {
+    if (!profile?.csv_rows?.length) return;
+    const headers = Object.keys(profile.csv_rows[0]);
+    const csvContent = [headers.join(","), ...profile.csv_rows.map(row => headers.map(h => `"${row[h]}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `prisma-audience-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const segments = profile?.segments[activeSegment];
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-[13px] font-semibold text-[#1d1d1f] dark:text-[#ffffff] mb-1.5">Plataforma de Destino</label>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { id: "meta", label: "Meta Ads", color: "bg-[#0668e1]/10 text-[#0668e1] border-[#0668e1]/20" },
+              { id: "google", label: "Google", color: "bg-[#ea4335]/10 text-[#ea4335] border-[#ea4335]/20" },
+              { id: "tiktok", label: "TikTok", color: "bg-[#000000]/10 dark:bg-white/10 text-black dark:text-white border-black/10" },
+              { id: "kwai", label: "Kwai Ads", color: "bg-[#f57c00]/10 text-[#f57c00] border-[#f57c00]/20" }
+            ].map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => setControls({ ...controls, audience_provider: provider.id })}
+                className={`rounded-xl border p-2 text-center text-[12px] font-bold transition-all ${
+                  controls.audience_provider === provider.id
+                    ? `${provider.color} ring-1 ring-offset-2 ring-blue-500 dark:ring-offset-slate-900`
+                    : "border-[#e0e0e0] dark:border-white/5 text-[#7a7a7a] hover:bg-black/[0.02]"
+                }`}
+              >
+                {provider.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Load Audience Profile */}
+        <button
+          onClick={loadProfile}
+          disabled={loading}
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[11px] bg-[#0066cc] text-[13px] font-semibold text-white hover:bg-[#0071e3] transition-all disabled:opacity-50 active:scale-[0.97]"
+        >
+          {loading ? <LoaderCircle className="animate-spin" size={15} /> : <Users size={15} />}
+          {loading ? "Analisando audiência..." : "Gerar Perfil do Público Vencedor"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-[12px] text-red-600">
+          {error}
+        </div>
+      )}
+
+      {profile && (
+        <div className="space-y-5">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-[#e0e0e0] dark:border-white/5 bg-[#fafafc] dark:bg-[#1d1d1f] p-3">
+              <span className="text-[10px] uppercase tracking-wider text-[#7a7a7a] block">Total Sessões</span>
+              <strong className="text-[18px] font-bold text-[#1d1d1f] dark:text-white">{profile.total_sessions.toLocaleString()}</strong>
+            </div>
+            <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02] p-3">
+              <span className="text-[10px] uppercase tracking-wider text-emerald-600 block">Compradores</span>
+              <strong className="text-[18px] font-bold text-emerald-600">{profile.total_buyers.toLocaleString()}</strong>
+              <span className="text-[10px] text-[#7a7a7a] ml-1">({profile.conversion_rate}%)</span>
+            </div>
+            <div className="rounded-xl border border-[#0066cc]/10 bg-[#0066cc]/[0.02] p-3">
+              <span className="text-[10px] uppercase tracking-wider text-[#0066cc] dark:text-[#2997ff] block">Engajados (75%+)</span>
+              <strong className="text-[18px] font-bold text-[#0066cc] dark:text-[#2997ff]">{profile.total_engagers.toLocaleString()}</strong>
+            </div>
+            <div className="rounded-xl border border-[#e0e0e0] dark:border-white/5 bg-[#fafafc] dark:bg-[#1d1d1f] p-3">
+              <span className="text-[10px] uppercase tracking-wider text-[#7a7a7a] block">Concluíram</span>
+              <strong className="text-[18px] font-bold text-[#1d1d1f] dark:text-white">{profile.total_completers.toLocaleString()}</strong>
+              <span className="text-[10px] text-[#7a7a7a] ml-1">({profile.completion_rate}%)</span>
+            </div>
+          </div>
+
+          {/* Segment Selector */}
+          <div className="flex gap-1 rounded-full border border-[#e0e0e0] dark:border-white/5 bg-[#f5f5f7] dark:bg-[#1d1d1f] p-1">
+            {[
+              { id: "buyers" as const, label: "Compradores" },
+              { id: "engagers_75" as const, label: "Engajados" },
+              { id: "completers" as const, label: "Concluíram" },
+              { id: "all" as const, label: "Todos" },
+            ].map((seg) => (
+              <button
+                key={seg.id}
+                onClick={() => setActiveSegment(seg.id)}
+                className={`flex-1 rounded-full py-1.5 text-center text-[11px] font-bold transition-all ${
+                  activeSegment === seg.id
+                    ? "bg-white text-[#1d1d1f] shadow-sm dark:bg-[#2a2a2c] dark:text-white"
+                    : "text-[#7a7a7a] hover:text-[#1d1d1f] dark:hover:text-white"
+                }`}
+              >
+                {seg.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Segment Breakdown */}
+          {segments && (
+            <div className="space-y-4">
+              <SegmentList title="Países" items={segments.top_countries} />
+              <SegmentList title="Dispositivos" items={segments.top_devices} />
+              <SegmentList title="Sistemas Operacionais" items={segments.top_os} />
+              <SegmentList title="Navegadores" items={segments.top_browsers} />
+            </div>
+          )}
+
+          {/* Export Button */}
+          <button
+            onClick={exportCSV}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[11px] border border-[#e0e0e0] dark:border-white/10 text-[13px] font-semibold text-[#1d1d1f] dark:text-white hover:bg-black/[0.02] active:scale-[0.97] transition-all"
+          >
+            <Download size={15} />
+            Exportar CSV para {controls.audience_provider === "meta" ? "Meta Ads" : controls.audience_provider === "google" ? "Google Ads" : controls.audience_provider === "tiktok" ? "TikTok Ads" : "Kwai Ads"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SegmentList({ title, items }: { title: string; items: { name: string; count: number; percentage: number }[] }) {
+  if (!items.length) return null;
+  const max = Math.max(...items.map(i => i.count), 1);
+  return (
+    <div className="rounded-xl border border-[#e0e0e0] dark:border-white/5 p-3">
+      <span className="text-[10px] uppercase tracking-wider text-[#7a7a7a] font-bold block mb-2">{title}</span>
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.name} className="flex items-center gap-2 text-[12px]">
+            <span className="w-20 truncate font-semibold text-[#1d1d1f] dark:text-white">{item.name}</span>
+            <div className="flex-1 h-1.5 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
+              <div className="h-full rounded-full bg-[#0066cc] dark:bg-[#2997ff] transition-all" style={{ width: `${(item.count / max) * 100}%` }} />
+            </div>
+            <span className="w-10 text-right text-[11px] font-semibold text-[#7a7a7a]">{item.percentage}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
