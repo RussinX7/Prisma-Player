@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Plus, ArrowUp, X, FileText, Loader2, Archive, Sparkles } from "lucide-react";
 
 /* --- UTILS --- */
@@ -33,7 +34,7 @@ const FilePreviewCard: React.FC<FilePreviewCardProps> = ({ file, onRemove }) => 
     <div className="relative group flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-bg-300 bg-bg-200 animate-fade-in transition-all hover:border-text-400">
       {isImage ? (
         <div className="w-full h-full relative">
-          <img src={file.preview!} alt={file.file.name} className="w-full h-full object-cover" />
+          <Image src={file.preview!} alt={file.file.name} fill unoptimized className="object-cover" />
           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
         </div>
       ) : (
@@ -85,6 +86,8 @@ interface PastedContentCardProps {
   onRemove: (id: string) => void;
 }
 
+type PastedContent = PastedContentCardProps["content"];
+
 const PastedContentCard: React.FC<PastedContentCardProps> = ({ content, onRemove }) => {
   return (
     <div className="relative group flex-shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#30302E] bg-white dark:bg-[#20201F] animate-fade-in p-3 flex flex-col justify-between shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -115,7 +118,7 @@ interface ClaudeChatInputProps {
   onSendMessage: (data: {
     message: string;
     files: AttachedFile[];
-    pastedContent: any[];
+    pastedContent: PastedContent[];
     isThinkingEnabled: boolean;
   }) => void;
   isLoading?: boolean;
@@ -124,7 +127,7 @@ interface ClaudeChatInputProps {
 export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage, isLoading }) => {
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<AttachedFile[]>([]);
-  const [pastedContent, setPastedContent] = useState<any[]>([]);
+  const [pastedContent, setPastedContent] = useState<PastedContent[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isThinkingEnabled, setIsThinkingEnabled] = useState(false);
 

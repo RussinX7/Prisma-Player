@@ -14,11 +14,12 @@ function percent(value: number, total: number) { return total ? Math.round(value
 export default async function IntelligencePage() {
   const userId = await requireUser("/dashboard/intelligence");
   const admin = createAdminClient();
-  const [subscription, videos, events, wallet] = await Promise.all([
+  const [subscription, videos, events, wallet, globalBenchmark] = await Promise.all([
     admin.from("subscriptions").select("plan:billing_plans(slug,name,automatic_reports,audience_sync,outgoing_webhooks,private_benchmark,portfolio_comparison,conversion_drop_alerts)").eq("user_id", userId).eq("status", "active").maybeSingle(),
     admin.from("videos").select("id,title,status").eq("user_id", userId).order("created_at", { ascending: false }),
     admin.from("video_events").select("video_id,session_id,event_type,progress_percent").eq("user_id", userId).order("created_at", { ascending: false }).limit(50000),
     admin.from("ai_credit_wallets").select("balance").eq("user_id", userId).maybeSingle(),
+    admin.rpc("get_global_video_benchmark"),
   ]);
   const plan = Array.isArray(subscription.data?.plan) ? subscription.data.plan[0] : subscription.data?.plan;
   const rows = (events.data ?? []) as EventRow[];
@@ -48,7 +49,8 @@ export default async function IntelligencePage() {
       conversion: performance.length ? Number((performance.reduce((s, i) => s + i.conversion, 0) / performance.length).toFixed(1)) : 0,
       playRate: performance.length ? Number((performance.reduce((s, i) => s + i.playRate, 0) / performance.length).toFixed(1)) : 0,
     },
-    videoCount: performance.length
+    videoCount: performance.length,
+    global: (globalBenchmark.data ?? { qualified: false, sampleVideos: 0, samplePlays: 0, playRate: 0, completion: 0, conversion: 0 }) as { qualified: boolean; sampleVideos: number; samplePlays: number; playRate: number; completion: number; conversion: number },
   };
 
   return <><Header /><main className="dashboard-content pb-16">
@@ -61,7 +63,7 @@ export default async function IntelligencePage() {
 
     <section id="portfolio" className="mt-5 overflow-hidden rounded-[18px] border themeable-bg-canvas themeable-border-hairline"><div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 themeable-border-hairline"><div><h2 className="text-[19px] font-semibold themeable-text-ink">Radar do portfólio</h2><p className="text-[12px] themeable-text-ink-muted-48">Compare alcance, retenção e resultado sem abrir relatório por relatório.</p></div><Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white"><Zap size={15} /> Criar experimento</Link></div><div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[12px]"><thead className="bg-black/[.025] themeable-text-ink-muted-48"><tr><th className="px-5 py-3">Posição / VSL</th><th>Play rate</th><th>Chegada ao pitch</th><th>Retenção final</th><th>Conversão</th><th /></tr></thead><tbody>{performance.map((video, index) => <tr key={video.id} className="border-t themeable-border-hairline"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className={`grid size-8 place-items-center rounded-full text-[11px] font-bold ${index === 0 ? "bg-prisma-blue text-white" : "bg-black/5 themeable-text-ink"}`}>{index + 1}</span><div><strong className="block max-w-[260px] truncate themeable-text-ink">{video.title}</strong><span className="themeable-text-ink-muted-48">{video.impressions} visualizações</span></div></div></td><Metric value={video.playRate} /><Metric value={video.pitch} /><Metric value={video.completion} /><Metric value={video.conversion} strong /><td className="pr-5 text-right"><Link href={`/dashboard/analytics/${video.id}`} className="font-semibold text-prisma-blue">Detalhes</Link></td></tr>)}{!performance.length && <tr><td colSpan={6} className="px-5 py-16 text-center themeable-text-ink-muted-48">Suas VSLs aparecerão aqui assim que forem publicadas.</td></tr>}</tbody></table></div></section>
 
-    <IntelligenceControls capabilities={capabilities} videoCount={performance.length} benchmarkData={benchmarkData} />
+    <IntelligenceControls capabilities={capabilities} videoCount={performance.length} benchmarkData={benchmarkData} videos={performance.filter((video) => video.status === "ready").map(({ id, title }) => ({ id, title }))} />
   </main></>;
 }
 

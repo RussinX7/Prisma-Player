@@ -1,204 +1,77 @@
-import { NextRequest, NextResponse } from "next/server";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deliverWebhook } from "@/lib/webhooks/delivery";
+import { sendOperationalReport } from "@/lib/email/operational-report";
 
-export async function GET(request: NextRequest) {
-  // Simple protection check (using a fallback secret if CRON_SECRET is not configured)
-  const authHeader = request.headers.get("Authorization");
-  const urlKey = request.nextUrl.searchParams.get("key");
-  const expectedSecret = process.env.CRON_SECRET || "prisma-player-cron-secret";
+function authorized(request: Request, secret: string) {
+  const value = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(value), b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
-  if (authHeader !== `Bearer ${expectedSecret}` && urlKey !== expectedSecret) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+function due(last: string | null, frequency: string) {
+  const hours = frequency === "daily" ? 24 : frequency === "weekly" ? 168 : 720;
+  return !last || Date.now() - new Date(last).getTime() >= hours * 3_600_000;
+}
 
-  const supabase = createAdminClient();
-
-  // Load all intelligence controls
-  const { data: controlsList, error: fetchError } = await supabase
-    .from("intelligence_controls")
-    .select("user_id, automatic_reports_enabled, report_frequency, report_email, audience_sync_enabled, audience_provider, audience_retention_threshold, conversion_alerts_enabled, conversion_drop_threshold, outgoing_webhooks_enabled, webhook_url, webhook_events");
-
-  if (fetchError || !controlsList) {
-    return NextResponse.json({ error: "failed_to_fetch_controls", details: fetchError }, { status: 500 });
-  }
-
-  const results = {
-    reportsProcessed: 0,
-    audiencesSynced: 0,
-    alertsSent: 0,
-    errors: [] as string[]
+async function counts(admin: ReturnType<typeof createAdminClient>, videoIds: string[], from: string, to?: string) {
+  const get = async (eventType: string) => {
+    let query = admin.from("video_events").select("session_id", { count: "exact", head: true }).in("video_id", videoIds).eq("event_type", eventType).gte("created_at", from);
+    if (to) query = query.lt("created_at", to);
+    const { count } = await query;
+    return count ?? 0;
   };
+  const [plays, conversions] = await Promise.all([get("play"), get("conversion")]);
+  return { plays, conversions, rate: plays ? conversions / plays * 100 : 0 };
+}
 
-  for (const config of controlsList) {
+export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "cron_secret_not_configured" }, { status: 503 });
+  if (!authorized(request, secret)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const admin = createAdminClient();
+  const { data: configs, error } = await admin.from("intelligence_controls").select("user_id,automatic_reports_enabled,report_frequency,report_email,last_report_sent_at,conversion_alerts_enabled,conversion_drop_threshold,alert_webhook_enabled,alert_webhook_url");
+  if (error) return NextResponse.json({ error: "controls_unavailable" }, { status: 503 });
+  const result = { reports: 0, emails: 0, alerts: 0, webhooks: 0, errors: [] as string[] };
+  const now = new Date();
+  const currentFrom = new Date(now.getTime() - 24 * 3_600_000).toISOString();
+  const previousFrom = new Date(now.getTime() - 48 * 3_600_000).toISOString();
+
+  for (const config of configs ?? []) {
     try {
-      // 1. PROCESS AUDIENCE SYNC
-      if (config.audience_sync_enabled) {
-        // Fetch user's ready videos
-        const { data: videos } = await supabase
-          .from("videos")
-          .select("id, title")
-          .eq("user_id", config.user_id)
-          .eq("status", "ready");
-
-        if (videos && videos.length > 0) {
-          // Count events matching the retention threshold
-          // In video_events, progress_percent represents the milestones.
-          // We count unique sessions where progress_percent >= threshold
-          const { count: matchingAudience } = await supabase
-            .from("video_events")
-            .select("session_id", { count: "exact", head: true })
-            .in("video_id", videos.map(v => v.id))
-            .gte("progress_percent", config.audience_retention_threshold);
-
-          const contactsCount = Math.max(12, matchingAudience || 0); // Mock baseline fallback for demo
-
-          // Insert a success log in user_inbox
-          const providerName = config.audience_provider === "meta" ? "Meta Ads" :
-                               config.audience_provider === "google" ? "Google Ads" :
-                               config.audience_provider === "tiktok" ? "TikTok Ads" : "Kwai Ads";
-
-          await supabase.from("user_inbox").insert({
-            user_id: config.user_id,
-            kind: "system",
-            title: `Audience Sync Concluído: ${providerName}`,
-            message: `Sincronizamos com sucesso ${contactsCount} contatos que assistiram pelo menos ${config.audience_retention_threshold}% de suas VSLs diretamente com sua conta de anúncios.`,
-            action_label: "Configurar Públicos",
-            action_url: "/dashboard/intelligence"
-          });
-
-          results.audiencesSynced++;
-        }
+      const { data: videos } = await admin.from("videos").select("id,title").eq("user_id", config.user_id).eq("status", "ready");
+      if (!videos?.length) continue;
+      const ids = videos.map((video) => video.id);
+      if (config.automatic_reports_enabled && config.report_email && due(config.last_report_sent_at, config.report_frequency)) {
+        const days = config.report_frequency === "daily" ? 1 : config.report_frequency === "weekly" ? 7 : 30;
+        const stats = await counts(admin, ids, new Date(now.getTime() - days * 86_400_000).toISOString());
+        const mail = await sendOperationalReport({ to: config.report_email, frequency: config.report_frequency, days, plays: stats.plays, conversions: stats.conversions, conversionRate: stats.rate });
+        await admin.from("user_inbox").insert({ user_id: config.user_id, kind: "system", title: "Relatório operacional disponível", message: `${stats.plays} plays e ${stats.conversions} conversões (${stats.rate.toFixed(1)}%) nos últimos ${days} dias.${mail.sent ? " O relatório também foi enviado por e-mail." : " O provedor de relatórios por e-mail ainda não está configurado; o relatório ficou disponível somente aqui."}`, action_label: "Ver inteligência", action_url: "/dashboard/intelligence" });
+        await admin.from("intelligence_controls").update({ last_report_sent_at: now.toISOString(), updated_at: now.toISOString() }).eq("user_id", config.user_id);
+        result.reports += 1; if (mail.sent) result.emails += 1;
       }
 
-      // 2. PROCESS AUTOMATIC REPORTS
-      if (config.automatic_reports_enabled && config.report_email) {
-        // Fetch user's ready videos
-        const { data: videos } = await supabase
-          .from("videos")
-          .select("id")
-          .eq("user_id", config.user_id)
-          .eq("status", "ready");
-
-        if (videos && videos.length > 0) {
-          // Calculate stats for the period based on frequency
-          const days = config.report_frequency === "daily" ? 1 : config.report_frequency === "weekly" ? 7 : 30;
-          const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-
-          const [{ count: plays }, { count: conversions }] = await Promise.all([
-            supabase.from("video_events")
-              .select("session_id", { count: "exact", head: true })
-              .in("video_id", videos.map(v => v.id))
-              .eq("event_type", "play")
-              .gt("created_at", sinceDate),
-            supabase.from("video_events")
-              .select("session_id", { count: "exact", head: true })
-              .in("video_id", videos.map(v => v.id))
-              .eq("event_type", "conversion")
-              .gt("created_at", sinceDate)
-          ]);
-
-          const playsCount = plays || 0;
-          const conversionsCount = conversions || 0;
-          const rate = playsCount > 0 ? (conversionsCount / playsCount) * 100 : 0;
-
-          const frequencyLabel = config.report_frequency === "daily" ? "Diário" :
-                                 config.report_frequency === "weekly" ? "Semanal" : "Mensal";
-
-          await supabase.from("user_inbox").insert({
-            user_id: config.user_id,
-            kind: "system",
-            title: `Relatório Operacional ${frequencyLabel} Disponível`,
-            message: `Métricas do seu portfólio nos últimos ${days} dias: ${playsCount} plays, ${conversionsCount} conversões (${rate.toFixed(1)}% taxa de conversão). Enviado para o e-mail: ${config.report_email}.`,
-            action_label: "Ver Relatório Completo",
-            action_url: "/dashboard/intelligence"
-          });
-
-          results.reportsProcessed++;
-        }
-      }
-
-      // 3. PROCESS CONVERSION ALERTS
       if (config.conversion_alerts_enabled) {
-        const { data: videos } = await supabase
-          .from("videos")
-          .select("id, title")
-          .eq("user_id", config.user_id)
-          .eq("status", "ready");
-
-        if (videos && videos.length > 0) {
-          const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-          
-          for (const video of videos) {
-            const [{ count: plays }, { count: conversions }] = await Promise.all([
-              supabase.from("video_events")
-                .select("session_id", { count: "exact", head: true })
-                .eq("video_id", video.id)
-                .eq("event_type", "play")
-                .gt("created_at", last24h),
-              supabase.from("video_events")
-                .select("session_id", { count: "exact", head: true })
-                .eq("video_id", video.id)
-                .eq("event_type", "conversion")
-                .gt("created_at", last24h)
-            ]);
-
-            const playsCount = plays || 0;
-            const conversionsCount = conversions || 0;
-            const rate = playsCount > 0 ? (conversionsCount / playsCount) * 100 : 0;
-
-            if (playsCount >= 10 && rate < config.conversion_drop_threshold) {
-              const actionUrl = `/dashboard/analytics?video=${video.id}`;
-              
-              // Check if an alert was already sent in the last 24h
-              const { data: recentAlerts } = await supabase
-                .from("user_inbox")
-                .select("id")
-                .eq("user_id", config.user_id)
-                .eq("action_url", actionUrl)
-                .gt("created_at", last24h)
-                .limit(1);
-
-              if (!recentAlerts || recentAlerts.length === 0) {
-                await supabase.from("user_inbox").insert({
-                  user_id: config.user_id,
-                  kind: "alert",
-                  title: `Queda de Conversão: ${video.title}`,
-                  message: `A taxa de conversão do vídeo caiu para ${rate.toFixed(1)}% nas últimas 24h (mínimo esperado: ${config.conversion_drop_threshold}%). Total de ${playsCount} plays e ${conversionsCount} conversões.`,
-                  action_label: "Analisar Métricas",
-                  action_url: actionUrl
-                });
-
-                if (config.outgoing_webhooks_enabled && config.webhook_url && Array.isArray(config.webhook_events) && config.webhook_events.includes("conversion")) {
-                  try {
-                    await fetch(config.webhook_url, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        event: "conversion_drop",
-                        videoId: video.id,
-                        videoTitle: video.title,
-                        conversionRate: rate,
-                        threshold: config.conversion_drop_threshold,
-                        plays: playsCount,
-                        conversions: conversionsCount,
-                        timestamp: new Date().toISOString()
-                      })
-                    });
-                  } catch (webhookError) {
-                    // Ignore webhook errors to not break the cron
-                  }
-                }
-
-                results.alertsSent++;
-              }
-            }
+        for (const video of videos) {
+          const [current, previous] = await Promise.all([counts(admin, [video.id], currentFrom), counts(admin, [video.id], previousFrom, currentFrom)]);
+          if (current.plays < 10 || previous.plays < 10 || previous.rate <= 0) continue;
+          const dropPercent = (previous.rate - current.rate) / previous.rate * 100;
+          if (dropPercent < config.conversion_drop_threshold) continue;
+          const actionUrl = `/dashboard/analytics/${video.id}`;
+          const { data: existing } = await admin.from("user_inbox").select("id").eq("user_id", config.user_id).eq("action_url", actionUrl).eq("kind", "alert").gte("created_at", currentFrom).limit(1);
+          if (existing?.length) continue;
+          await admin.from("user_inbox").insert({ user_id: config.user_id, kind: "alert", title: `Queda de conversão: ${video.title}`, message: `A taxa caiu ${dropPercent.toFixed(1)}%: de ${previous.rate.toFixed(1)}% no período anterior para ${current.rate.toFixed(1)}% nas últimas 24h.`, action_label: "Analisar métricas", action_url: actionUrl });
+          result.alerts += 1;
+          if (config.alert_webhook_enabled && config.alert_webhook_url) {
+            await deliverWebhook(config.alert_webhook_url, { id: randomUUID(), event: "conversion_drop", timestamp: now.toISOString(), data: { video_id: video.id, video_title: video.title, previous_rate: Number(previous.rate.toFixed(2)), current_rate: Number(current.rate.toFixed(2)), drop_percent: Number(dropPercent.toFixed(2)), previous_plays: previous.plays, current_plays: current.plays } });
+            result.webhooks += 1;
           }
         }
       }
-    } catch (e) {
-      results.errors.push(`Error processing config for user ${config.user_id}: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    } catch (reason) { result.errors.push(reason instanceof Error ? reason.message : "unknown_error"); }
   }
-
-  return NextResponse.json({ success: true, results });
+  await admin.from("video_live_sessions").delete().lt("last_seen_at", new Date(Date.now() - 10 * 60_000).toISOString());
+  return NextResponse.json({ success: result.errors.length === 0, result });
 }

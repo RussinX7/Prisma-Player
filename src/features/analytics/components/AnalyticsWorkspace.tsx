@@ -1,27 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
-  AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   BarChart3,
-  ChevronRight,
   Download,
   History,
   Lightbulb,
-  Lock,
   Maximize2,
   Minimize2,
   MonitorSmartphone,
-  Play,
   Radio,
   RefreshCw,
-  Send,
   Sparkles,
-  Terminal,
   TrendingUp,
   Users,
   X,
@@ -367,7 +360,6 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("O que eu deveria melhorar primeiro nessa VSL?");
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
-  const [aiBalance, setAiBalance] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [aiFullscreen, setAiFullscreen] = useState(false);
@@ -377,11 +369,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   // Retention interactive states
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const [videoRatio, setVideoRatio] = useState<number | null>(null);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Navigation panel detail overlay
+  // The detail drawer supports heterogeneous, locally-created chart payloads.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [activePanel, setActivePanel] = useState<{ type: string; title: string; subtitle?: string; data: any } | null>(null);
 
   useEffect(() => {
@@ -406,8 +397,21 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    const refreshLive = async () => {
+      const response = await fetch(`/api/analytics/${videoId}/live-logs`, { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json() as { activeCount?: number; activeViewers?: { country: string }[] };
+      const countries = new Map<string, number>();
+      for (const viewer of payload.activeViewers ?? []) countries.set(viewer.country || "XX", (countries.get(viewer.country || "XX") ?? 0) + 1);
+      setData((current) => current ? { ...current, live: payload.activeCount ?? 0, liveCountries: [...countries.entries()].map(([name, count]) => ({ name, impressions: count, plays: count, playRate: 100, completes: 0, completionRate: 0 })).sort((a, b) => b.impressions - a.impressions) } : current);
+    };
+    const timer = window.setInterval(() => void refreshLive(), 4_000);
+    void refreshLive();
+    return () => window.clearInterval(timer);
+  }, [videoId]);
+
   const maxFunnel = data?.funnel[0]?.value || 1;
-  const durationLabel = formatTime(data?.video.duration_seconds);
   const averageRetention = data?.retention.length ? data.retention.reduce((sum, point) => sum + point.rate, 0) / data.retention.length : 0;
   const firstDrop = data?.retention.find((point) => point.point > 0 && point.rate < 70);
   const pitchRetention = data?.summary.plays ? data.summary.reached75 / data.summary.plays * 100 : 0;
@@ -465,7 +469,6 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       localStorage.setItem(`prisma-ai-conversations:${videoId}`, JSON.stringify(next));
       return next;
     });
-    setAiBalance(typeof payload.balance === "number" ? payload.balance : null);
   }
 
   return (
@@ -1147,25 +1150,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Posicionamento no Mercado</h3>
-                    
-                    {/* Simulated benchmark gauge */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[11px] text-[#7a7a7a]">
-                        <span>Sua Taxa</span>
-                        <span>Média da Indústria</span>
-                      </div>
-                      <div className="h-3 w-full bg-black/5 rounded-full overflow-hidden flex">
-                        <div className="h-full bg-emerald-500 rounded-l-full" style={{ width: "65%" }} />
-                        <div className="h-full bg-slate-300 dark:bg-white/10 rounded-r-full" style={{ width: "35%" }} />
-                      </div>
-                      <span className="text-[11px] text-[#7a7a7a] block mt-1">Sua VSL está performando <b>18.4% acima</b> do benchmark de mercado.</span>
-                    </div>
-
-                    <div className="rounded-xl border border-black/5 p-4 bg-emerald-500/[0.02] border-emerald-500/10 space-y-1">
-                      <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Status Operacional</span>
-                      <strong className="text-[13px] text-[#1d1d1f] dark:text-white font-semibold">Excelente desempenho</strong>
-                      <p className="text-[12px] text-[#7a7a7a] leading-relaxed">Esta métrica indica um forte alinhamento de tráfego e qualidade na página.</p>
+                    <h3 className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">Comparação com o período anterior</h3>
+                    <div className="rounded-xl border border-black/5 p-4 dark:border-white/10">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#7a7a7a]">Variação observada</span>
+                      <strong className={`mt-1 block text-lg ${Number(activePanel.data.delta) >= 0 ? "text-emerald-600" : "text-red-600"}`}>{Number(activePanel.data.delta) >= 0 ? "+" : ""}{format(Number(activePanel.data.delta), true)}</strong>
+                      <p className="mt-1 text-[12px] leading-relaxed text-[#7a7a7a]">Comparação calculada com dados reais do período anterior de mesma duração. Abra Benchmarks em Inteligência para consultar a média global quando houver amostra suficiente.</p>
                     </div>
                   </div>
                 </div>
@@ -1359,6 +1348,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
 function LiveSessionLogs({ videoId, countryCode }: { videoId: string; countryCode: string }) {
   const [logs, setLogs] = useState<{ id: string; time: string; event: string; device: string }[]>([]);
+  const [activeCount, setActiveCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -1368,6 +1358,7 @@ function LiveSessionLogs({ videoId, countryCode }: { videoId: string; countryCod
         if (res.ok) {
           const payload = await res.json();
           setLogs(payload.logs || []);
+          setActiveCount(payload.activeCount || 0);
         }
       } catch (e) {
         console.error("Erro ao carregar logs reais:", e);
@@ -1385,12 +1376,12 @@ function LiveSessionLogs({ videoId, countryCode }: { videoId: string; countryCod
     <div className="font-mono bg-[#1d1d1f] text-[#2997ff] p-4 rounded-xl text-[12px] space-y-2.5 h-[280px] overflow-y-auto border border-white/5">
       <div className="text-[10px] text-emerald-400 border-b border-white/10 pb-1.5 flex items-center gap-1.5 font-sans uppercase font-semibold">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        Stream real: {countryCode}
+        Stream real: {countryCode} · {activeCount} ativo{activeCount === 1 ? "" : "s"}
       </div>
       {loading && logs.length === 0 ? (
         <div className="text-[#7a7a7a] text-[11px] py-4">Buscando tráfego real...</div>
       ) : logs.length === 0 ? (
-        <div className="text-[#7a7a7a] text-[11px] py-4">Nenhum evento registrado nas últimas 24h.</div>
+        <div className="text-[#7a7a7a] text-[11px] py-4">Nenhum evento registrado nos últimos 15 minutos.</div>
       ) : (
         logs.map((log) => (
           <div key={log.id} className="flex gap-2 leading-relaxed animate-fade-in text-[11px]">
