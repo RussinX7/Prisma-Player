@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import AudienceGlobe from "@/components/ui/cobe-audience-globe";
+import ClaudeChatInput from "@/components/ui/claude-style-chat-input";
 
 type Summary = {
   impressions: number;
@@ -420,15 +421,16 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
     URL.revokeObjectURL(href);
   }
 
-  async function askAi() {
-    if (aiLoading || !aiQuestion.trim()) return;
+  async function askAi(questionText?: string) {
+    const q = questionText || aiQuestion;
+    if (aiLoading || !q.trim()) return;
     setAiOpen(true);
     setAiLoading(true);
     setAiError("");
     const response = await fetch("/api/ai/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ videoId, days, type: "performance", question: aiQuestion }),
+      body: JSON.stringify({ videoId, days, type: "performance", question: q }),
     });
     const payload = await response.json().catch(() => null) as { result?: AiResult; balance?: number; error?: string } | null;
     setAiLoading(false);
@@ -444,7 +446,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       return;
     }
     setAiResult(payload.result);
-    const conversation: AiConversation = { id: crypto.randomUUID(), title: payload.result.headline || aiQuestion.slice(0, 54), question: aiQuestion.trim(), result: payload.result, createdAt: new Date().toISOString() };
+    const conversation: AiConversation = { id: crypto.randomUUID(), title: payload.result.headline || q.slice(0, 54), question: q.trim(), result: payload.result, createdAt: new Date().toISOString() };
     setAiConversations((current) => {
       const next = [conversation, ...current].slice(0, 30);
       localStorage.setItem(`prisma-ai-conversations:${videoId}`, JSON.stringify(next));
@@ -1023,7 +1025,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             </div>
             <div className="mt-4 grid gap-2">
               {suggestionPrompts.map((prompt) => (
-                <button key={prompt} onClick={() => setAiQuestion(prompt)} className="rounded-[8px] border border-[#e0e0e0] bg-[#ffffff] px-3 py-2.5 text-left text-[12px] font-semibold text-[#1d1d1f] hover:border-[#0066cc] dark:bg-[#2a2a2c] dark:border-white/5 dark:text-[#ffffff] dark:hover:border-[#2997ff] transition-all">
+                <button key={prompt} onClick={() => void askAi(prompt)} className="rounded-[8px] border border-[#e0e0e0] bg-[#ffffff] px-3 py-2.5 text-left text-[12px] font-semibold text-[#1d1d1f] hover:border-[#0066cc] dark:bg-[#2a2a2c] dark:border-white/5 dark:text-[#ffffff] dark:hover:border-[#2997ff] transition-all">
                   {prompt}
                 </button>
               ))}
@@ -1082,24 +1084,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </div>
 
         <div className="border-t bg-[#ffffff] px-4 py-4 dark:bg-[#252527] border-[#e0e0e0] dark:border-white/5 sm:px-5">
-          <div className="mx-auto w-full max-w-3xl rounded-[11px] border border-[#e0e0e0] bg-[#ffffff] p-3 shadow-none dark:border-white/5 dark:bg-[#2a2a2c] focus-within:ring-1 focus-within:ring-[#0066cc]/30 transition-all">
-            <textarea
-              value={aiQuestion}
-              onChange={(event) => setAiQuestion(event.target.value.slice(0, 500))}
-              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!aiLoading && aiQuestion.trim()) void askAi(); } }}
-              placeholder="Pergunte à Prisma IA sobre retenção, CTA, headline ou tráfego..."
-              rows={2}
-              className="max-h-40 min-h-12 w-full resize-none bg-transparent px-1 py-1 text-[14px] leading-relaxed outline-none text-[#1d1d1f] dark:text-[#ffffff] placeholder:text-[#7a7a7a]"
+          <div className="mx-auto max-w-3xl">
+            <ClaudeChatInput
+              onSendMessage={({ message }) => void askAi(message)}
+              isLoading={aiLoading}
             />
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex h-7 items-center gap-1 rounded-md bg-[#0066cc]/10 px-2.5 text-[10px] font-bold text-[#0066cc] dark:bg-[#2997ff]/10 dark:text-[#2997ff]"><Sparkles size={11} /> Especialista VSL</span>
-              <span className="ml-auto text-[10px] font-semibold text-[#7a7a7a]">{aiBalance !== null ? `${aiBalance} créditos` : `${500 - aiQuestion.length} caracteres`}</span>
-              <button type="button" onClick={() => void askAi()} disabled={aiLoading || !aiQuestion.trim()} aria-label="Enviar pergunta" className="grid h-8 w-8 place-items-center rounded-full bg-[#0066cc] text-[#ffffff] shadow-none transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.95]">
-                {aiLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-              </button>
-            </div>
+            <p className="mx-auto mt-3 text-center text-[10px] font-medium text-[#7a7a7a]">A Prisma IA analisa apenas as métricas autorizadas desta VSL.</p>
           </div>
-          <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] font-medium text-[#7a7a7a]">A Prisma IA analisa apenas as métricas autorizadas desta VSL.</p>
         </div>
       </aside>
     </main>
