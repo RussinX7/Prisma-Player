@@ -660,166 +660,139 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                 <div className="space-y-6">
                   <div className="grid gap-6 lg:grid-cols-3">
                     
-                    {/* Unified Interactive Retention Graph & Video Player Card */}
+                    {/* Interactive Retention Graph Card */}
                     <article className="lg:col-span-2 rounded-[18px] border bg-[#ffffff] p-5 border-[#e0e0e0] dark:bg-[#2a2a2c] dark:border-white/[0.04] shadow-none flex flex-col justify-between">
                       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                         <div>
                           <h2 className="text-[17px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Curva de Retenção Interativa</h2>
-                          <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Passe o cursor sobre a área do vídeo para inspecionar os marcos e clique para navegar no tempo correspondente.</p>
+                          <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Passe o cursor sobre o gráfico para inspecionar a retenção em cada marco temporal.</p>
                         </div>
                         <span className="rounded-full bg-[#0066cc]/10 px-3 py-1 text-[11px] font-bold text-[#0066cc] uppercase tracking-wider dark:bg-[#2997ff]/10 dark:text-[#2997ff]">
                           {data.retention.length} marcos
                         </span>
                       </div>
 
-                      {/* Unified Video & Graph Container - Auto-resizing wrapper */}
-                      <div className="relative bg-[#000000] rounded-[11px] overflow-hidden flex items-center justify-center p-0 w-full">
-                        <div 
-                          className="relative w-full flex items-center justify-center"
-                          style={videoRatio ? { maxWidth: `calc(min(100%, ${500 * videoRatio}px))` } : { maxWidth: "100%" }}
+                      {/* Pure SVG Graph Container */}
+                      <div 
+                        className="relative h-[340px] overflow-hidden rounded-[11px] bg-[#f5f5f7] dark:bg-[#252527] border border-[#e0e0e0] dark:border-white/5 p-4 cursor-crosshair transition-colors"
+                        onMouseMove={(e) => {
+                          if (!data.retention.length) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const clientX = e.clientX - rect.left;
+                          const clientY = e.clientY - rect.top;
+
+                          const percent = clientX / rect.width;
+                          let closestIndex = 0;
+                          let minDiff = Infinity;
+                          data.retention.forEach((p, index) => {
+                            const diff = Math.abs((p.point / 100) - percent);
+                            if (diff < minDiff) {
+                              minDiff = diff;
+                              closestIndex = index;
+                            }
+                          });
+
+                          setHoverIndex(closestIndex);
+                          setTooltipPos({ x: clientX, y: clientY });
+                        }}
+                        onMouseLeave={() => setHoverIndex(null)}
+                      >
+                        <svg 
+                          viewBox="0 0 1000 360" 
+                          preserveAspectRatio="none" 
+                          className="h-full w-full overflow-visible"
                         >
+                          <defs>
+                            <linearGradient id="overlayRetentionFill" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="#2997ff" stopOpacity="0.22" />
+                              <stop offset="100%" stopColor="#0066cc" stopOpacity="0.01" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Grid Lines */}
+                          {[0, 25, 50, 75, 100].map((pct) => (
+                            <line 
+                              key={pct} 
+                              x1="0" 
+                              x2="1000" 
+                              y1={360 - (pct / 100) * 310 - 30} 
+                              y2={360 - (pct / 100) * 310 - 30} 
+                              stroke="currentColor" 
+                              className="text-black/[0.04] dark:text-white/[0.04]" 
+                              strokeDasharray="4 6" 
+                            />
+                          ))}
+
+                          <polygon 
+                            points={(() => {
+                              const linePoints = data.retention.map((p, idx) => {
+                                const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
+                                const y = 360 - (p.rate / 100) * 310 - 30; // 30px bottom margin
+                                return `${x},${y}`;
+                              }).join(" ");
+                              return `0,360 ${linePoints} 1000,360`;
+                            })()} 
+                            fill="url(#overlayRetentionFill)" 
+                          />
+
+                          <polyline 
+                            points={data.retention.map((p, idx) => {
+                              const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
+                              const y = 360 - (p.rate / 100) * 310 - 30;
+                              return `${x},${y}`;
+                            }).join(" ")} 
+                            fill="none" 
+                            stroke="#0066cc" 
+                            strokeWidth="3.5" 
+                            vectorEffect="non-scaling-stroke" 
+                            className="dark:stroke-[#2997ff]"
+                          />
+
+                          {hoverIndex !== null && data.retention[hoverIndex] && (
+                            <>
+                              <line 
+                                x1={(hoverIndex / (data.retention.length - 1)) * 1000} 
+                                y1="0" 
+                                x2={(hoverIndex / (data.retention.length - 1)) * 1000} 
+                                y2="360" 
+                                stroke="currentColor" 
+                                className="text-black/10 dark:text-white/10" 
+                                strokeWidth={1} 
+                              />
+                              <circle 
+                                cx={(hoverIndex / (data.retention.length - 1)) * 1000} 
+                                cy={360 - (data.retention[hoverIndex].rate / 100) * 310 - 30} 
+                                r={7} 
+                                fill="#0066cc" 
+                                stroke="#ffffff" 
+                                strokeWidth={1.5} 
+                                className="dark:fill-[#2997ff]"
+                              />
+                            </>
+                          )}
+                        </svg>
+
+                        {/* Floating Tooltip */}
+                        {hoverIndex !== null && data.retention[hoverIndex] && (
                           <div 
-                            className="relative w-full"
-                            style={videoRatio ? { aspectRatio: `${videoRatio}` } : {}}
+                            className="absolute pointer-events-none z-20 rounded-[11px] border border-[#e0e0e0] bg-[#ffffff] p-3 shadow-md dark:border-white/10 dark:bg-[#252527] text-[12px] min-w-[140px]"
+                            style={{ 
+                              left: `${tooltipPos.x}px`, 
+                              top: `${Math.max(10, tooltipPos.y - 15)}px`, 
+                              transform: 'translate(-50%, -100%)' 
+                            }}
                           >
-                            {data.video.source ? (
-                              <video 
-                                ref={videoRef} 
-                                src={data.video.source} 
-                                controls 
-                                preload="metadata" 
-                                playsInline 
-                                className="w-full h-full object-contain"
-                                onLoadedMetadata={(e) => {
-                                  const video = e.currentTarget;
-                                  if (video.videoHeight > 0) {
-                                    setVideoRatio(video.videoWidth / video.videoHeight);
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <div className="text-[13px] text-white/55 h-[300px] flex items-center justify-center">Prévia do vídeo indisponível</div>
-                            )}
-
-                            {/* Interactive Pad Overlay (covers everything EXCEPT the native controls bar at the bottom) */}
-                            {data.video.source && (
-                              <div 
-                                className="absolute inset-x-0 top-0 h-[calc(100%-48px)] cursor-crosshair z-10"
-                                onMouseMove={(e) => {
-                                  if (!data.retention.length) return;
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const clientX = e.clientX - rect.left;
-                                  const clientY = e.clientY - rect.top;
-
-                                  const percent = clientX / rect.width;
-                                  let closestIndex = 0;
-                                  let minDiff = Infinity;
-                                  data.retention.forEach((p, index) => {
-                                    const diff = Math.abs((p.point / 100) - percent);
-                                    if (diff < minDiff) {
-                                      minDiff = diff;
-                                      closestIndex = index;
-                                    }
-                                  });
-
-                                  setHoverIndex(closestIndex);
-                                  setTooltipPos({ x: clientX, y: clientY });
-                                }}
-                                onMouseLeave={() => setHoverIndex(null)}
-                                onClick={() => {
-                                  if (hoverIndex !== null && data.retention[hoverIndex] && videoRef.current) {
-                                    const percent = data.retention[hoverIndex].point / 100;
-                                    videoRef.current.currentTime = percent * (data.video.duration_seconds ?? 0);
-                                    videoRef.current.play().catch(() => {});
-                                  }
-                                }}
-                              />
-                            )}
-
-                            {/* SVG Graph Overlay (100% matched to the video's actual dimensions) */}
-                            {data.video.source && (
-                              <svg 
-                                viewBox="0 0 1000 360" 
-                                preserveAspectRatio="none" 
-                                className="absolute inset-0 w-full h-full p-4 pb-12 pointer-events-none z-0 overflow-visible"
-                              >
-                                <defs>
-                                  <linearGradient id="overlayRetentionFill" x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stopColor="#2997ff" stopOpacity="0.25" />
-                                    <stop offset="100%" stopColor="#0066cc" stopOpacity="0.02" />
-                                  </linearGradient>
-                                </defs>
-
-                                <polygon 
-                                  points={(() => {
-                                    const linePoints = data.retention.map((p, idx) => {
-                                      const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
-                                      const y = 360 - (p.rate / 100) * 310 - 30; // 30px bottom margin
-                                      return `${x},${y}`;
-                                    }).join(" ");
-                                    return `0,360 ${linePoints} 1000,360`;
-                                  })()} 
-                                  fill="url(#overlayRetentionFill)" 
-                                />
-
-                                <polyline 
-                                  points={data.retention.map((p, idx) => {
-                                    const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
-                                    const y = 360 - (p.rate / 100) * 310 - 30;
-                                    return `${x},${y}`;
-                                  }).join(" ")} 
-                                  fill="none" 
-                                  stroke="#2997ff" 
-                                  strokeWidth="3.5" 
-                                  vectorEffect="non-scaling-stroke" 
-                                />
-
-                                {hoverIndex !== null && data.retention[hoverIndex] && (
-                                  <>
-                                    <line 
-                                      x1={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                                      y1={0} 
-                                      x2={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                                      y2={360} 
-                                      stroke="#ffffff" 
-                                      strokeWidth={1.5} 
-                                      strokeDasharray="4 4" 
-                                      className="opacity-60"
-                                    />
-                                    <circle 
-                                      cx={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                                      cy={360 - (data.retention[hoverIndex].rate / 100) * 310 - 30} 
-                                      r={7} 
-                                      fill="#2997ff" 
-                                      stroke="#ffffff" 
-                                      strokeWidth={2} 
-                                    />
-                                  </>
-                                )}
-                              </svg>
-                            )}
-
-                            {/* Floating Tooltip */}
-                            {hoverIndex !== null && data.retention[hoverIndex] && (
-                              <div 
-                                className="absolute pointer-events-none z-20 rounded-[11px] border border-white/10 bg-[#252527]/95 px-3 py-2 shadow-xl backdrop-blur-md text-[11px] text-white"
-                                style={{ 
-                                  left: `${tooltipPos.x}px`, 
-                                  top: `${Math.max(20, tooltipPos.y - 15)}px`, 
-                                  transform: 'translate(-50%, -100%)' 
-                                }}
-                              >
-                                <div className="font-semibold">{data.retention[hoverIndex].point}% do vídeo</div>
-                                <div className="text-[10px] text-slate-300 mt-0.5">
-                                  Tempo: {formatTime((data.retention[hoverIndex].point / 100) * (data.video.duration_seconds ?? 0))}
-                                </div>
-                                <div className="font-bold text-[#2997ff] mt-1">
-                                  Retenção: {data.retention[hoverIndex].rate}%
-                                </div>
-                              </div>
-                            )}
+                            <div className="font-semibold text-[#1d1d1f] dark:text-[#ffffff] border-b border-[#f0f0f0] dark:border-white/5 pb-1 mb-1.5">
+                              {data.retention[hoverIndex].point}% do vídeo
+                            </div>
+                            <div className="text-[#7a7a7a] dark:text-[#cccccc] text-[11px]">
+                              Tempo: {formatTime((data.retention[hoverIndex].point / 100) * (data.video.duration_seconds ?? 0))}
+                            </div>
+                            <div className="font-bold text-[#0066cc] dark:text-[#2997ff] mt-1">
+                              Retenção: {data.retention[hoverIndex].rate}%
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </article>
 
