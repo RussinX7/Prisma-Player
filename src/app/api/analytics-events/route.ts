@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
@@ -84,5 +85,124 @@ export async function POST(request: Request) {
     risk_score: riskScore,
     risk_reasons: riskReasons,
   }, { onConflict: "video_id,session_id,event_type,progress_percent", ignoreDuplicates: true });
+
+  if (!error) {
+    void processIntelligence(
+      supabase,
+      video.user_id,
+      video.id,
+      sessionId,
+      eventType,
+      progressPercent,
+      watchedSeconds,
+      country.length === 2 ? country : "XX",
+      context.device,
+      context.os,
+      context.browser
+    );
+  }
+
   return error ? NextResponse.json({ error: "event_write_failed" }, { status: 500 }) : new NextResponse(null, { status: 204, headers: { "cache-control": "no-store" } });
 }
+
+async function processIntelligence(
+  supabase: any,
+  userId: string,
+  videoId: string,
+  sessionId: string,
+  eventType: string,
+  progressPercent: number,
+  watchedSeconds: number,
+  country: string,
+  deviceType: string,
+  osName: string,
+  browserName: string
+) {
+  try {
+    const { data: controls } = await supabase
+      .from("intelligence_controls")
+      .select("outgoing_webhooks_enabled,webhook_url,webhook_events,conversion_alerts_enabled,conversion_drop_threshold")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!controls) return;
+
+    // 1. OUTGOING WEBHOOKS
+    if (
+      controls.outgoing_webhooks_enabled &&
+      controls.webhook_url &&
+      Array.isArray(controls.webhook_events) &&
+      controls.webhook_events.includes(eventType)
+    ) {
+      fetch(controls.webhook_url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Prisma-Player-Webhooks/1.0",
+        },
+        body: JSON.stringify({
+          id: randomUUID(),
+          event: `vsl.${eventType}`,
+          video_id: videoId,
+          session_id: sessionId,
+          progress_percent: progressPercent,
+          watched_seconds: watchedSeconds,
+          country_code: country,
+          device_type: deviceType,
+          os_name: osName,
+          browser_name: browserName,
+          timestamp: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {});
+    }
+
+    // 2. CONVERSION DROP ALERTS
+    if (controls.conversion_alerts_enabled) {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [{ count: playsCount }, { count: conversionsCount }] = await Promise.all([
+        supabase.from("video_events")
+          .select("session_id", { count: "exact", head: true })
+          .eq("video_id", videoId)
+          .eq("event_type", "play")
+          .gt("created_at", oneDayAgo),
+        supabase.from("video_events")
+          .select("session_id", { count: "exact", head: true })
+          .eq("video_id", videoId)
+          .eq("event_type", "conversion")
+          .gt("created_at", oneDayAgo),
+      ]);
+
+      const plays = playsCount || 0;
+      const conversions = conversionsCount || 0;
+
+      if (plays >= 10) { // Only notify when there is a significant baseline
+        const conversionRate = (conversions / plays) * 100;
+        if (conversionRate < controls.conversion_drop_threshold) {
+          // Check if we already alerted the user for this video in the last 24 hours
+          const { data: existingAlert } = await supabase.from("user_inbox")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("kind", "system")
+            .eq("action_url", `/dashboard/analytics/${videoId}`)
+            .gt("created_at", oneDayAgo)
+            .maybeSingle();
+
+          if (!existingAlert) {
+            await supabase.from("user_inbox").insert({
+              user_id: userId,
+              kind: "system",
+              title: "Alerta de Queda de Conversão!",
+              message: `A taxa de conversão da VSL nas últimas 24h está em ${conversionRate.toFixed(1)}%, ficando abaixo do seu limite configurado de ${controls.conversion_drop_threshold}%.`,
+              action_label: "Ver Analytics",
+              action_url: `/dashboard/analytics/${videoId}`,
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error processing VSL intelligence:", error);
+  }
+}
+
