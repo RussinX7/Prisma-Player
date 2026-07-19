@@ -48,7 +48,13 @@ const empty: Controls = {
   conversion_alerts_enabled: false, conversion_drop_threshold: 20,
 };
 
-export default function IntelligenceControls({ capabilities, videoCount }: { capabilities: Capabilities; videoCount: number }) {
+type BenchmarkData = {
+  leader: { title: string; completion: number; conversion: number; playRate: number } | null;
+  average: { completion: number; conversion: number; playRate: number };
+  videoCount: number;
+};
+
+export default function IntelligenceControls({ capabilities, videoCount, benchmarkData }: { capabilities: Capabilities; videoCount: number; benchmarkData?: BenchmarkData }) {
   const [controls, setControls] = useState<Controls>(empty);
   const [busy, setBusy] = useState<string | null>("load");
   const [notice, setNotice] = useState("");
@@ -285,12 +291,7 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                       </div>
                       <div className="p-3 bg-white dark:bg-[#2a2a2c] rounded-[8px] space-y-1.5 border border-black/5">
                         <strong className="text-[12px] block text-[#1d1d1f] dark:text-[#ffffff]">Sumário Operacional Semanal</strong>
-                        <p className="text-[#7a7a7a]">Seu portfólio apresentou <b>+12.4%</b> de aumento no Play Rate.</p>
-                        <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-black/5 text-center">
-                          <div><span className="text-[10px] text-[#7a7a7a] block">Plays</span><b className="text-[12px] text-[#1d1d1f] dark:text-[#ffffff]">{videoCount * 230}</b></div>
-                          <div><span className="text-[10px] text-[#7a7a7a] block">Conversão</span><b className="text-[12px] text-emerald-600 font-bold">4.2%</b></div>
-                          <div><span className="text-[10px] text-[#7a7a7a] block">Status</span><b className="text-[10px] bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded-full">Saudável</b></div>
-                        </div>
+                        <p className="text-[12px] text-[#7a7a7a] leading-relaxed">O relatório incluirá as variações reais de play rate, taxa de retenção até o pitch e conversões do seu portfólio no período, informando a saúde geral da sua operação.</p>
                       </div>
                     </div>
                   </div>
@@ -362,16 +363,9 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                         <span>Disparar Teste</span>
                       </button>
                     </div>
-                    <pre className="text-[#333333] dark:text-[#cccccc] overflow-x-auto p-1 leading-relaxed">
-{JSON.stringify({
-  event: "vsl.cta_click",
-  session_id: "sess_872c918a",
-  video_id: "vs1-id",
-  progress: 75.3,
-  time_seconds: 41,
-  timestamp: new Date().toISOString()
-}, null, 2)}
-                    </pre>
+                    <div className="text-[#7a7a7a] dark:text-[#cccccc] p-1 text-[12px] leading-relaxed font-sans">
+                      O endpoint configurado receberá os eventos selecionados em tempo real, enviando os dados reais de sessão, vídeo, progresso e momento da interação em formato JSON assim que ocorrerem na operação.
+                    </div>
                   </div>
                 </div>
               )}
@@ -418,6 +412,39 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                       <span className={controls.conversion_drop_threshold > 45 ? "font-bold text-red-600" : ""}>Crítico (Apenas quedas severas)</span>
                     </div>
                   </div>
+
+                  {/* Webhook notification for drop alerts */}
+                  <div className="border-t pt-4 space-y-4 border-[#e0e0e0] dark:border-white/5">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={controls.webhook_events.includes("conversion_drop")}
+                        onChange={(e) => {
+                          const active = e.target.checked;
+                          const next = active 
+                            ? [...controls.webhook_events.filter(x => x !== "conversion_drop"), "conversion_drop"]
+                            : controls.webhook_events.filter(x => x !== "conversion_drop");
+                          setControls({ ...controls, webhook_events: next });
+                        }}
+                        className="rounded border-slate-300 text-[#0066cc] focus:ring-[#0066cc] size-4 accent-[#0066cc] dark:accent-[#2997ff]"
+                      />
+                      <span className="text-[13px] font-semibold text-[#1d1d1f] dark:text-[#ffffff]">Enviar alerta de queda para Webhook</span>
+                    </label>
+
+                    {controls.webhook_events.includes("conversion_drop") && (
+                      <div className="space-y-1.5 transition-all">
+                        <label className="block text-[11px] font-semibold text-[#7a7a7a] dark:text-[#cccccc] uppercase tracking-wider">URL do Webhook de Alerta</label>
+                        <input 
+                          type="url" 
+                          placeholder="https://seu-servidor.com/webhook-alerta" 
+                          value={controls.webhook_url ?? ""} 
+                          onChange={(e) => setControls({ ...controls, webhook_url: e.target.value })}
+                          className="h-10 w-full rounded-[11px] border bg-transparent px-3 text-[13px] outline-none transition focus:border-[#0066cc] border-[#e0e0e0] dark:border-white/10 text-[#1d1d1f] dark:text-white"
+                        />
+                        <p className="text-[11px] text-[#7a7a7a] dark:text-[#cccccc]">O endpoint configurado receberá o payload JSON contendo o ID do vídeo, taxa de conversão e estatísticas da queda.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -429,26 +456,28 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                       Compara a performance média de suas <b>{videoCount} VSLs</b> ativas sem transferir ou expor dados para fora da sua organização.
                     </p>
 
-                    {videoCount > 0 ? (
+                    {videoCount > 0 && benchmarkData ? (
                       <div className="rounded-[14px] border border-[#e0e0e0] dark:border-white/5 bg-[#fafafc] dark:bg-[#1d1d1f] p-4 space-y-4">
                         <div className="text-[12px] font-bold text-[#1d1d1f] dark:text-[#ffffff]">Comparativo de Retenção Interna</div>
                         <div className="space-y-3">
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px]">
-                              <span>VSL Líder (vs1.mp4)</span>
-                              <span className="font-bold text-emerald-600">50% retenção final</span>
+                          {benchmarkData.leader && (
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px]">
+                                <span>VSL Líder ({benchmarkData.leader.title})</span>
+                                <span className="font-bold text-emerald-600">{benchmarkData.leader.completion}% retenção final</span>
+                              </div>
+                              <div className="h-2 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500" style={{ width: `${benchmarkData.leader.completion}%` }} />
+                              </div>
                             </div>
-                            <div className="h-2 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
-                              <div className="h-full bg-emerald-500" style={{ width: "50%" }} />
-                            </div>
-                          </div>
+                          )}
                           <div className="space-y-1">
                             <div className="flex justify-between text-[11px]">
                               <span>Média do Portfólio</span>
-                              <span className="font-bold text-amber-500">22% retenção final</span>
+                              <span className="font-bold text-amber-500">{benchmarkData.average.completion}% retenção final</span>
                             </div>
                             <div className="h-2 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
-                              <div className="h-full bg-amber-500" style={{ width: "22%" }} />
+                              <div className="h-full bg-amber-500" style={{ width: `${benchmarkData.average.completion}%` }} />
                             </div>
                           </div>
                         </div>
@@ -482,22 +511,17 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5 text-[#1d1d1f] dark:text-[#ffffff]">
                           <tr>
                             <td className="p-3 font-semibold">Play Rate</td>
-                            <td className="p-3 text-right text-emerald-600 font-bold">100.0%</td>
+                            <td className="p-3 text-right text-emerald-600 font-bold">{benchmarkData?.average?.playRate ?? 0}%</td>
                             <td className="p-3 text-right text-[#7a7a7a]">38.5%</td>
                           </tr>
                           <tr>
-                            <td className="p-3 font-semibold">Pitch Rate (75%)</td>
-                            <td className="p-3 text-right text-emerald-600 font-bold">100.0%</td>
-                            <td className="p-3 text-right text-[#7a7a7a]">45.2%</td>
-                          </tr>
-                          <tr>
                             <td className="p-3 font-semibold">Retenção Final</td>
-                            <td className="p-3 text-right text-emerald-600 font-bold">50.0%</td>
+                            <td className="p-3 text-right text-emerald-600 font-bold">{benchmarkData?.average?.completion ?? 0}%</td>
                             <td className="p-3 text-right text-[#7a7a7a]">18.4%</td>
                           </tr>
                           <tr>
                             <td className="p-3 font-semibold">Taxa de Conversão</td>
-                            <td className="p-3 text-right text-red-600 font-bold">0.0%</td>
+                            <td className={`p-3 text-right font-bold ${(benchmarkData?.average?.conversion ?? 0) > 0 ? "text-emerald-600" : "text-[#1d1d1f] dark:text-white"}`}>{benchmarkData?.average?.conversion ?? 0}%</td>
                             <td className="p-3 text-right text-[#7a7a7a]">1.5%</td>
                           </tr>
                         </tbody>
@@ -531,7 +555,13 @@ export default function IntelligenceControls({ capabilities, videoCount }: { cap
                       } else if (activeTool === "webhook") {
                         save("webhook", { outgoingWebhooksEnabled: true, webhookUrl: controls.webhook_url, webhookEvents: controls.webhook_events });
                       } else if (activeTool === "alerts") {
-                        save("alerts", { conversionAlertsEnabled: true, conversionDropThreshold: controls.conversion_drop_threshold });
+                        save("alerts", { 
+                          conversionAlertsEnabled: true, 
+                          conversionDropThreshold: controls.conversion_drop_threshold,
+                          outgoingWebhooksEnabled: controls.webhook_events.includes("conversion_drop") ? true : controls.outgoing_webhooks_enabled,
+                          webhookUrl: controls.webhook_url,
+                          webhookEvents: controls.webhook_events
+                        });
                       }
                       setActiveTool(null);
                     }}

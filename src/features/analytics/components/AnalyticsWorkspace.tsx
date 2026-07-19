@@ -1335,7 +1335,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   </p>
                   
                   {/* Live logger component */}
-                  <LiveSessionLogs countryName={activePanel.title} />
+                  <LiveSessionLogs videoId={videoId} countryCode={activePanel.title} />
                 </div>
               )}
             </div>
@@ -1357,57 +1357,49 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   );
 }
 
-function LiveSessionLogs({ countryName }: { countryName: string }) {
+function LiveSessionLogs({ videoId, countryCode }: { videoId: string; countryCode: string }) {
   const [logs, setLogs] = useState<{ id: string; time: string; event: string; device: string }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const devices = ["Mobile (iOS)", "Mobile (Android)", "Desktop (Chrome)", "Desktop (Safari)"];
-    const events = [
-      "Iniciou a reprodução (Play)",
-      "Passou do gancho (10s)",
-      "Chegou a 25% do vídeo",
-      "Chegou a 50% do vídeo",
-      "Assistiu o Pitch (75%)",
-      "Clicou no CTA de Compra",
-      "Concluiu o vídeo (100%)"
-    ];
-
-    const initial = Array.from({ length: 4 }).map((_, i) => ({
-      id: Math.random().toString(),
-      time: new Date(Date.now() - (i * 12000)).toLocaleTimeString(),
-      event: events[Math.floor(Math.random() * 3)],
-      device: devices[Math.floor(Math.random() * devices.length)]
-    })).reverse();
-    setLogs(initial);
-
-    const interval = setInterval(() => {
-      setLogs(prev => [
-        ...prev.slice(-6),
-        {
-          id: Math.random().toString(),
-          time: new Date().toLocaleTimeString(),
-          event: events[Math.floor(Math.random() * events.length)],
-          device: devices[Math.floor(Math.random() * devices.length)]
+    async function fetchLogs() {
+      try {
+        const res = await fetch(`/api/analytics/${videoId}/live-logs?country=${countryCode}`);
+        if (res.ok) {
+          const payload = await res.json();
+          setLogs(payload.logs || []);
         }
-      ]);
-    }, 2500);
+      } catch (e) {
+        console.error("Erro ao carregar logs reais:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
 
+    void fetchLogs();
+    const interval = setInterval(fetchLogs, 4000);
     return () => clearInterval(interval);
-  }, [countryName]);
+  }, [videoId, countryCode]);
 
   return (
     <div className="font-mono bg-[#1d1d1f] text-[#2997ff] p-4 rounded-xl text-[12px] space-y-2.5 h-[280px] overflow-y-auto border border-white/5">
       <div className="text-[10px] text-emerald-400 border-b border-white/10 pb-1.5 flex items-center gap-1.5 font-sans uppercase font-semibold">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        Stream em tempo real: {countryName}
+        Stream real: {countryCode}
       </div>
-      {logs.map((log) => (
-        <div key={log.id} className="flex gap-2 leading-relaxed animate-fade-in text-[11px]">
-          <span className="text-[#7a7a7a]">{log.time}</span>
-          <span className="text-[#a1a1a6]">[{log.device}]</span>
-          <span className="text-white font-medium">{log.event}</span>
-        </div>
-      ))}
+      {loading && logs.length === 0 ? (
+        <div className="text-[#7a7a7a] text-[11px] py-4">Buscando tráfego real...</div>
+      ) : logs.length === 0 ? (
+        <div className="text-[#7a7a7a] text-[11px] py-4">Nenhum evento registrado nas últimas 24h.</div>
+      ) : (
+        logs.map((log) => (
+          <div key={log.id} className="flex gap-2 leading-relaxed animate-fade-in text-[11px]">
+            <span className="text-[#7a7a7a]">{log.time}</span>
+            <span className="text-[#a1a1a6]">[{log.device}]</span>
+            <span className="text-white font-medium">{log.event}</span>
+          </div>
+        ))
+      )}
     </div>
   );
 }

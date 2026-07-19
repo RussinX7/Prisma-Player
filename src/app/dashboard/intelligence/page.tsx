@@ -41,6 +41,15 @@ export default async function IntelligencePage() {
     outgoing_webhooks: Boolean(plan?.outgoing_webhooks), private_benchmark: Boolean(plan?.private_benchmark),
     portfolio_comparison: Boolean(plan?.portfolio_comparison), conversion_drop_alerts: Boolean(plan?.conversion_drop_alerts),
   };
+  const benchmarkData = {
+    leader: winner ? { title: winner.title, completion: winner.completion, conversion: winner.conversion, playRate: winner.playRate } : null,
+    average: {
+      completion: performance.length ? Number((performance.reduce((s, i) => s + i.completion, 0) / performance.length).toFixed(1)) : 0,
+      conversion: performance.length ? Number((performance.reduce((s, i) => s + i.conversion, 0) / performance.length).toFixed(1)) : 0,
+      playRate: performance.length ? Number((performance.reduce((s, i) => s + i.playRate, 0) / performance.length).toFixed(1)) : 0,
+    },
+    videoCount: performance.length
+  };
 
   return <><Header /><main className="dashboard-content pb-16">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[12px] font-semibold uppercase tracking-[.16em] text-prisma-blue">Prisma Intelligence</p><h1 className="mt-2 text-[30px] font-semibold tracking-[-.045em] themeable-text-ink">Seu centro de decisões</h1><p className="mt-1 max-w-2xl text-[14px] themeable-text-ink-muted-48">Sinais da operação transformados em prioridades, experimentos e próximos passos.</p></div><div className="flex gap-2"><span className="rounded-full border px-4 py-2 text-[12px] themeable-border-hairline themeable-text-ink">{wallet.data?.balance ?? 0} créditos IA</span><span className="rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white">{plan?.name ?? "Sem plano"}</span></div></div>
@@ -52,7 +61,7 @@ export default async function IntelligencePage() {
 
     <section id="portfolio" className="mt-5 overflow-hidden rounded-[18px] border themeable-bg-canvas themeable-border-hairline"><div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 themeable-border-hairline"><div><h2 className="text-[19px] font-semibold themeable-text-ink">Radar do portfólio</h2><p className="text-[12px] themeable-text-ink-muted-48">Compare alcance, retenção e resultado sem abrir relatório por relatório.</p></div><Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white"><Zap size={15} /> Criar experimento</Link></div><div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[12px]"><thead className="bg-black/[.025] themeable-text-ink-muted-48"><tr><th className="px-5 py-3">Posição / VSL</th><th>Play rate</th><th>Chegada ao pitch</th><th>Retenção final</th><th>Conversão</th><th /></tr></thead><tbody>{performance.map((video, index) => <tr key={video.id} className="border-t themeable-border-hairline"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className={`grid size-8 place-items-center rounded-full text-[11px] font-bold ${index === 0 ? "bg-prisma-blue text-white" : "bg-black/5 themeable-text-ink"}`}>{index + 1}</span><div><strong className="block max-w-[260px] truncate themeable-text-ink">{video.title}</strong><span className="themeable-text-ink-muted-48">{video.impressions} visualizações</span></div></div></td><Metric value={video.playRate} /><Metric value={video.pitch} /><Metric value={video.completion} /><Metric value={video.conversion} strong /><td className="pr-5 text-right"><Link href={`/dashboard/analytics/${video.id}`} className="font-semibold text-prisma-blue">Detalhes</Link></td></tr>)}{!performance.length && <tr><td colSpan={6} className="px-5 py-16 text-center themeable-text-ink-muted-48">Suas VSLs aparecerão aqui assim que forem publicadas.</td></tr>}</tbody></table></div></section>
 
-    <IntelligenceControls capabilities={capabilities} videoCount={performance.length} />
+    <IntelligenceControls capabilities={capabilities} videoCount={performance.length} benchmarkData={benchmarkData} />
   </main></>;
 }
 

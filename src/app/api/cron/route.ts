@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // Load all intelligence controls
   const { data: controlsList, error: fetchError } = await supabase
     .from("intelligence_controls")
-    .select("user_id, automatic_reports_enabled, report_frequency, report_email, audience_sync_enabled, audience_provider, audience_retention_threshold");
+    .select("user_id, automatic_reports_enabled, report_frequency, report_email, audience_sync_enabled, audience_provider, audience_retention_threshold, conversion_alerts_enabled, conversion_drop_threshold, outgoing_webhooks_enabled, webhook_url, webhook_events");
 
   if (fetchError || !controlsList) {
     return NextResponse.json({ error: "failed_to_fetch_controls", details: fetchError }, { status: 500 });
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   const results = {
     reportsProcessed: 0,
     audiencesSynced: 0,
+    alertsSent: 0,
     errors: [] as string[]
   };
 
@@ -113,6 +114,85 @@ export async function GET(request: NextRequest) {
           });
 
           results.reportsProcessed++;
+        }
+      }
+
+      // 3. PROCESS CONVERSION ALERTS
+      if (config.conversion_alerts_enabled) {
+        const { data: videos } = await supabase
+          .from("videos")
+          .select("id, title")
+          .eq("user_id", config.user_id)
+          .eq("status", "ready");
+
+        if (videos && videos.length > 0) {
+          const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          
+          for (const video of videos) {
+            const [{ count: plays }, { count: conversions }] = await Promise.all([
+              supabase.from("video_events")
+                .select("session_id", { count: "exact", head: true })
+                .eq("video_id", video.id)
+                .eq("event_type", "play")
+                .gt("created_at", last24h),
+              supabase.from("video_events")
+                .select("session_id", { count: "exact", head: true })
+                .eq("video_id", video.id)
+                .eq("event_type", "conversion")
+                .gt("created_at", last24h)
+            ]);
+
+            const playsCount = plays || 0;
+            const conversionsCount = conversions || 0;
+            const rate = playsCount > 0 ? (conversionsCount / playsCount) * 100 : 0;
+
+            if (playsCount >= 10 && rate < config.conversion_drop_threshold) {
+              const actionUrl = `/dashboard/analytics?video=${video.id}`;
+              
+              // Check if an alert was already sent in the last 24h
+              const { data: recentAlerts } = await supabase
+                .from("user_inbox")
+                .select("id")
+                .eq("user_id", config.user_id)
+                .eq("action_url", actionUrl)
+                .gt("created_at", last24h)
+                .limit(1);
+
+              if (!recentAlerts || recentAlerts.length === 0) {
+                await supabase.from("user_inbox").insert({
+                  user_id: config.user_id,
+                  kind: "alert",
+                  title: `Queda de Conversão: ${video.title}`,
+                  message: `A taxa de conversão do vídeo caiu para ${rate.toFixed(1)}% nas últimas 24h (mínimo esperado: ${config.conversion_drop_threshold}%). Total de ${playsCount} plays e ${conversionsCount} conversões.`,
+                  action_label: "Analisar Métricas",
+                  action_url: actionUrl
+                });
+
+                if (config.outgoing_webhooks_enabled && config.webhook_url && Array.isArray(config.webhook_events) && config.webhook_events.includes("conversion")) {
+                  try {
+                    await fetch(config.webhook_url, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        event: "conversion_drop",
+                        videoId: video.id,
+                        videoTitle: video.title,
+                        conversionRate: rate,
+                        threshold: config.conversion_drop_threshold,
+                        plays: playsCount,
+                        conversions: conversionsCount,
+                        timestamp: new Date().toISOString()
+                      })
+                    });
+                  } catch (webhookError) {
+                    // Ignore webhook errors to not break the cron
+                  }
+                }
+
+                results.alertsSent++;
+              }
+            }
+          }
         }
       }
     } catch (e) {

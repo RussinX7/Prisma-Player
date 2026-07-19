@@ -8,7 +8,7 @@ import { csrfGuard } from "@/lib/security/csrf";
 const frequencies = new Set(["daily", "weekly", "monthly"]);
 const providers = new Set(["meta", "google", "tiktok", "kwai"]);
 const thresholds = new Set([25, 50, 75, 90, 100]);
-const webhookEvents = new Set(["impression", "play", "progress", "cta_click", "conversion", "complete"]);
+const webhookEvents = new Set(["impression", "play", "progress", "cta_click", "conversion", "complete", "conversion_drop"]);
 
 async function planContext(userId: string) {
   const admin = createAdminClient();

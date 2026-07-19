@@ -72,7 +72,6 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         }
         await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
       }
-      analyticsEvents.current.delete(key);
     })();
   };
 
