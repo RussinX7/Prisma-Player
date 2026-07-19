@@ -40,9 +40,12 @@ type Summary = {
 
 type Point = { point: number; viewers: number; rate: number };
 type Dimension = { name: string; impressions: number; plays: number; playRate: number; completes: number; completionRate: number };
+type TimelinePoint = { date: string; label: string; impressions: number; plays: number; completes: number; conversions: number };
 type Data = {
-  video: { title: string; duration_seconds: number | null };
+  video: { title: string; duration_seconds: number | null; source: string | null; type: string | null };
   summary: Summary;
+  comparison: { previous: Summary; delta: { impressions: number; plays: number; playRate: number; completionRate: number; conversions: number } };
+  timeline: TimelinePoint[];
   retention: Point[];
   funnel: { name: string; value: number }[];
   dimensions: Record<string, Dimension[]>;
@@ -120,6 +123,39 @@ function MiniSparkline({ values }: { values: number[] }) {
   );
 }
 
+function TimelineChart({ points }: { points: TimelinePoint[] }) {
+  const width = 1200;
+  const height = 300;
+  const maximum = Math.max(...points.flatMap((point) => [point.impressions, point.plays]), 1);
+  const line = (key: "impressions" | "plays") => points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : index / (points.length - 1) * width;
+    const y = height - point[key] / maximum * (height - 20);
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <div className="mt-5">
+      <div className="mb-4 flex flex-wrap items-center gap-5 text-[12px] themeable-text-ink-muted-48">
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-prisma-blue" /> Visualizações</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Plays</span>
+      </div>
+      <div className="relative h-[280px] overflow-hidden rounded-[18px] bg-[#fafbfc] p-3 dark:bg-white/[0.025]">
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
+          <defs>
+            <linearGradient id="timelineFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#0066cc" stopOpacity=".18" /><stop offset="100%" stopColor="#0066cc" stopOpacity="0" /></linearGradient>
+          </defs>
+          {[0, 1, 2, 3, 4].map((grid) => <line key={grid} x1="0" x2={width} y1={grid * height / 4} y2={grid * height / 4} stroke="currentColor" className="text-black/[0.07] dark:text-white/[0.08]" strokeDasharray="5 8" />)}
+          <polygon points={`0,${height} ${line("impressions")} ${width},${height}`} fill="url(#timelineFill)" />
+          <polyline points={line("impressions")} fill="none" stroke="#0066cc" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+          <polyline points={line("plays")} fill="none" stroke="#22d3ee" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+        </svg>
+      </div>
+      <div className="mt-2 flex justify-between text-[11px] themeable-text-ink-muted-48">
+        {points.filter((_, index) => index === 0 || index === points.length - 1 || index === Math.floor(points.length / 2)).map((point) => <span key={point.date}>{point.label}</span>)}
+      </div>
+    </div>
+  );
+}
+
 function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
   return (
     <section className="rounded-[22px] border bg-white p-4 sm:p-5 themeable-border-hairline dark:bg-white/[0.03]">
@@ -163,12 +199,15 @@ function DimensionTable({ title, rows }: { title: string; rows: Dimension[] }) {
   );
 }
 
-function MetricCard({ label, value, hint, featured }: { label: string; value: string; hint: string; featured?: boolean }) {
+function MetricCard({ label, value, hint, delta, values }: { label: string; value: string; hint: string; delta: number; values: number[] }) {
   return (
-    <article className={`rounded-[22px] border p-5 themeable-border-hairline ${featured ? "bg-prisma-blue text-white" : "bg-white themeable-text-ink dark:bg-white/[0.03]"}`}>
-      <p className={`text-[13px] ${featured ? "text-white/72" : "themeable-text-ink-muted-48"}`}>{label}</p>
-      <strong className="mt-3 block text-[32px] font-semibold tracking-[-0.05em] sm:text-[36px]">{value}</strong>
-      <p className={`mt-2 text-[12px] ${featured ? "text-white/72" : "themeable-text-ink-muted-48"}`}>{hint}</p>
+    <article className="min-w-0 overflow-hidden rounded-[18px] border bg-white px-4 pt-4 themeable-border-hairline themeable-text-ink dark:bg-white/[0.03]">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-[12px] themeable-text-ink-muted-48">{label}</p><strong className="mt-2 block text-[29px] font-semibold tracking-[-0.05em]">{value}</strong></div>
+        <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${delta >= 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>{delta >= 0 ? "↑" : "↓"} {format(Math.abs(delta), true)}</span>
+      </div>
+      <p className="mt-1 text-[11px] themeable-text-ink-muted-48">{hint}</p>
+      <MiniSparkline values={values.length ? values : [0]} />
     </article>
   );
 }
@@ -220,12 +259,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const maxCountryViews = Math.max(...activeCountryRows.map((row) => row.impressions), 1);
 
   const cards = useMemo(() => data ? [
-    { label: "Visualizações", value: format(data.summary.impressions), hint: "Sessões que viram o player", featured: true },
-    { label: "Plays", value: format(data.summary.plays), hint: "Pessoas que iniciaram" },
-    { label: "Play rate", value: format(data.summary.playRate, true), hint: "Plays ÷ visualizações" },
-    { label: "Chegaram à oferta", value: format(data.summary.reached75), hint: "Assistiram pelo menos 75%" },
-    { label: "Conclusões", value: format(data.summary.completed), hint: "Chegaram ao fim" },
-    { label: "Retenção final", value: format(data.summary.completionRate, true), hint: "Conclusões ÷ plays" },
+    { label: "Visualizações", value: format(data.summary.impressions), hint: "Carregamentos reais do player", delta: data.comparison.delta.impressions, values: data.timeline.map((point) => point.impressions) },
+    { label: "Plays", value: format(data.summary.plays), hint: "Sessões que iniciaram a VSL", delta: data.comparison.delta.plays, values: data.timeline.map((point) => point.plays) },
+    { label: "Play rate", value: format(data.summary.playRate, true), hint: "Plays ÷ visualizações", delta: data.comparison.delta.playRate, values: data.timeline.map((point) => point.impressions ? point.plays / point.impressions * 100 : 0) },
+    { label: "Retenção final", value: format(data.summary.completionRate, true), hint: "Conclusões ÷ plays", delta: data.comparison.delta.completionRate, values: data.timeline.map((point) => point.plays ? point.completes / point.plays * 100 : 0) },
   ] : [], [data]);
 
   function exportCsv() {
@@ -306,6 +343,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       </header>
 
       <div className="mx-auto max-w-[1540px] px-4 py-5 lg:px-7">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-prisma-blue">Desempenho da VSL</p>
+            <h1 className="mt-1 truncate text-[26px] font-semibold tracking-[-0.045em] themeable-text-ink sm:text-[32px]">{data?.video.title ?? "Analytics"}</h1>
+            <p className="mt-1 text-[13px] themeable-text-ink-muted-48">Cada nova abertura do player é uma sessão; repetir play na mesma abertura não duplica o resultado.</p>
+          </div>
+          <span className="rounded-full border bg-white px-3 py-2 text-[12px] themeable-border-hairline themeable-text-ink-muted-48 dark:bg-white/[0.03]">Atualização em tempo real</span>
+        </div>
         <nav className="mb-5 flex gap-2 overflow-x-auto rounded-[18px] border bg-white p-2 themeable-border-hairline dark:bg-white/[0.03]">
           {tabs.map((item) => {
             const Icon = item.icon;
@@ -334,16 +379,24 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             <div className="space-y-5">
               {tab === "overview" && (
                 <>
-                  <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {cards.map((card) => <MetricCard key={card.label} {...card} />)}
                   </section>
 
-                  <section className="grid gap-5 xl:grid-cols-[0.96fr_1.04fr]">
-                    <div className="rounded-[24px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
+                  <section className="rounded-[22px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03] sm:p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div><h2 className="text-[19px] font-semibold tracking-[-0.03em] themeable-text-ink">Tráfego e reprodução</h2><p className="mt-1 text-[13px] themeable-text-ink-muted-48">Visualizações e sessões que realmente iniciaram o vídeo.</p></div>
+                      <div className="flex gap-4 text-right text-[12px]"><span><b className="block text-[18px] themeable-text-ink">{format(data.summary.reached75)}</b><i className="not-italic themeable-text-ink-muted-48">chegaram à oferta</i></span><span><b className="block text-[18px] themeable-text-ink">{format(data.summary.conversions)}</b><i className="not-italic themeable-text-ink-muted-48">conversões</i></span></div>
+                    </div>
+                    <TimelineChart points={data.timeline} />
+                  </section>
+
+                  <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+                    <div className="rounded-[22px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h2 className="text-[19px] font-semibold tracking-[-0.03em] themeable-text-ink">Curva rápida de retenção</h2>
-                          <p className="text-[13px] themeable-text-ink-muted-48">Onde a atenção está segurando ou escapando.</p>
+                          <h2 className="text-[19px] font-semibold tracking-[-0.03em] themeable-text-ink">Retenção por marco</h2>
+                          <p className="text-[13px] themeable-text-ink-muted-48">Atenção preservada ao longo da VSL.</p>
                         </div>
                         <TrendingUp className="text-prisma-blue" size={22} />
                       </div>
@@ -367,13 +420,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       </div>
                     </div>
 
-                    <div className="rounded-[24px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
+                    <div className="rounded-[22px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.03]">
                       <div className="flex items-center gap-2">
                         <Lightbulb size={18} className="text-amber-500" />
                         <h2 className="font-semibold themeable-text-ink">Diagnóstico inteligente</h2>
                       </div>
                       <div className="mt-4 grid gap-3">
-                        {data.insights.map((insight) => (
+                        {(data.insights.length ? data.insights : [{ tone: "success", title: "Operação estável", detail: "Nenhuma anomalia relevante foi detectada neste período." }]).map((insight) => (
                           <article key={insight.title} className="rounded-[18px] bg-[#f5f5f7] p-4 dark:bg-white/[0.04]">
                             <strong className="themeable-text-ink">{insight.title}</strong>
                             <p className="mt-1 text-[13px] leading-relaxed themeable-text-ink-muted-48">{insight.detail}</p>
@@ -418,13 +471,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       </div>
                       <span className="rounded-full bg-prisma-blue/10 px-3 py-1 text-[12px] font-semibold text-prisma-blue">{data.retention.length} marcos reais</span>
                     </div>
-                    <div className="relative min-h-[360px] bg-black">
-                      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.18)_1px,transparent_1px)] bg-[length:10%_100%,100%_10%]" />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(0,102,204,0.34),transparent_24%),linear-gradient(90deg,rgba(0,0,0,0.88),rgba(0,0,0,0.24),rgba(0,0,0,0.88))]" />
+                    <div className="relative min-h-[380px] overflow-hidden bg-[#090b10] sm:aspect-video sm:max-h-[72vh]">
+                      {data.video.source ? <video src={data.video.source} controls preload="metadata" playsInline className="absolute inset-0 h-full w-full object-contain" /> : <div className="absolute inset-0 grid place-items-center text-[13px] text-white/55">Prévia do vídeo indisponível</div>}
+                      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.05)_0%,rgba(0,0,0,.08)_45%,rgba(0,0,0,.76)_100%)]" />
+                      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.14)_1px,transparent_1px)] bg-[length:10%_100%,100%_10%]" />
                       <div className="absolute left-3 top-4 flex h-[calc(100%-54px)] flex-col justify-between text-[11px] text-white/75">
                         {[100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0].map((item) => <span key={item}>{item}%</span>)}
                       </div>
-                      <svg viewBox="0 0 1000 360" preserveAspectRatio="none" className="absolute inset-x-10 bottom-10 top-6 h-[calc(100%-70px)] w-[calc(100%-72px)] overflow-visible">
+                      <svg viewBox="0 0 1000 360" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-10 bottom-10 top-6 h-[calc(100%-70px)] w-[calc(100%-72px)] overflow-visible">
                         <defs>
                           <linearGradient id="retentionAreaGradient" x1="0" x2="0" y1="0" y2="1">
                             <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.62" />
@@ -433,7 +487,6 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         </defs>
                         <polygon points={retentionArea(data.retention)} fill="url(#retentionAreaGradient)" />
                         <polyline points={retentionPolyline(data.retention)} fill="none" stroke="#22d3ee" strokeWidth="4" vectorEffect="non-scaling-stroke" />
-                        <polyline points={retentionPolyline(data.retention.map((point, index) => ({ ...point, rate: Math.max(0, point.rate - 8 - index * 0.6) })))} fill="none" stroke="#16a34a" strokeWidth="2.4" opacity="0.85" vectorEffect="non-scaling-stroke" />
                       </svg>
                       <div className="absolute inset-x-10 bottom-3 flex justify-between text-[11px] text-white/75">
                         <span>00:00</span>
@@ -479,11 +532,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       {data.live} assistindo
                     </div>
                   </div>
-                  <div className="grid min-h-[520px] lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="relative grid min-h-[420px] place-items-center border-b bg-[radial-gradient(circle_at_center,#ffffff_0%,#f8fbff_42%,#edf4ff_100%)] themeable-border-hairline dark:bg-[radial-gradient(circle_at_center,#182033_0%,#080b12_70%)] lg:border-b-0 lg:border-r">
-                      <AudienceGlobe countries={activeCountryRows} live={data.live} />
+                  <div className="grid min-w-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,.9fr)]">
+                    <div className="relative grid min-h-[360px] min-w-0 overflow-hidden place-items-center border-b bg-[radial-gradient(circle_at_center,#fff_0%,#f5f9ff_48%,#eaf2fd_100%)] p-5 themeable-border-hairline dark:bg-[radial-gradient(circle_at_center,#172035_0%,#070a11_72%)] sm:min-h-[460px] lg:border-b-0 lg:border-r">
+                      <div className="w-full min-w-0 max-w-[500px]"><AudienceGlobe countries={activeCountryRows} live={data.live} /></div>
                     </div>
-                    <div className="max-h-[520px] overflow-y-auto p-5">
+                    <div className="max-h-[520px] min-w-0 overflow-y-auto p-5">
                       <div className="mb-4 flex items-center justify-between">
                         <h3 className="font-semibold themeable-text-ink">Países ativos</h3>
                         <span className="text-[12px] themeable-text-ink-muted-48">últimos minutos</span>

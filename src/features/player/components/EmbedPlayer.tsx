@@ -60,14 +60,30 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     const key = `${eventType}:${progressPercent}`;
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
-    void fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href }) });
+    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href };
+    void (async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const response = await fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(eventPayload) });
+          if (response.ok) return;
+          if (response.status < 500 && response.status !== 429) break;
+        } catch {
+          // A mesma chave de idempotencia torna o reenvio seguro.
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+      }
+      analyticsEvents.current.delete(key);
+    })();
   };
 
   useEffect(() => {
-    const key = `prisma-player-session:${playerId}`;
-    let stored = trackingSessionId || window.localStorage.getItem(key);
-    if (!stored) { stored = crypto.randomUUID(); window.localStorage.setItem(key, stored); }
-    sessionId.current = stored;
+    // Analytics mede uma visita ao embed. Reusar um ID salvo no localStorage fazia
+    // todas as visitas futuras do mesmo navegador parecerem uma unica sessao.
+    sessionId.current = crypto.randomUUID();
+    analyticsEvents.current.clear();
+  }, [playerId]);
+
+  useEffect(() => {
     const params = new URLSearchParams();
     if (originToken) params.set("originToken", originToken);
     fetch(`/api/embed/${encodeURIComponent(playerId)}${params.size ? `?${params.toString()}` : ""}`, { cache: "no-store" })
@@ -102,7 +118,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         setPayload({ ...data, config });
       })
       .catch((reason: Error) => setError(reason.message));
-  }, [originToken, playerId, trackingSessionId]);
+  }, [originToken, playerId]);
 
   useEffect(() => {
     if (payload) trackAnalytics("impression");

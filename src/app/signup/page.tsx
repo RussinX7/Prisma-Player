@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "error" | "">("");
   const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -22,6 +23,7 @@ export default function SignupPage() {
     submittingRef.current = true;
     setLoading(true);
     setMessage("");
+    setMessageTone("");
     try {
       const supabase = createClient();
       const { data, error } = await withAuthTimeout(
@@ -32,9 +34,11 @@ export default function SignupPage() {
         posthog.identify(data.user.id, { email: data.user.email });
         posthog.capture("user_signed_up", { method: "email" });
       }
+      setMessageTone("success");
       setMessage(data.session ? "Conta criada. Redirecionando…" : "Cadastro recebido. Confira seu e-mail para confirmar a conta.");
       if (data.session) window.location.assign("/welcome");
     } catch (error) {
+      setMessageTone("error");
       setMessage(getAuthErrorMessage(error, "Não foi possível criar a conta. Tente novamente."));
     } finally {
       submittingRef.current = false;
@@ -43,13 +47,15 @@ export default function SignupPage() {
   }
 
   async function signUpWith(provider: "google" | "apple") {
-    if (!oauthEnabled(provider)) { setMessage(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
+    if (!oauthEnabled(provider)) { setMessageTone("error"); setMessage(`${provider === "google" ? "Google" : "Apple"} ainda não foi ativado no Supabase.`); return; }
     try {
       posthog.capture("user_signed_up", { method: provider });
+      setMessage("");
+      setMessageTone("");
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/welcome` } });
       if (error) throw error;
-    } catch (error) { setMessage(getAuthErrorMessage(error, "Não foi possível abrir o provedor de acesso.")); }
+    } catch (error) { setMessageTone("error"); setMessage(getAuthErrorMessage(error, "Não foi possível abrir o provedor de acesso.")); }
   }
 
   return (
@@ -177,7 +183,7 @@ export default function SignupPage() {
                 "Criar conta gratuita"
               )}
             </button>
-            {message && <p role="status" aria-live="polite" className="text-center text-[13px] leading-relaxed themeable-text-ink-muted-48">{message}</p>}
+            {message && <p role={messageTone === "error" ? "alert" : "status"} aria-live="polite" className={`rounded-xl border px-4 py-3 text-center text-[13px] font-medium leading-relaxed ${messageTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300" : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"}`}>{message}</p>}
           </form>
 
           <div className="relative my-8">

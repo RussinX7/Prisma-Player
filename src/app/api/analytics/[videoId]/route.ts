@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
+import { signR2ReadUrl } from "@/lib/storage/r2";
 
 type EventRow = { session_id: string; event_type: string; progress_percent: number; watched_seconds: number; country_code: string; device_type: string; os_name: string; browser_name: string; traffic_source: string; campaign_id: string | null; creative_id: string | null; ad_id: string | null; risk_score: number; created_at: string };
 
@@ -24,12 +25,35 @@ function summarize(rows: EventRow[]) {
   return { impressions, uniqueViews: impressions, plays, playRate: pct(plays, impressions), reached25: reached(25), reached50: reached(50), reached75: reached(75), reached90: reached(90), completed, completionRate: pct(completed, plays), ctaClicks: by("cta_click"), conversions: by("conversion") };
 }
 
+function timeline(rows: EventRow[], sinceMs: number, rangeDays: number) {
+  const bucketDays = Math.max(1, Math.ceil(rangeDays / 30));
+  const bucketMs = bucketDays * 86400000;
+  const bucketCount = Math.max(1, Math.ceil(rangeDays / bucketDays));
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const start = sinceMs + index * bucketMs;
+    const end = start + bucketMs;
+    const bucketRows = rows.filter((row) => {
+      const timestamp = new Date(row.created_at).getTime();
+      return timestamp >= start && timestamp < end;
+    });
+    const count = (type: string) => unique(bucketRows.filter((row) => row.event_type === type));
+    return {
+      date: new Date(start).toISOString(),
+      label: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(start)),
+      impressions: count("impression"),
+      plays: count("play"),
+      completes: count("complete"),
+      conversions: count("conversion"),
+    };
+  });
+}
+
 export async function GET(request: Request, context: { params: Promise<{ videoId: string }> }) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { videoId } = await context.params;
   const supabase = await createClient();
-  const { data: video } = await supabase.from("videos").select("id,title,duration_seconds,created_at").eq("id", videoId).eq("user_id", userId).maybeSingle();
+  const { data: video } = await supabase.from("videos").select("id,title,duration_seconds,created_at,object_path,mime_type,storage_provider").eq("id", videoId).eq("user_id", userId).maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const range = Math.min(Math.max(Number(new URL(request.url).searchParams.get("days") ?? 30), 1), 3650);
   const now = Date.now(), since = new Date(now - range * 86400000).toISOString(), previousSince = new Date(now - range * 2 * 86400000).toISOString();
@@ -58,5 +82,9 @@ export async function GET(request: Request, context: { params: Promise<{ videoId
   const liveCountries = dimension(liveRows, "country_code");
   const suspiciousSessions = new Set(rows.filter((row) => row.risk_score >= 50).map((row) => row.session_id)).size;
   const attentionMap = retention.slice(1).map((point, index, list) => ({ ...point, drop: index ? Math.max(0, Math.round((list[index - 1].rate - point.rate) * 10) / 10) : Math.max(0, 100 - point.rate) }));
-  return NextResponse.json({ video, range, summary, comparison, retention, attentionMap, funnel, fraud: { suspiciousSessions, suspiciousRate: pct(suspiciousSessions, impressions), cleanSessions: Math.max(0, impressions - suspiciousSessions) }, dimensions: { countries: dimension(rows, "country_code"), devices: dimension(rows, "device_type"), operatingSystems: dimension(rows, "os_name"), browsers: dimension(rows, "browser_name"), traffic: dimension(rows, "traffic_source"), campaigns: dimension(rows, "campaign_id"), creatives: dimension(rows, "creative_id"), ads: dimension(rows, "ad_id") }, insights, live, liveCountries });
+  const previewSource = video.storage_provider === "r2"
+    ? await signR2ReadUrl(video.object_path, 1800).catch(() => null)
+    : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 1800)).data?.signedUrl ?? null;
+  const publicVideo = { title: video.title, duration_seconds: video.duration_seconds, source: previewSource, type: video.mime_type };
+  return NextResponse.json({ video: publicVideo, range, summary, comparison, timeline: timeline(rows, new Date(since).getTime(), range), retention, attentionMap, funnel, fraud: { suspiciousSessions, suspiciousRate: pct(suspiciousSessions, impressions), cleanSessions: Math.max(0, impressions - suspiciousSessions) }, dimensions: { countries: dimension(rows, "country_code"), devices: dimension(rows, "device_type"), operatingSystems: dimension(rows, "os_name"), browsers: dimension(rows, "browser_name"), traffic: dimension(rows, "traffic_source"), campaigns: dimension(rows, "campaign_id"), creatives: dimension(rows, "creative_id"), ads: dimension(rows, "ad_id") }, insights, live, liveCountries }, { headers: { "Cache-Control": "private, no-store" } });
 }
