@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   const url = body.target === "alert" ? data?.alert_webhook_url : data?.webhook_url;
   if (!url) return NextResponse.json({ error: "no_webhook_url_configured" }, { status: 400 });
   try {
-    const delivered = await deliverWebhook(url, { id: randomUUID(), event: body.target === "alert" ? "conversion_drop" : "prisma.webhook.test", timestamp: new Date().toISOString(), data: body.target === "alert" ? { video_title: "VSL de teste", previous_rate: 4.2, current_rate: 2.8, drop_percent: 33.3 } : { video_id: "test", progress_percent: 75, country_code: "BR", device_type: "mobile" } });
+    const delivered = await deliverWebhook(url, { id: randomUUID(), event: body.target === "alert" ? "conversion_drop" : "prisma.webhook.test", timestamp: new Date().toISOString(), data: body.target === "alert" ? { video_title: "Exemplo de VSL", previous_rate: 4.2, current_rate: 2.8, drop_percent: 33.3, previous_plays: 120, current_plays: 96 } : { video_title: "Exemplo de VSL", progress_percent: 75, country_code: "Brasil", device_type: "Celular" } });
     return NextResponse.json({ delivered: true, ...delivered });
   } catch (error) { return NextResponse.json({ error: "webhook_delivery_failed", message: error instanceof Error ? error.message : "delivery_failed" }, { status: 502 }); }
 }

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
   const [{ data: video }, { data: player }] = await Promise.all([
-    supabase.from("videos").select("id,user_id,status").eq("id", videoId).maybeSingle(),
+    supabase.from("videos").select("id,user_id,status,title").eq("id", videoId).maybeSingle(),
     supabase.from("player_configs").select("id").eq("video_id", videoId).eq("published", true).maybeSingle(),
   ]);
   if (!video || video.status !== "ready") return NextResponse.json({ error: "video_not_found" }, { status: 404 });
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   if (!error) after(async () => {
     const { data: controls } = await supabase.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", video.user_id).maybeSingle();
     if (controls?.outgoing_webhooks_enabled && controls.webhook_url && Array.isArray(controls.webhook_events) && controls.webhook_events.includes(eventType)) {
-      await deliverWebhook(controls.webhook_url, { id: randomUUID(), event: `vsl.${eventType}`, timestamp: new Date().toISOString(), data: { video_id: video.id, session_id: sessionId, progress_percent: progressPercent, watched_seconds: watchedSeconds, country_code: country, device_type: context.device } }).catch(() => undefined);
+      await deliverWebhook(controls.webhook_url, { id: randomUUID(), event: `vsl.${eventType}`, timestamp: new Date().toISOString(), data: { video_id: video.id, video_title: video.title, session_id: sessionId, progress_percent: progressPercent, watched_seconds: watchedSeconds, country_code: country, device_type: context.device } }).catch(() => undefined);
     }
   });
   return error ? NextResponse.json({ error: "event_write_failed" }, { status: 500 }) : new NextResponse(null, { status: 204, headers: { "cache-control": "no-store" } });

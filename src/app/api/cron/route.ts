@@ -48,7 +48,7 @@ export async function GET(request: Request) {
         const days = config.report_frequency === "daily" ? 1 : config.report_frequency === "weekly" ? 7 : 30;
         const stats = await counts(admin, ids, new Date(now.getTime() - days * 86_400_000).toISOString());
         const mail = await sendOperationalReport({ to: config.report_email, frequency: config.report_frequency, days, plays: stats.plays, conversions: stats.conversions, conversionRate: stats.rate });
-        await admin.from("user_inbox").insert({ user_id: config.user_id, kind: "system", title: "Relatório operacional disponível", message: `${stats.plays} plays e ${stats.conversions} conversões (${stats.rate.toFixed(1)}%) nos últimos ${days} dias.${mail.sent ? " O relatório também foi enviado por e-mail." : " O provedor de relatórios por e-mail ainda não está configurado; o relatório ficou disponível somente aqui."}`, action_label: "Ver inteligência", action_url: "/dashboard/intelligence" });
+        await admin.from("user_inbox").insert({ user_id: config.user_id, kind: "system", title: "Seu relatório está pronto", message: `${stats.plays} plays e ${stats.conversions} conversões, com taxa de ${stats.rate.toFixed(1)}% nos últimos ${days} dias.${mail.sent ? " Uma cópia também foi enviada ao seu e-mail." : " Você pode consultar o relatório completo por aqui."}`, action_label: "Abrir relatório", action_url: "/dashboard/intelligence" });
         await admin.from("intelligence_controls").update({ last_report_sent_at: now.toISOString(), updated_at: now.toISOString() }).eq("user_id", config.user_id);
         result.reports += 1; if (mail.sent) result.emails += 1;
       }

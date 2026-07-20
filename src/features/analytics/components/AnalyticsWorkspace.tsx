@@ -457,7 +457,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         analysis_in_progress: "Já existe uma análise em andamento para sua conta. Tente de novo em instantes.",
         ai_rate_limit_10m: "Limite de uso atingido. Espere alguns minutos antes de perguntar de novo.",
         ai_rate_limit_daily: "Limite diário de IA atingido. Volte amanhã ou aumente seus créditos.",
-        nvidia_not_configured: "A chave NVIDIA_API_KEY ainda não foi configurada na Vercel.",
+        nvidia_not_configured: "A análise por IA está temporariamente indisponível. Tente novamente mais tarde.",
       };
       setAiError(messageByCode[payload?.error ?? ""] ?? "Não foi possível consultar a Prisma IA agora.");
       return;

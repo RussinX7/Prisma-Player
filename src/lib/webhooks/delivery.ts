@@ -23,12 +23,64 @@ export async function validateWebhookUrl(value: string) {
   return url;
 }
 
+const eventLabels: Record<string, { title: string; description: string; color: number }> = {
+  "prisma.webhook.test": { title: "Conexão confirmada", description: "A Prisma conseguiu enviar notificações para este canal. Está tudo pronto para acompanhar sua operação por aqui.", color: 0x22c55e },
+  conversion_drop: { title: "A conversão desta VSL caiu", description: "A Prisma comparou os dois últimos períodos e encontrou uma mudança que merece sua atenção.", color: 0xef4444 },
+  impression: { title: "Nova visualização", description: "Uma pessoa encontrou sua VSL e carregou o player.", color: 0x3b82f6 },
+  play: { title: "Novo play", description: "Uma pessoa começou a assistir à sua VSL.", color: 0x0066cc },
+  progress: { title: "Atenção avançando", description: "Uma pessoa alcançou um novo ponto importante do vídeo.", color: 0x8b5cf6 },
+  complete: { title: "VSL concluída", description: "Uma pessoa chegou ao final do vídeo.", color: 0x14b8a6 },
+  cta_click: { title: "Clique no botão de ação", description: "Uma pessoa assistiu à oferta e clicou no seu CTA.", color: 0xf59e0b },
+  conversion: { title: "Nova conversão", description: "Uma conversão foi atribuída a esta VSL.", color: 0x22c55e },
+};
+
+function text(value: unknown, fallback = "Não informado") {
+  const result = String(value ?? "").trim();
+  return (result || fallback).slice(0, 1024);
+}
+
+function percent(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "Não informado";
+}
+
+function deviceLabel(value: unknown) {
+  const normalized = String(value ?? "").toLowerCase();
+  return ({ mobile: "Celular", desktop: "Computador", tablet: "Tablet", other: "Outro" } as Record<string, string>)[normalized] ?? text(value);
+}
+
 function discordPayload(event: WebhookEvent) {
-  const fields = Object.entries(event.data).slice(0, 20).map(([name, value]) => ({ name, value: String(value ?? "—").slice(0, 1024), inline: true }));
+  const eventName = event.event.replace(/^vsl\./, "");
+  const presentation = eventLabels[eventName] ?? { title: "Nova atividade na sua VSL", description: "A Prisma registrou uma nova interação no player.", color: 0x0066cc };
+  const data = event.data;
+  const fields = eventName === "conversion_drop"
+    ? [
+        { name: "VSL", value: text(data.video_title, "VSL sem título"), inline: false },
+        { name: "Taxa anterior", value: percent(data.previous_rate), inline: true },
+        { name: "Taxa atual", value: percent(data.current_rate), inline: true },
+        { name: "Queda identificada", value: percent(data.drop_percent), inline: true },
+        ...(data.previous_plays != null || data.current_plays != null ? [{ name: "Plays comparados", value: `${text(data.previous_plays, "0")} antes → ${text(data.current_plays, "0")} agora`, inline: false }] : []),
+        { name: "Próximo passo", value: "Abra o Analytics da VSL, confira onde a retenção mudou e evite alterar várias coisas ao mesmo tempo.", inline: false },
+      ]
+    : [
+        ...(data.video_title ? [{ name: "VSL", value: text(data.video_title), inline: false }] : []),
+        ...(data.progress_percent != null ? [{ name: "Ponto alcançado", value: percent(data.progress_percent), inline: true }] : []),
+        ...(data.country_code ? [{ name: "Localização", value: text(data.country_code), inline: true }] : []),
+        ...(data.device_type ? [{ name: "Dispositivo", value: deviceLabel(data.device_type), inline: true }] : []),
+        ...(eventName === "prisma.webhook.test" ? [{ name: "O que acontece agora", value: "Quando uma atividade selecionada ocorrer, você receberá uma mensagem clara como esta.", inline: false }] : []),
+      ];
   return {
     username: "Prisma Player",
     allowed_mentions: { parse: [] },
-    embeds: [{ title: event.event === "conversion_drop" ? "Alerta de queda de conversão" : "Evento Prisma Player", description: `**${event.event}**`, color: event.event === "conversion_drop" ? 15158332 : 42495, fields, timestamp: event.timestamp }],
+    embeds: [{
+      author: { name: "Prisma Player · Inteligência" },
+      title: presentation.title,
+      description: presentation.description,
+      color: presentation.color,
+      fields,
+      footer: { text: eventName === "prisma.webhook.test" ? "Mensagem de teste" : "Atualização automática da sua operação" },
+      timestamp: event.timestamp,
+    }],
   };
 }
 
