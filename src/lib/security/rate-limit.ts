@@ -16,7 +16,18 @@ async function cleanupExpired(): Promise<void> {
 }
 
 function clientIp(request: Request): string {
-  return (request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown").split(",")[0].trim();
+  const candidates = [
+    request.headers.get("cf-connecting-ip"),
+    request.headers.get("x-vercel-ip"),
+    request.headers.get("x-real-ip"),
+    request.headers.get("x-forwarded-for"),
+  ];
+
+  for (const candidate of candidates) {
+    const value = candidate?.split(",")[0]?.trim();
+    if (value && value !== "unknown" && value !== "::1" && value !== "127.0.0.1") return value;
+  }
+  return "unknown";
 }
 
 export async function rateLimit(

@@ -6,6 +6,15 @@ import { isR2Configured, r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r
 import { csrfGuard } from "@/lib/security/csrf";
 import { getPostHogClient } from "@/lib/posthog-server";
 
+function normalizeObjectPath(value: unknown, userId: string): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("\\0") || trimmed.includes("\\") || trimmed.startsWith("/") || trimmed.startsWith("../") || trimmed.includes("/../") || trimmed.endsWith("/..") || trimmed === "..") return null;
+  const parts = trimmed.split("/").filter(Boolean);
+  if (parts.length < 2 || parts[0] !== userId || parts.some((part) => part === "." || part === ".." || !part)) return null;
+  return trimmed;
+}
+
 export async function GET(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -47,13 +56,14 @@ export async function POST(request: Request) {
   const account = await getTeamAccountContext(userId);
   if (!account.canEditContent) return forbiddenForRole();
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body || typeof body.objectPath !== "string" || !body.objectPath.startsWith(`${userId}/`)) return NextResponse.json({ error: "invalid_object_path" }, { status: 400 });
+  const objectPath = normalizeObjectPath(body?.objectPath, userId);
+  if (!body || !objectPath) return NextResponse.json({ error: "invalid_object_path" }, { status: 400 });
   const supabase = createAdminClient();
   const sizeBytes = Number(body.sizeBytes);
   const storageProvider = isR2Configured() ? "r2" : "supabase";
   const maxBytes = storageProvider === "r2" ? r2MaxUploadBytes() : 5 * 1024 ** 3;
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes) return NextResponse.json({ error: "invalid_file_size", maxBytes }, { status: 422 });
-  const title = String(body.title ?? "Vídeo").trim().slice(0, 200);
+  const title = String(body.title ?? "Vídeo").trim().replace(/\s+/g, " ").slice(0, 200);
   const mimeType = String(body.mimeType || "video/mp4").trim().toLowerCase();
   const supportedMime = mimeType.startsWith("video/") || mimeType === "application/vnd.apple.mpegurl";
   if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 422 });
@@ -64,7 +74,7 @@ export async function POST(request: Request) {
     const folder = await supabase.from("video_folders").select("id").eq("id", folderId).eq("user_id", account.accountOwnerId).maybeSingle();
     if (!folder.data) return NextResponse.json({ error: "folder_not_found" }, { status: 404 });
   }
-  const { data, error } = await supabase.from("videos").insert({ user_id: account.accountOwnerId, folder_id: folderId, title, object_path: body.objectPath, mime_type: mimeType, size_bytes: sizeBytes, status: requestedStatus, storage_provider: storageProvider }).select().single();
+  const { data, error } = await supabase.from("videos").insert({ user_id: account.accountOwnerId, folder_id: folderId, title, object_path: objectPath, mime_type: mimeType, size_bytes: sizeBytes, status: requestedStatus, storage_provider: storageProvider }).select().single();
   if (error || !data) return NextResponse.json({ error: "video_create_failed" }, { status: 400 });
   const posthog = getPostHogClient();
   posthog.capture({
