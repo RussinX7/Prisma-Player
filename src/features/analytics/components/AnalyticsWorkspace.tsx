@@ -253,13 +253,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const metricsSeriesData = useMemo(() => {
     if (!data?.timeline) return { views: [], plays: [], playRate: [], sales: [] };
     
-    const views = data.timeline.map((p) => ({ date: p.label, value: p.impressions }));
-    const plays = data.timeline.map((p) => ({ date: p.label, value: p.plays }));
+    const views = data.timeline.map((p) => ({ date: p.date, value: p.impressions }));
+    const plays = data.timeline.map((p) => ({ date: p.date, value: p.plays }));
     const playRate = data.timeline.map((p) => ({
-      date: p.label,
+      date: p.date,
       value: p.impressions > 0 ? (p.plays / p.impressions) * 100 : 0
     }));
-    const sales = data.timeline.map((p) => ({ date: p.label, value: p.conversions }));
+    const sales = data.timeline.map((p) => ({ date: p.date, value: p.conversions }));
 
     return { views, plays, playRate, sales };
   }, [data]);

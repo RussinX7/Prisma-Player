@@ -93,7 +93,7 @@ export function StatCardLine({
           >
             <StatCardHoverBridge
               dataKey="value"
-              formatLabel={(label) => String(label)}
+              formatLabel={formatStatCardWeekday}
               onHoverChange={setHover}
             />
             <Line
