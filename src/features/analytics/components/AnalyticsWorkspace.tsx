@@ -18,11 +18,24 @@ import {
   TrendingUp,
   Users,
   X,
-  Globe2,
-  Cpu,
 } from "lucide-react";
-import AudienceGlobe from "@/components/ui/cobe-audience-globe";
 import ClaudeChatInput from "@/components/ui/claude-style-chat-input";
+
+// Custom charts imports
+import {
+  FunnelChart,
+  RingChart,
+  Ring,
+  RingCenter,
+  RingLegend,
+  AreaChart,
+  Area,
+  Grid,
+  AreaXAxis,
+  AreaChartTooltip,
+} from "@/components/charts";
+import { StatCardLine } from "@/components/stat-card-line";
+import { StatCardChoropleth } from "@/components/stat-card-choropleth";
 
 type Summary = {
   impressions: number;
@@ -85,7 +98,7 @@ const regionNames = new Intl.DisplayNames(["pt-BR"], { type: "region" });
 function flagUrl(countryCode: string) {
   const code = countryCode.trim().toUpperCase();
   if (code === "XX" || code === "DESCONHECIDO" || code.length !== 2) {
-    return `${FLAGPACK_BASE}/s/UN.svg`; // Fallback flag
+    return `${FLAGPACK_BASE}/s/UN.svg`;
   }
   return `${FLAGPACK_BASE}/s/${code}.svg`;
 }
@@ -106,147 +119,12 @@ function format(value: number, percent = false) {
   return percent ? `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : value.toLocaleString("pt-BR");
 }
 
-function formatTime(seconds: number | null | undefined) {
-  if (!seconds || seconds <= 0) return "00:00";
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-}
-
-function MiniSparkline({ values, color = "#0066cc" }: { values: number[]; color?: string }) {
-  const width = 220;
-  const height = 50;
-  const max = Math.max(...values, 1);
-  const line = values.map((value, index) => {
-    const x = values.length === 1 ? 0 : (index / (values.length - 1)) * width;
-    const y = height - (value / max) * (height - 10) - 5;
-    return `${x},${y}`;
-  }).join(" ");
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-12 w-full overflow-visible opacity-90 transition-opacity">
-      <polyline points={line} fill="none" stroke={color} strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-
-function TimelineChart({ points }: { points: TimelinePoint[] }) {
-  const width = 1200;
-  const height = 300;
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-
-  const maximum = Math.max(...points.flatMap((point) => [point.impressions, point.plays]), 1);
-
-  const getX = (index: number) => {
-    if (points.length === 1) return width / 2;
-    return (index / (points.length - 1)) * width;
-  };
-
-  const getY = (value: number) => {
-    return height - (value / maximum) * (height - 40) - 20;
-  };
-
-  const line = (key: "impressions" | "plays") => points.map((point, index) => {
-    return `${getX(index)},${getY(point[key])}`;
-  }).join(" ");
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!points.length) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-
-    const svgX = (clientX / rect.width) * width;
-
-    let closestIndex = 0;
-    let minDiff = Infinity;
-    points.forEach((_, index) => {
-      const diff = Math.abs(getX(index) - svgX);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestIndex = index;
-      }
-    });
-
-    setHoverIndex(closestIndex);
-    const pointClientX = (getX(closestIndex) / width) * rect.width;
-    setTooltipPos({ x: pointClientX, y: clientY });
-  };
-
-  return (
-    <div className="relative font-sans" onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIndex(null)}>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full overflow-visible h-[280px]">
-        <defs>
-          <linearGradient id="gradientImpressions" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#0066cc" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#0066cc" stopOpacity="0.0" />
-          </linearGradient>
-          <linearGradient id="gradientPlays" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
-        {/* Grid Lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-          <line key={pct} x1="0" x2={width} y1={height - pct * (height - 40) - 20} y2={height - pct * (height - 40) - 20} stroke="currentColor" className="text-black/[0.04] dark:text-white/[0.04]" strokeDasharray="3 5" />
-        ))}
-
-        {/* Areas */}
-        {points.length > 1 && (
-          <>
-            <path d={`M ${getX(0)},${getY(0)} ${points.map((p, idx) => `L ${getX(idx)},${getY(p.impressions)}`).join(" ")} L ${getX(points.length - 1)},${height - 20} Z`} fill="url(#gradientImpressions)" />
-            <path d={`M ${getX(0)},${getY(0)} ${points.map((p, idx) => `L ${getX(idx)},${getY(p.plays)}`).join(" ")} L ${getX(points.length - 1)},${height - 20} Z`} fill="url(#gradientPlays)" />
-          </>
-        )}
-
-        {/* Lines */}
-        <polyline points={line("impressions")} fill="none" stroke="#0066cc" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
-        <polyline points={line("plays")} fill="none" stroke="#10b981" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
-
-        {/* Hover elements */}
-        {hoverIndex !== null && points[hoverIndex] && (
-          <>
-            <line x1={getX(hoverIndex)} x2={getX(hoverIndex)} y1="0" y2={height - 20} stroke="currentColor" className="text-black/10 dark:text-white/10" strokeDasharray="3 3" />
-            <circle cx={getX(hoverIndex)} cy={getY(points[hoverIndex].impressions)} r="5" className="fill-[#0066cc] stroke-white dark:stroke-black" strokeWidth="1.5" />
-            <circle cx={getX(hoverIndex)} cy={getY(points[hoverIndex].plays)} r="5" className="fill-[#10b981] stroke-white dark:stroke-black" strokeWidth="1.5" />
-          </>
-        )}
-      </svg>
-
-      {/* Hover Tooltip */}
-      {hoverIndex !== null && points[hoverIndex] && (
-        <div className="absolute z-20 rounded-xl border bg-white/95 p-3 shadow-xl backdrop-blur-sm border-[#e0e0e0] dark:bg-[#1d1d1f]/95 dark:border-white/5 pointer-events-none text-[12px] min-w-40" style={{ left: `${Math.min(tooltipPos.x, tooltipPos.x > 150 ? tooltipPos.x - 170 : tooltipPos.x + 10)}px`, top: `20px` }}>
-          <strong className="block text-[#1d1d1f] dark:text-white font-semibold mb-1.5">{points[hoverIndex].label}</strong>
-          <div className="space-y-1">
-            <span className="flex items-center justify-between gap-3 text-slate-500 dark:text-[#a1a1a6]"><i className="flex items-center gap-1.5 not-italic"><span className="h-2 w-2 rounded-full bg-[#0066cc]" />Visualizações</i> <b className="font-semibold text-foreground">{format(points[hoverIndex].impressions)}</b></span>
-            <span className="flex items-center justify-between gap-3 text-slate-500 dark:text-[#a1a1a6]"><i className="flex items-center gap-1.5 not-italic"><span className="h-2 w-2 rounded-full bg-[#10b981]" />Plays</i> <b className="font-semibold text-foreground">{format(points[hoverIndex].plays)}</b></span>
-            <span className="flex items-center justify-between gap-3 text-slate-500 dark:text-[#a1a1a6]"><i className="flex items-center gap-1.5 not-italic"><span className="h-2 w-2 rounded-full bg-indigo-500" />Conversões</i> <b className="font-semibold text-foreground">{format(points[hoverIndex].conversions)}</b></span>
-          </div>
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap justify-between items-center text-[11px] text-[#7a7a7a] dark:text-[#cccccc] font-semibold border-t border-[#e0e0e0] dark:border-white/5 pt-3">
-        <div className="flex gap-4">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#0066cc]" /> Visualizações</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" /> Plays</span>
-        </div>
-        <div className="flex gap-4">
-          {points.filter((_, index) => index === 0 || index === points.length - 1 || index === Math.floor(points.length / 2)).map((point) => <span key={point.date}>{point.label}</span>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function DimensionTable({ title, rows, isCountry = false, onRowClick }: { title: string; rows: Dimension[]; isCountry?: boolean; onRowClick?: (row: Dimension) => void }) {
   const maxImpressions = useMemo(() => Math.max(...rows.map((r) => r.impressions), 1), [rows]);
   return (
     <section className="rounded-[22px] border bg-white p-5 shadow-sm border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">{title}</h3>
+        <h3 className="text-[15px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">{title}</h3>
         <span className="rounded-full bg-[#0066cc]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#0066cc] dark:bg-[#2997ff]/10 dark:text-[#2997ff]">{rows.length} segmentos</span>
       </div>
       {rows.length ? (
@@ -308,40 +186,11 @@ function DimensionTable({ title, rows, isCountry = false, onRowClick }: { title:
   );
 }
 
-function MetricCard({ label, value, description, trend, previous, suffix = "", onClick }: { label: string; value: string; description: string; trend: number; previous: string; suffix?: string; onClick?: () => void }) {
-  const isPositive = trend >= 0;
-  return (
-    <article 
-      onClick={onClick}
-      className={`rounded-[22px] border bg-white p-5 shadow-sm border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 transition-all duration-300 hover:scale-[1.01] hover:shadow-md cursor-pointer flex flex-col justify-between`}
-    >
-      <div>
-        <span className="text-[12px] font-semibold text-[#7a7a7a] dark:text-[#cccccc] tracking-tight">{label}</span>
-        <strong className="mt-2 block text-[32px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff] leading-none">
-          {value}{suffix}
-        </strong>
-      </div>
-      <div className="mt-4 border-t border-[#f0f0f0] dark:border-white/5 pt-3 flex items-center justify-between text-[11px]">
-        <span className="text-[#7a7a7a] dark:text-[#cccccc]">{description}</span>
-        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-bold ${
-          isPositive 
-            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
-            : "bg-red-500/10 text-red-600 dark:text-red-400"
-        }`}>
-          {isPositive ? "↑" : "↓"} {Math.abs(trend)}%
-        </span>
-      </div>
-    </article>
-  );
-}
-
 export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   const [tab, setTab] = useState("overview");
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   // AI Chat states
   const [aiOpen, setAiOpen] = useState(false);
@@ -355,6 +204,21 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
   // Segment detailed view state
   const [activePanel, setActivePanel] = useState<{ type: "metric" | "segment" | "insight" | "retention-pitch" | "live-session"; title: string; subtitle?: string; data: any } | null>(null);
+
+  // Hover & Tooltip positions for Interactive Retention SVG graph
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  // Ring chart active hover states
+  const [hoveredDevicesIndex, setHoveredDevicesIndex] = useState<number | null>(null);
+  const [hoveredBrowsersIndex, setHoveredBrowsersIndex] = useState<number | null>(null);
+  const [hoveredOSIndex, setHoveredOSIndex] = useState<number | null>(null);
+
+  // Maximum views for live countries progress bar
+  const maxRealValue = useMemo(() => {
+    if (!data?.liveCountries?.length) return 1;
+    return Math.max(...data.liveCountries.map((r) => r.impressions), 1);
+  }, [data]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -385,14 +249,19 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
     }
   }, [videoId]);
 
-  const cards = useMemo(() => {
-    if (!data) return [];
-    return [
-      { label: "Visualizações únicas", value: format(data.summary.impressions), description: "Visitantes na página do player", trend: data.comparison.delta.impressions, previous: format(data.comparison.previous.impressions) },
-      { label: "Plays únicos", value: format(data.summary.plays), description: "Reproduções que de fato iniciaram", trend: data.comparison.delta.plays, previous: format(data.comparison.previous.plays) },
-      { label: "Play Rate", value: format(data.summary.playRate), suffix: "%", description: "Taxa de clique no Play do vídeo", trend: data.comparison.delta.playRate, previous: format(data.comparison.previous.playRate, true) },
-      { label: "Compras atribuídas", value: format(data.summary.conversions), description: "Conversão confirmada via checkout", trend: data.comparison.delta.conversions, previous: format(data.comparison.previous.conversions) },
-    ];
+  // Metric series data calculations for StatCardLine
+  const metricsSeriesData = useMemo(() => {
+    if (!data?.timeline) return { views: [], plays: [], playRate: [], sales: [] };
+    
+    const views = data.timeline.map((p) => ({ date: p.label, value: p.impressions }));
+    const plays = data.timeline.map((p) => ({ date: p.label, value: p.plays }));
+    const playRate = data.timeline.map((p) => ({
+      date: p.label,
+      value: p.impressions > 0 ? (p.plays / p.impressions) * 100 : 0
+    }));
+    const sales = data.timeline.map((p) => ({ date: p.label, value: p.conversions }));
+
+    return { views, plays, playRate, sales };
   }, [data]);
 
   const pitchRetention = useMemo(() => {
@@ -401,19 +270,70 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
     return point ? point.rate : data.summary.completionRate;
   }, [data]);
 
-  const maxCountryViews = useMemo(() => {
-    if (!data?.liveCountries.length) return 1;
-    return Math.max(...data.liveCountries.map((r) => r.impressions), 1);
-  }, [data]);
-
-  const maxFunnel = useMemo(() => {
-    if (!data?.funnel.length) return 1;
-    return Math.max(...data.funnel.map((r) => r.value), 1);
-  }, [data]);
-
   const activeCountryRows = useMemo(() => {
     if (!data) return [];
     return data.liveCountries;
+  }, [data]);
+
+  // Area Chart Data formatted
+  const trafficChartData = useMemo(() => {
+    if (!data?.timeline) return [];
+    return data.timeline.map((p) => ({
+      date: p.date,
+      label: p.label,
+      visitors: p.impressions,
+    }));
+  }, [data]);
+
+  // Retention Area Chart Data
+  const retentionChartData = useMemo(() => {
+    if (!data?.retention) return [];
+    return data.retention.map((p) => ({
+      date: `${p.point}%`,
+      label: `${p.point}% do vídeo`,
+      visitors: p.rate,
+    }));
+  }, [data]);
+
+  // Funnel chart data mapping
+  const funnelChartData = useMemo(() => {
+    if (!data?.funnel) return [];
+    return data.funnel.map((step) => ({
+      label: step.name,
+      value: step.value,
+      displayValue: step.value.toLocaleString("pt-BR"),
+    }));
+  }, [data]);
+
+  // Ring Charts Data mapping
+  const devicesRingData = useMemo(() => {
+    if (!data?.dimensions?.devices) return [];
+    const total = data.dimensions.devices.reduce((sum, d) => sum + d.impressions, 0);
+    return data.dimensions.devices.slice(0, 3).map((d) => ({
+      label: d.name,
+      value: d.impressions,
+      maxValue: total || 1,
+    }));
+  }, [data]);
+
+  const browsersRingData = useMemo(() => {
+    if (!data?.dimensions?.browsers) return [];
+    const total = data.dimensions.browsers.reduce((sum, b) => sum + b.impressions, 0);
+    return data.dimensions.browsers.slice(0, 3).map((b) => ({
+      label: b.name,
+      value: b.impressions,
+      maxValue: total || 1,
+    }));
+  }, [data]);
+
+  const osRingData = useMemo(() => {
+    if (!data?.dimensions?.operatingSystems) return [];
+    const total = data.dimensions.operatingSystems.reduce((sum, o) => sum + o.impressions, 0);
+    return data.dimensions.operatingSystems.slice(0, 3).map((o) => ({
+      label: o.name,
+      value: o.impressions,
+      maxValue: total || 1,
+    }));
   }, [data]);
 
   function exportCsv() {
@@ -475,7 +395,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   return (
     <div className={`w-full flex-1 flex flex-col min-w-0 bg-transparent text-[#1d1d1f] dark:text-[#ffffff] relative ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""} transition-all duration-300`}>
       
-      {/* Dynamic Header Component in the workspace page body */}
+      {/* Page Header actions */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="flex min-w-0 flex-row items-center gap-3">
           <Link href="/dashboard/videos" className="inline-flex h-9 items-center gap-1.5 rounded-full border border-prisma-blue text-prisma-blue bg-transparent hover:bg-prisma-blue/5 px-4 text-[13px] font-semibold transition-all active:scale-[0.95] shrink-0">
@@ -539,7 +459,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </div>
       </div>
 
-      {/* Apple Segmented Control Tab Navigation */}
+      {/* Segmented controls tab navigation */}
       <nav className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-[#e0e0e0] bg-[#f5f5f7]/80 p-1 backdrop-blur-md dark:border-white/[0.06] dark:bg-[#252527]/80 max-w-fit select-none">
         {tabs.map((item) => {
           const Icon = item.icon;
@@ -561,7 +481,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         })}
       </nav>
 
-      {/* Body content rendering wrapper */}
+      {/* Body tabs content */}
       <section className="min-w-0 flex-1">
         {loading && !data ? (
           <div className="grid min-h-[400px] place-items-center rounded-[22px] border border-[#e0e0e0] bg-white dark:bg-[#1d1d1f] dark:border-white/5">
@@ -577,21 +497,49 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             {/* TAB 1: VISÃO GERAL */}
             {tab === "overview" && (
               <>
+                {/* 4 Premium Stat Cards with Sparklines */}
                 <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  {cards.map((card) => (
-                    <MetricCard 
-                      key={card.label} 
-                      {...card} 
-                      onClick={() => setActivePanel({ type: "metric", title: card.label, data: card })}
-                    />
-                  ))}
+                  <StatCardLine
+                    title="Visualizações únicas"
+                    value={data.summary.impressions}
+                    description="Visitantes na página do player"
+                    trend={data.comparison.delta.impressions}
+                    data={metricsSeriesData.views}
+                    color="var(--chart-1, #0066cc)"
+                  />
+                  <StatCardLine
+                    title="Plays únicos"
+                    value={data.summary.plays}
+                    description="Reproduções que de fato iniciaram"
+                    trend={data.comparison.delta.plays}
+                    data={metricsSeriesData.plays}
+                    color="var(--chart-2, #10b981)"
+                  />
+                  <StatCardLine
+                    title="Play Rate"
+                    value={data.summary.playRate}
+                    description="Taxa de clique no Play do vídeo"
+                    trend={data.comparison.delta.playRate}
+                    data={metricsSeriesData.playRate}
+                    color="var(--chart-3, #6366f1)"
+                    suffix="%"
+                  />
+                  <StatCardLine
+                    title="Compras atribuídas"
+                    value={data.summary.conversions}
+                    description="Conversão confirmada via checkout"
+                    trend={data.comparison.delta.conversions}
+                    data={metricsSeriesData.sales}
+                    color="var(--chart-4, #f59e0b)"
+                  />
                 </section>
 
+                {/* Main AreaChart block (Tráfego e reprodução) */}
                 <section className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
                       <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Tráfego e reprodução</h2>
-                      <p className="mt-1 text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Visualizações e sessões ao longo do período selecionado.</p>
+                      <p className="mt-1 text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Visualizações e acessos registrados dia a dia.</p>
                     </div>
                     <div className="flex gap-6 text-right text-[12px]">
                       <span>
@@ -604,78 +552,91 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       </span>
                     </div>
                   </div>
-                  <TimelineChart points={data.timeline} />
+                  
+                  {/* Bklit Area Chart */}
+                  <div className="w-full font-sans">
+                    <AreaChart data={trafficChartData} xDataKey="date">
+                      <Grid horizontal />
+                      <Area
+                        dataKey="visitors"
+                        fill="var(--chart-line-primary)"
+                        fillOpacity={0.35}
+                        showMarkers
+                        markers={{ radius: 5, ringGap: 2, strokeWidth: 2 }}
+                      />
+                      <AreaXAxis tickMode="data" />
+                      <AreaChartTooltip />
+                    </AreaChart>
+                  </div>
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                  {/* Miniature Retention Curve */}
-                  <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 flex flex-col justify-between shadow-sm">
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                  {/* AreaChart showing Retention Curve */}
+                  <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 flex flex-col shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-6">
                       <div>
                         <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Retenção por marco</h2>
-                        <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Atenção preservada ao longo do vídeo.</p>
+                        <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Preservação de audiência retida ao longo da VSL.</p>
                       </div>
                       <TrendingUp className="text-prisma-blue" size={20} />
                     </div>
-                    <div className="rounded-xl bg-[#f5f5f7] p-4 dark:bg-[#252527] border border-[#e0e0e0] dark:border-white/5">
-                      <svg viewBox="0 0 1000 180" preserveAspectRatio="none" className="h-[140px] w-full overflow-visible">
-                        {[0, 25, 50, 75, 100].map((pct) => (
-                          <line key={pct} x1="0" x2="1000" y1={180 - (pct / 100) * 150 - 15} y2={180 - (pct / 100) * 150 - 15} stroke="currentColor" className="text-black/[0.04] dark:text-white/[0.04]" strokeDasharray="4 6" />
-                        ))}
-                        
-                        <polyline 
-                          points={data.retention.map((p, idx) => {
-                            const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
-                            const y = 180 - (p.rate / 100) * 150 - 15;
-                            return `${x},${y}`;
-                          }).join(" ")} 
-                          fill="none" 
-                          stroke="#0066cc" 
-                          strokeWidth="2.5" 
-                          vectorEffect="non-scaling-stroke" 
-                          className="dark:stroke-[#2997ff]"
+
+                    <div className="w-full font-sans">
+                      <AreaChart data={retentionChartData} xDataKey="date">
+                        <Grid horizontal />
+                        <Area
+                          dataKey="visitors"
+                          fill="var(--chart-line-primary)"
+                          fillOpacity={0.35}
+                          showMarkers
+                          markers={{ radius: 5, ringGap: 2, strokeWidth: 2 }}
                         />
-                      </svg>
-                      <div className="mt-4 grid grid-cols-3 gap-3 text-[11px] font-semibold text-center border-t border-[#e0e0e0] dark:border-white/5 pt-3">
-                        <span className="text-[#7a7a7a] dark:text-[#cccccc]">Início <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(data.retention[0]?.rate ?? 0, true)}</b></span>
-                        <span className="text-[#7a7a7a] dark:text-[#cccccc]">Pitch <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(pitchRetention, true)}</b></span>
-                        <span className="text-[#7a7a7a] dark:text-[#cccccc]">Final <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(data.summary.completionRate, true)}</b></span>
-                      </div>
+                        <AreaXAxis tickMode="data" />
+                        <AreaChartTooltip />
+                      </AreaChart>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-[11px] font-semibold text-center border-t border-[#e0e0e0] dark:border-white/5 pt-3">
+                      <span className="text-[#7a7a7a] dark:text-[#cccccc]">Início <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(data.retention[0]?.rate ?? 0, true)}</b></span>
+                      <span className="text-[#7a7a7a] dark:text-[#cccccc]">Pitch <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(pitchRetention, true)}</b></span>
+                      <span className="text-[#7a7a7a] dark:text-[#cccccc]">Final <b className="block text-[14px] text-[#1d1d1f] dark:text-[#ffffff] mt-0.5">{format(data.summary.completionRate, true)}</b></span>
                     </div>
                   </div>
 
                   {/* AI Quick Diagnostic Card */}
-                  <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Lightbulb size={18} className="text-amber-500" />
-                      <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Diagnóstico inteligente</h2>
-                    </div>
-                    <div className="grid gap-3">
-                      {(data.insights.length ? data.insights : [{ tone: "success", title: "Operação estável", detail: "Nenhuma anomalia relevante foi detectada neste período." }]).map((insight) => {
-                        const borderClass = 
-                          insight.tone === "success" ? "border-emerald-500/20 bg-emerald-500/[0.02]" :
-                          insight.tone === "warning" ? "border-amber-500/20 bg-amber-500/[0.02]" :
-                          insight.tone === "error" ? "border-red-500/20 bg-red-500/[0.02]" :
-                          "border-blue-500/20 bg-blue-500/[0.02]";
-                        const dotClass = 
-                          insight.tone === "success" ? "bg-emerald-500" :
-                          insight.tone === "warning" ? "bg-amber-500" :
-                          insight.tone === "error" ? "bg-red-500" :
-                          "bg-blue-500";
-                        return (
-                          <article 
-                            key={insight.title} 
-                            onClick={() => setActivePanel({ type: "insight", title: insight.title, data: insight })}
-                            className={`rounded-[12px] border p-4 transition-all duration-300 cursor-pointer hover:border-prisma-blue/40 active:scale-[0.98] ${borderClass}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-                              <strong className="font-semibold text-[#1d1d1f] dark:text-[#ffffff] text-[13px]">{insight.title}</strong>
-                            </div>
-                            <p className="mt-1 text-[11px] leading-relaxed text-[#7a7a7a] dark:text-[#cccccc]">{insight.detail}</p>
-                          </article>
-                        );
-                      })}
+                  <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Lightbulb size={18} className="text-amber-500" />
+                        <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Diagnóstico inteligente</h2>
+                      </div>
+                      <div className="grid gap-3">
+                        {(data.insights.length ? data.insights : [{ tone: "success", title: "Operação estável", detail: "Nenhuma anomalia relevante foi detectada neste período." }]).map((insight) => {
+                          const borderClass = 
+                            insight.tone === "success" ? "border-emerald-500/20 bg-emerald-500/[0.02]" :
+                            insight.tone === "warning" ? "border-amber-500/20 bg-amber-500/[0.02]" :
+                            insight.tone === "error" ? "border-red-500/20 bg-red-500/[0.02]" :
+                            "border-prisma-blue/20 bg-prisma-blue/[0.02]";
+                          const dotClass = 
+                            insight.tone === "success" ? "bg-emerald-500" :
+                            insight.tone === "warning" ? "bg-amber-500" :
+                            insight.tone === "error" ? "bg-red-500" :
+                            "bg-prisma-blue";
+                          return (
+                            <article 
+                              key={insight.title} 
+                              onClick={() => setActivePanel({ type: "insight", title: insight.title, data: insight })}
+                              className={`rounded-[12px] border p-4 transition-all duration-300 cursor-pointer hover:border-prisma-blue/40 active:scale-[0.98] ${borderClass}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+                                <strong className="font-semibold text-[#1d1d1f] dark:text-[#ffffff] text-[13px]">{insight.title}</strong>
+                              </div>
+                              <p className="mt-1 text-[11px] leading-relaxed text-[#7a7a7a] dark:text-[#cccccc]">{insight.detail}</p>
+                            </article>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -847,45 +808,13 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Perda de público e taxas de conversão relativas a cada etapa.</p>
                 </div>
                 
-                <div className="space-y-3 max-w-4xl font-sans">
-                  {data.funnel.map((step, index) => {
-                    const pctOfTotal = maxFunnel > 0 ? Math.round((step.value / maxFunnel) * 100) : 0;
-                    const prevVal = index > 0 ? data.funnel[index - 1].value : maxFunnel;
-                    const pctOfPrev = prevVal > 0 ? Math.round((step.value / prevVal) * 100) : 0;
-                    const dropFromPrev = 100 - pctOfPrev;
-
-                    return (
-                      <div 
-                        key={step.name} 
-                        className="group relative grid gap-3 text-[13px] sm:grid-cols-[180px_1fr_120px] sm:items-center sm:gap-4 p-3 rounded-xl hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-all duration-200"
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-[#1d1d1f] dark:text-[#ffffff] text-[13px]">{step.name}</span>
-                          <span className="text-[10px] text-[#7a7a7a] dark:text-[#cccccc]">
-                            {index === 0 ? "Visualização inicial" : `${pctOfTotal}% do tráfego total`}
-                          </span>
-                        </div>
-
-                        <div className="relative h-5 w-full overflow-hidden rounded-full bg-[#f5f5f7] dark:bg-white/5">
-                          <div 
-                            className="h-full rounded-full bg-prisma-blue opacity-90 transition-all duration-500" 
-                            style={{ width: `${Math.max(step.value ? 4 : 0, step.value / maxFunnel * 100)}%` }} 
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between sm:justify-end gap-3 text-right">
-                          <strong className="text-[13px] font-bold text-[#1d1d1f] dark:text-[#ffffff]">{format(step.value)}</strong>
-                          {index > 0 && dropFromPrev > 0 ? (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:text-red-400 shrink-0">
-                              ↓ {dropFromPrev}%
-                            </span>
-                          ) : (
-                            index > 0 && <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">100%</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Advanced Bklit Funnel Chart Integration */}
+                <div className="w-full py-2">
+                  <FunnelChart
+                    data={funnelChartData}
+                    color="var(--chart-1, #0066cc)"
+                    layers={3}
+                  />
                 </div>
               </section>
             )}
@@ -901,16 +830,93 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             {/* TAB 5: TECNOLOGIA */}
             {tab === "technology" && (
               <div className="grid gap-6 md:grid-cols-3">
-                <DimensionTable title="Dispositivos" rows={data.dimensions.devices} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Dispositivos", data: row })} />
-                <DimensionTable title="Navegadores" rows={data.dimensions.browsers} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Navegadores", data: row })} />
-                <DimensionTable title="Sistemas Operacionais" rows={data.dimensions.operatingSystems} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Sistemas Operacionais", data: row })} />
+                {/* Dispositivos Ring Chart */}
+                <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm flex flex-col justify-between min-h-[360px]">
+                  <div className="mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-800 dark:text-white uppercase tracking-tight">Dispositivos</h3>
+                    <p className="text-[11px] text-[#7a7a7a] dark:text-[#cccccc] mt-0.5">Visitas segmentadas por tipo de hardware</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
+                    <RingChart 
+                      data={devicesRingData} 
+                      size={180}
+                      hoveredIndex={hoveredDevicesIndex}
+                      onHoverChange={setHoveredDevicesIndex}
+                    >
+                      {devicesRingData.map((item, index) => (
+                        <Ring key={item.label} index={index} />
+                      ))}
+                      <RingCenter defaultLabel="Visitas" />
+                    </RingChart>
+                    <RingLegend 
+                      data={devicesRingData}
+                      hoveredIndex={hoveredDevicesIndex}
+                      onHoverChange={setHoveredDevicesIndex}
+                      className="w-full xl:w-auto"
+                    />
+                  </div>
+                </div>
+
+                {/* Navegadores Ring Chart */}
+                <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm flex flex-col justify-between min-h-[360px]">
+                  <div className="mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-800 dark:text-white uppercase tracking-tight">Navegadores</h3>
+                    <p className="text-[11px] text-[#7a7a7a] dark:text-[#cccccc] mt-0.5">Uso relativo de navegadores web</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
+                    <RingChart 
+                      data={browsersRingData} 
+                      size={180}
+                      hoveredIndex={hoveredBrowsersIndex}
+                      onHoverChange={setHoveredBrowsersIndex}
+                    >
+                      {browsersRingData.map((item, index) => (
+                        <Ring key={item.label} index={index} />
+                      ))}
+                      <RingCenter defaultLabel="Visitas" />
+                    </RingChart>
+                    <RingLegend 
+                      data={browsersRingData}
+                      hoveredIndex={hoveredBrowsersIndex}
+                      onHoverChange={setHoveredBrowsersIndex}
+                      className="w-full xl:w-auto"
+                    />
+                  </div>
+                </div>
+
+                {/* Sistemas Operacionais Ring Chart */}
+                <div className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm flex flex-col justify-between min-h-[360px]">
+                  <div className="mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-800 dark:text-white uppercase tracking-tight">Sistemas Operacionais</h3>
+                    <p className="text-[11px] text-[#7a7a7a] dark:text-[#cccccc] mt-0.5">Sistemas utilizados para acessar o vídeo</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
+                    <RingChart 
+                      data={osRingData} 
+                      size={180}
+                      hoveredIndex={hoveredOSIndex}
+                      onHoverChange={setHoveredOSIndex}
+                    >
+                      {osRingData.map((item, index) => (
+                        <Ring key={item.label} index={index} />
+                      ))}
+                      <RingCenter defaultLabel="Visitas" />
+                    </RingChart>
+                    <RingLegend 
+                      data={osRingData}
+                      hoveredIndex={hoveredOSIndex}
+                      onHoverChange={setHoveredOSIndex}
+                      className="w-full xl:w-auto"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
             {/* TAB 6: AO VIVO */}
             {tab === "live" && (
               <section className="overflow-hidden rounded-[22px] border bg-white border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e0e0e0] p-5 dark:border-white/5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e0e0e0] p-5 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01]">
                   <div>
                     <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Tráfego ao Vivo</h2>
                     <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Conexões em tempo real assistindo sua VSL neste instante.</p>
@@ -920,14 +926,18 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                     <span>{data.live} assistindo</span>
                   </div>
                 </div>
-                <div className="grid min-w-0 lg:grid-cols-[1.2fr_0.8fr]">
-                  <div className="relative grid min-h-[360px] min-w-0 overflow-hidden place-items-center border-b bg-white p-5 border-[#e0e0e0] dark:bg-[#0c0c0e] dark:border-white/5 sm:min-h-[460px] lg:border-b-0 lg:border-r">
-                    <div className="w-full min-w-0 max-w-[480px]">
-                      <AudienceGlobe countries={activeCountryRows} live={data.live} />
-                    </div>
+                
+                {/* Advanced Bklit Choropleth Map and live feed */}
+                <div className="grid min-w-0 lg:grid-cols-[1.3fr_0.7fr]">
+                  <div className="p-5 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-[#e0e0e0] dark:border-white/5 bg-[#fcfcfd] dark:bg-[#0e0e0f]">
+                    <StatCardChoropleth 
+                      title="Geolocalização do Tráfego Real"
+                      liveCountries={activeCountryRows} 
+                      totalLive={data.live}
+                    />
                   </div>
                   
-                  <div className="max-h-[520px] min-w-0 overflow-y-auto p-5 divide-y divide-[#f0f0f0] dark:divide-white/5">
+                  <div className="max-h-[500px] min-w-0 overflow-y-auto p-5 divide-y divide-[#f0f0f0] dark:divide-white/5">
                     <div className="mb-4 pb-3 flex items-center justify-between border-b border-[#f0f0f0] dark:border-white/5">
                       <h3 className="font-semibold text-[13px] text-[#1d1d1f] dark:text-[#ffffff]">Cidades/Países Ativos</h3>
                       <span className="text-[10px] font-semibold text-[#7a7a7a]">últimos minutos</span>
@@ -942,7 +952,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                             row.impressions > 0 ? "cursor-pointer hover:text-prisma-blue active:scale-[0.98] transition-all" : ""
                           }`}
                         >
-                          <span className="truncate font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-inherit flex items-center gap-2">
+                          <span className="truncate font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-prisma-blue flex items-center gap-2">
                             {row.impressions > 0 && row.name !== "Sem sessões ativas" && (
                               <img
                                 alt=""
@@ -955,9 +965,9 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                             {row.impressions > 0 && row.name !== "Sem sessões ativas" ? getCountryName(row.name) : row.name}
                           </span>
                           <span className="h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-                            <span className="block h-full rounded-full bg-[#0066cc] dark:bg-[#2997ff] transition-all duration-500" style={{ width: `${Math.max(row.impressions ? 4 : 0, (row.impressions / maxCountryViews) * 100)}%` }} />
+                            <span className="block h-full rounded-full bg-[#0066cc] dark:bg-[#2997ff] transition-all duration-500" style={{ width: `${Math.max(row.impressions ? 4 : 0, (row.impressions / maxRealValue) * 100)}%` }} />
                           </span>
-                          <strong className="text-right font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-inherit">{format(row.impressions)}</strong>
+                          <strong className="text-right font-semibold text-[#1d1d1f] dark:text-[#ffffff] group-hover:text-prisma-blue">{format(row.impressions)}</strong>
                         </div>
                       ))}
                     </div>
@@ -1106,7 +1116,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </div>
       </aside>
 
-      {/* Floating Detail Overlay Drawer (for Segment click details) */}
+      {/* Detail Overlay Drawer */}
       {activePanel && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-[#000000]/30 backdrop-blur-sm transition-opacity" onClick={() => setActivePanel(null)} />
@@ -1150,7 +1160,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                     <span className={`h-2.5 w-2.5 rounded-full ${
                       activePanel.data.tone === "success" ? "bg-emerald-500" :
                       activePanel.data.tone === "warning" ? "bg-amber-500" :
-                      activePanel.data.tone === "error" ? "bg-red-500" : "bg-blue-500"
+                      activePanel.data.tone === "error" ? "bg-red-500" : "bg-prisma-blue"
                     }`} />
                     <strong className="text-[14px] font-bold text-[#1d1d1f] dark:text-white">{activePanel.title}</strong>
                   </div>
@@ -1287,4 +1297,10 @@ function LiveSessionLogs({ videoId, countryCode }: { videoId: string; countryCod
       )}
     </div>
   );
+}
+
+// Calculate max country values for sizing
+function getMaxRealValue(liveCountries: Dimension[]) {
+  if (!liveCountries.length) return 1;
+  return Math.max(...liveCountries.map((r) => r.impressions), 1);
 }
