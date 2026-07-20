@@ -27,7 +27,6 @@ export default function SecurityPage() {
 
   return (
     <>
-      <Header title="Segurança" description="Proteja embeds, domínios e acesso aos vídeos" />
       <section className="dashboard-content flex flex-1 flex-col">
         <div className="mb-6 flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-[11px] bg-prisma-blue/10 text-prisma-blue"><Shield size={21} /></div><div><h2 className="text-[22px] font-semibold themeable-text-ink">Domínios permitidos</h2><p className="text-[13px] themeable-text-ink-muted-48">Defina onde seus players podem ser executados</p></div></div>
         <div className="rounded-[18px] border p-4 themeable-bg-canvas themeable-border-hairline sm:p-6 lg:p-8">

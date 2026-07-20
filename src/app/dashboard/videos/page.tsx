@@ -139,7 +139,6 @@ export default function VideosPage() {
     return () => document.documentElement.classList.remove("hide-page-scrollbar");
   }, []);
   return <>
-    <Header />
     <input ref={fileInputRef} type="file" accept="video/*" className="sr-only" onChange={(event) => { void handleFile(event.target.files?.[0]); event.target.value = ""; }} />
     <section className="videos-library-page dashboard-content flex min-w-0 flex-1 flex-col overflow-x-hidden">
       <PageHeader icon={<Video size={20} />} title={selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name ?? "Pasta" : "Meus vídeos"} actions={actions}><Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} /></PageHeader>

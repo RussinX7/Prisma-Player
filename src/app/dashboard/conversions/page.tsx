@@ -22,7 +22,7 @@ export default async function ConversionsPage() {
   }).sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks);
   const totals = rows.reduce((current, row) => ({ plays: current.plays + row.plays, clicks: current.clicks + row.clicks, conversions: current.conversions + row.conversions }), { plays: 0, clicks: 0, conversions: 0 });
 
-  return <><Header /><main className="dashboard-content"><div><p className="text-[12px] font-semibold uppercase tracking-[.14em] text-prisma-blue">Jornada de compra</p><h1 className="mt-2 text-[28px] font-semibold tracking-[-.7px] themeable-text-ink">Conversões</h1><p className="mt-1 text-[14px] themeable-text-ink-muted-48">Eventos reais mais recentes recebidos pelas embeds.</p></div>
+  return <><main className="dashboard-content"><div><p className="text-[12px] font-semibold uppercase tracking-[.14em] text-prisma-blue">Jornada de compra</p><h1 className="mt-2 text-[28px] font-semibold tracking-[-.7px] themeable-text-ink">Conversões</h1><p className="mt-1 text-[14px] themeable-text-ink-muted-48">Eventos reais mais recentes recebidos pelas embeds.</p></div>
     <section className="mt-6 grid gap-3 sm:grid-cols-3">{[
       { label: "Plays únicos", value: totals.plays, icon: BarChart3 },
       { label: "Cliques na CTA", value: totals.clicks, icon: MousePointerClick },

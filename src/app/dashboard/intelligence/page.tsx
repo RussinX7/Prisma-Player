@@ -53,7 +53,7 @@ export default async function IntelligencePage() {
     global: (globalBenchmark.data ?? { qualified: false, sampleVideos: 0, samplePlays: 0, playRate: 0, completion: 0, conversion: 0 }) as { qualified: boolean; sampleVideos: number; samplePlays: number; playRate: number; completion: number; conversion: number },
   };
 
-  return <><Header /><main className="dashboard-content pb-16">
+  return <><main className="dashboard-content pb-16">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[12px] font-semibold uppercase tracking-[.16em] text-prisma-blue">Prisma Intelligence</p><h1 className="mt-2 text-[30px] font-semibold tracking-[-.045em] themeable-text-ink">Seu centro de decisões</h1><p className="mt-1 max-w-2xl text-[14px] themeable-text-ink-muted-48">Sinais da operação transformados em prioridades, experimentos e próximos passos.</p></div><div className="flex gap-2"><span className="rounded-full border px-4 py-2 text-[12px] themeable-border-hairline themeable-text-ink">{wallet.data?.balance ?? 0} créditos IA</span><span className="rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white">{plan?.name ?? "Sem plano"}</span></div></div>
 
     <section className="mt-7 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
