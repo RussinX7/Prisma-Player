@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeWithNvidia } from "@/lib/ai/nvidia";
+import { csrfGuard } from "@/lib/security/csrf";
+import { getTeamAccountContext } from "@/lib/access/team-context";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowedTypes = new Set(["performance", "retention", "funnel", "copy", "experiment"]);
@@ -13,8 +15,13 @@ const DAILY_LIMIT = 30;
 function pct(value: number, total: number) { return total ? Math.round(value / total * 1000) / 10 : 0; }
 
 export async function POST(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const account = await getTeamAccountContext(userId);
+  if (account.role === "viewer") return NextResponse.json({ error: "team_role_forbidden" }, { status: 403 });
+  const usageUserId = account.accountOwnerId;
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > MAX_REQUEST_BYTES) return NextResponse.json({ error: "request_too_large" }, { status: 413 });
 
@@ -33,13 +40,13 @@ export async function POST(request: Request) {
 
   await admin.from("ai_analysis_jobs")
     .update({ status: "failed", error_code: "analysis_timeout", completed_at: new Date().toISOString() })
-    .eq("user_id", userId)
+    .eq("user_id", usageUserId)
     .in("status", ["queued", "processing"])
     .lt("created_at", staleBefore);
 
   const { data: recentJobs, error: recentJobsError } = await admin.from("ai_analysis_jobs")
     .select("id,status,created_at")
-    .eq("user_id", userId)
+    .eq("user_id", usageUserId)
     .gte("created_at", dayAgo)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -61,8 +68,8 @@ export async function POST(request: Request) {
   }
 
   const [{ data: video }, { data: wallet }] = await Promise.all([
-    admin.from("videos").select("id,title,duration_seconds").eq("id", videoId).eq("user_id", userId).maybeSingle(),
-    admin.from("ai_credit_wallets").select("balance").eq("user_id", userId).maybeSingle(),
+    admin.from("videos").select("id,title,duration_seconds").eq("id", videoId).eq("user_id", account.accountOwnerId).maybeSingle(),
+    admin.from("ai_credit_wallets").select("balance").eq("user_id", usageUserId).maybeSingle(),
   ]);
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   if (!wallet || wallet.balance < 1) return NextResponse.json({ error: "insufficient_credits" }, { status: 402 });
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data: events, error } = await admin.from("video_events")
     .select("session_id,event_type,progress_percent,traffic_source,device_type,country_code,campaign_id,creative_id,risk_score")
-    .eq("video_id", videoId).eq("user_id", userId).gte("created_at", since).limit(50000);
+    .eq("video_id", videoId).eq("user_id", usageUserId).gte("created_at", since).limit(50000);
   if (error) return NextResponse.json({ error: "metrics_unavailable" }, { status: 500 });
 
   const rows = events ?? [];
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
     dimensions: { traffic: dimension("traffic_source"), devices: dimension("device_type"), countries: dimension("country_code"), campaigns: dimension("campaign_id"), creatives: dimension("creative_id") },
   };
   const { data: job, error: jobError } = await admin.from("ai_analysis_jobs")
-    .insert({ user_id: userId, video_id: videoId, analysis_type: type, status: "processing", input_snapshot: snapshot })
+    .insert({ user_id: usageUserId, video_id: videoId, analysis_type: type, status: "processing", input_snapshot: snapshot })
     .select("id")
     .single();
   if (jobError || !job) {
@@ -106,7 +113,7 @@ export async function POST(request: Request) {
   try {
     const analysis = await analyzeWithNvidia(snapshot);
     const reference = `ai_analysis:${job.id}`;
-    const { data: remaining, error: debitError } = await admin.rpc("consume_ai_credit", { p_user_id: userId, p_reference: reference, p_metadata: { analysisId: job.id, videoId } });
+    const { data: remaining, error: debitError } = await admin.rpc("consume_ai_credit", { p_user_id: usageUserId, p_reference: reference, p_metadata: { analysisId: job.id, videoId, actorUserId: userId } });
     if (debitError || typeof remaining !== "number") throw new Error("credit_debit_failed");
     await admin.from("ai_analysis_jobs").update({ status: "completed", result: analysis.result, model: analysis.model, credits_used: 1, completed_at: new Date().toISOString() }).eq("id", job.id);
     return NextResponse.json({ id: job.id, result: analysis.result, balance: remaining });

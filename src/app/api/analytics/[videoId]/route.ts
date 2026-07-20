@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
-import { createClient } from "@/lib/supabase/server";
 import { signR2ReadUrl } from "@/lib/storage/r2";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getTeamAccountContext } from "@/lib/access/team-context";
 
 type EventRow = { session_id: string; event_type: string; progress_percent: number; watched_seconds: number; country_code: string; device_type: string; os_name: string; browser_name: string; traffic_source: string; campaign_id: string | null; creative_id: string | null; ad_id: string | null; risk_score: number; created_at: string };
 
@@ -52,14 +53,15 @@ export async function GET(request: Request, context: { params: Promise<{ videoId
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { videoId } = await context.params;
-  const supabase = await createClient();
-  const { data: video } = await supabase.from("videos").select("id,title,duration_seconds,created_at,object_path,mime_type,storage_provider").eq("id", videoId).eq("user_id", userId).maybeSingle();
+  const account = await getTeamAccountContext(userId);
+  const admin = createAdminClient();
+  const { data: video } = await admin.from("videos").select("id,title,duration_seconds,created_at,object_path,mime_type,storage_provider").eq("id", videoId).eq("user_id", account.accountOwnerId).maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const range = Math.min(Math.max(Number(new URL(request.url).searchParams.get("days") ?? 30), 1), 3650);
   const now = Date.now(), since = new Date(now - range * 86400000).toISOString(), previousSince = new Date(now - range * 2 * 86400000).toISOString();
   const [{ data, error }, { data: activeSessions, error: liveError }] = await Promise.all([
-    supabase.from("video_events").select("session_id,event_type,progress_percent,watched_seconds,country_code,device_type,os_name,browser_name,traffic_source,campaign_id,creative_id,ad_id,risk_score,created_at").eq("video_id", videoId).gte("created_at", previousSince).order("created_at", { ascending: true }).limit(50000),
-    supabase.from("video_live_sessions").select("session_id,country_code,device_type,progress_percent,last_seen_at").eq("video_id", videoId).gt("last_seen_at", new Date(Date.now() - 45_000).toISOString()).limit(500),
+    admin.from("video_events").select("session_id,event_type,progress_percent,watched_seconds,country_code,device_type,os_name,browser_name,traffic_source,campaign_id,creative_id,ad_id,risk_score,created_at").eq("video_id", videoId).gte("created_at", previousSince).order("created_at", { ascending: true }).limit(50000),
+    admin.from("video_live_sessions").select("session_id,country_code,device_type,progress_percent,last_seen_at").eq("video_id", videoId).gt("last_seen_at", new Date(Date.now() - 45_000).toISOString()).limit(500),
   ]);
   if (error) return NextResponse.json({ error: "analytics_load_failed" }, { status: 500 });
   const allRows = (data ?? []) as EventRow[];
@@ -87,7 +89,7 @@ export async function GET(request: Request, context: { params: Promise<{ videoId
   const attentionMap = retention.slice(1).map((point, index, list) => ({ ...point, drop: index ? Math.max(0, Math.round((list[index - 1].rate - point.rate) * 10) / 10) : Math.max(0, 100 - point.rate) }));
   const previewSource = video.storage_provider === "r2"
     ? await signR2ReadUrl(video.object_path, 1800).catch(() => null)
-    : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 1800)).data?.signedUrl ?? null;
+    : (await admin.storage.from("videos").createSignedUrl(video.object_path, 1800)).data?.signedUrl ?? null;
   const publicVideo = { title: video.title, duration_seconds: video.duration_seconds, source: previewSource, type: video.mime_type };
   return NextResponse.json({ video: publicVideo, range, summary, comparison, timeline: timeline(rows, new Date(since).getTime(), range), retention, attentionMap, funnel, fraud: { suspiciousSessions, suspiciousRate: pct(suspiciousSessions, impressions), cleanSessions: Math.max(0, impressions - suspiciousSessions) }, dimensions: { countries: dimension(rows, "country_code"), devices: dimension(rows, "device_type"), operatingSystems: dimension(rows, "os_name"), browsers: dimension(rows, "browser_name"), traffic: dimension(rows, "traffic_source"), campaigns: dimension(rows, "campaign_id"), creatives: dimension(rows, "creative_id"), ads: dimension(rows, "ad_id") }, insights, live, liveCountries: activeCountries }, { headers: { "Cache-Control": "private, no-store" } });
 }

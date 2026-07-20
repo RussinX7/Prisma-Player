@@ -78,6 +78,7 @@ export async function PATCH(request: NextRequest) {
   if (!roles.has(role)) return NextResponse.json({ error: "invalid_role" }, { status: 400 });
   const target = await admin.from("account_team_members").select("id,role").eq("id", String(body.memberId ?? "")).eq("team_id", membership.team_id).single();
   if (!target.data || target.data.role === "owner") return NextResponse.json({ error: "member_not_editable" }, { status: 400 });
+  if (membership.role !== "owner" && (target.data.role === "admin" || role === "admin")) return NextResponse.json({ error: "owner_required_for_admin_role" }, { status: 403 });
   await admin.from("account_team_members").update({ role }).eq("id", target.data.id);
   return NextResponse.json({ updated: true });
 }
@@ -91,6 +92,10 @@ export async function DELETE(request: NextRequest) {
   if (!membership || !["owner", "admin"].includes(membership.role)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   if (body.inviteId) await admin.from("account_team_invites").update({ status: "revoked", updated_at: new Date().toISOString() }).eq("id", body.inviteId).eq("team_id", membership.team_id);
-  if (body.memberId) await admin.from("account_team_members").delete().eq("id", body.memberId).eq("team_id", membership.team_id).neq("role", "owner");
+  if (body.memberId) {
+    const target = await admin.from("account_team_members").select("id,role").eq("id", String(body.memberId)).eq("team_id", membership.team_id).maybeSingle();
+    if (target.data?.role === "admin" && membership.role !== "owner") return NextResponse.json({ error: "owner_required_for_admin_role" }, { status: 403 });
+    await admin.from("account_team_members").delete().eq("id", String(body.memberId)).eq("team_id", membership.team_id).neq("role", "owner");
+  }
   return NextResponse.json({ removed: true });
 }

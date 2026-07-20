@@ -134,6 +134,35 @@ function SecurityPanelFixed({ setMessage, adminMfaRequired }: { setMessage: (val
     if (result.error) { setMessage("Código inválido ou expirado. Aguarde o próximo código."); setBusy(false); return; }
     await supabase.auth.refreshSession(); setQr(""); setSecret(""); setCode(""); setFactorId(""); await refresh(); setMessage("Autenticação em dois fatores ativada."); setBusy(false);
   }
+  async function disableMfa() {
+    if (adminMfaRequired) return setMessage("Administradores precisam manter o MFA ativo para acessar o painel administrativo.");
+    const verifiedFactor = factors.find((factor) => factor.status === "verified");
+    if (!verifiedFactor || busy || !confirm("Desativar a autenticação em dois fatores desta conta?")) return;
+    setBusy(true);
+    const supabase = createClient();
+    const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (assurance.error || assurance.data.currentLevel !== "aal2") {
+      setMessage("Entre novamente e confirme o código do autenticador nesta sessão antes de desativar o MFA.");
+      setBusy(false);
+      return;
+    }
+    const result = await supabase.auth.mfa.unenroll({ factorId: verifiedFactor.id });
+    if (result.error) {
+      setMessage("Não foi possível desativar o MFA. Confirme que esta sessão usou o segundo fator.");
+      setBusy(false);
+      return;
+    }
+    await supabase.auth.refreshSession();
+    await refresh();
+    setMessage("Autenticação em dois fatores desativada.");
+    setBusy(false);
+  }
   const verified = factors.some((factor) => factor.status === "verified");
-  return <div className="space-y-5">{adminMfaRequired && !verified && <div role="alert" className="rounded-[18px] border border-amber-500/30 bg-amber-500/10 p-4 text-[13px] text-amber-700 dark:text-amber-300"><strong className="block text-[14px]">MFA obrigatório para administradores</strong>Confirme um aplicativo autenticador para liberar o painel administrativo.</div>}<Card title="Autenticação em dois fatores" description={adminMfaRequired ? "Obrigatória para administradores e opcional para os demais usuários." : "Proteja sua operação com um aplicativo autenticador TOTP."}>{verified ? <div className="flex items-center gap-3 rounded-[14px] border border-green-500/25 bg-green-500/5 p-4 text-[14px] text-green-600"><Shield size={20} />MFA ativo nesta conta</div> : qr ? <div className="grid gap-5 sm:grid-cols-[180px_1fr]"><div className="overflow-hidden rounded-[14px] bg-white p-3"><Image src={qr} alt="QR Code para configurar o autenticador" width={156} height={156} unoptimized className="h-auto w-full" /></div><div><label className="text-[13px] font-medium themeable-text-ink">Código de 6 dígitos<Input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" /></label><button onClick={verify} disabled={busy || code.length !== 6} className="mt-4 min-h-11 rounded-full bg-prisma-blue px-5 text-white disabled:opacity-40">{busy ? "Confirmando…" : "Confirmar e ativar"}</button>{secret && <details className="mt-4 text-[12px] themeable-text-ink-muted-48"><summary className="cursor-pointer">Não consigo escanear</summary><code className="mt-2 block break-all rounded-[10px] bg-black/5 p-3 dark:bg-white/10">{secret}</code></details>}</div></div> : <button onClick={enroll} disabled={busy} className="flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] text-white disabled:opacity-50"><Smartphone size={17} />{busy ? "Preparando…" : "Configurar aplicativo"}</button>}</Card><Card title="Sessão e privacidade"><div className="space-y-3"><Info icon={KeyRound} title="Cookie HttpOnly" detail="Tokens de sessão não ficam acessíveis ao JavaScript da página" /><Info icon={Shield} title="Dados isolados" detail="RLS impede acesso aos vídeos e métricas de outras contas" /></div></Card></div>;
+  return <div className="space-y-5">
+    {adminMfaRequired && !verified && <div role="alert" className="rounded-[18px] border border-amber-500/30 bg-amber-500/10 p-4 text-[13px] text-amber-700 dark:text-amber-300"><strong className="block text-[14px]">MFA obrigatório para administradores</strong>Confirme um aplicativo autenticador para liberar o painel administrativo.</div>}
+    <Card title="Autenticação em dois fatores" description={adminMfaRequired ? "Obrigatória para administradores e opcional para os demais usuários." : "Proteja sua operação com um aplicativo autenticador TOTP."}>
+      {verified ? <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-green-500/25 bg-green-500/5 p-4"><div className="flex items-center gap-3 text-[14px] text-green-600"><Shield size={20} />MFA ativo nesta conta</div>{adminMfaRequired ? <span className="text-[12px] font-medium text-amber-600">Obrigatório para administradores</span> : <button type="button" onClick={disableMfa} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-red-500/25 px-4 text-[13px] font-medium text-red-600 transition hover:bg-red-500/10 disabled:opacity-50"><Trash2 size={15} />{busy ? "Desativando…" : "Desativar MFA"}</button>}</div> : qr ? <div className="grid gap-5 sm:grid-cols-[180px_1fr]"><div className="overflow-hidden rounded-[14px] bg-white p-3"><Image src={qr} alt="QR Code para configurar o autenticador" width={156} height={156} unoptimized className="h-auto w-full" /></div><div><label className="text-[13px] font-medium themeable-text-ink">Código de 6 dígitos<Input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" /></label><button onClick={verify} disabled={busy || code.length !== 6} className="mt-4 min-h-11 rounded-full bg-prisma-blue px-5 text-white disabled:opacity-40">{busy ? "Confirmando…" : "Confirmar e ativar"}</button>{secret && <details className="mt-4 text-[12px] themeable-text-ink-muted-48"><summary className="cursor-pointer">Não consigo escanear</summary><code className="mt-2 block break-all rounded-[10px] bg-black/5 p-3 dark:bg-white/10">{secret}</code></details>}</div></div> : <button onClick={enroll} disabled={busy} className="flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 text-[14px] text-white disabled:opacity-50"><Smartphone size={17} />{busy ? "Preparando…" : "Configurar aplicativo"}</button>}
+    </Card>
+    <Card title="Sessão e privacidade"><div className="space-y-3"><Info icon={KeyRound} title="Cookie HttpOnly" detail="Tokens de sessão não ficam acessíveis ao JavaScript da página" /><Info icon={Shield} title="Dados isolados" detail="RLS impede acesso aos vídeos e métricas de outras contas" /></div></Card>
+  </div>;
 }

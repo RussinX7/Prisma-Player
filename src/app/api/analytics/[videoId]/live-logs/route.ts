@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getTeamAccountContext } from "@/lib/access/team-context";
 
 export async function GET(request: Request, context: { params: Promise<{ videoId: string }> }) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { videoId } = await context.params;
   const country = new URL(request.url).searchParams.get("country")?.toUpperCase() ?? "";
-  const supabase = await createClient();
-  const { data: video } = await supabase.from("videos").select("id").eq("id", videoId).eq("user_id", userId).maybeSingle();
+  const account = await getTeamAccountContext(userId);
+  const supabase = createAdminClient();
+  const { data: video } = await supabase.from("videos").select("id").eq("id", videoId).eq("user_id", account.accountOwnerId).maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
 
   const filterCountry = country && country !== "DESCONHECIDO" && country !== "XX";

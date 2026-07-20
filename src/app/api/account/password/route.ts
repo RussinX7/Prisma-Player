@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { csrfGuard } from "@/lib/security/csrf";
 
 export async function PATCH(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const limited = await rateLimit(request, `account-password:${userId}`, { max: 5, windowMs: 10 * 60_000 });

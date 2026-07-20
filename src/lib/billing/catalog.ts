@@ -48,17 +48,21 @@ export function getPlanBenefits(plan: BillingPlan) {
   return benefits;
 }
 
-export function formatStorageOverage(cents: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+export function formatStorageOverage(cents: number | null | undefined) {
+  const normalized = Number(cents);
+  const safeCents = Number.isFinite(normalized) && normalized >= 0 ? normalized : 50;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(safeCents / 100);
 }
 
-export function formatPlayOverage(millicents: number) {
+export function formatPlayOverage(millicents: number | null | undefined) {
+  const normalized = Number(millicents);
+  const safeMillicents = Number.isFinite(normalized) && normalized >= 0 ? normalized : 0;
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
-  }).format(millicents / 100_000);
+  }).format(safeMillicents / 100_000);
 }
 
 export function formatBRL(cents: number) {

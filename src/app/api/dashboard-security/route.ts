@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
+import { csrfGuard } from "@/lib/security/csrf";
 
 const normalize = (value: unknown) => typeof value === "string"
   ? value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "")
@@ -15,6 +16,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as { domains?: unknown } | null;

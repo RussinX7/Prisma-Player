@@ -49,6 +49,22 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   const trackingVariantId = tracking?.variantId;
   const trackingSessionId = tracking?.sessionId;
 
+  const publishPixelEvent = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click", progressPercent = 0) => {
+    if (!payload?.videoId || !Boolean(payload.config.pixelsEnabled)) return;
+    const targetOrigin = (() => { try { return new URL(document.referrer).origin; } catch { return ""; } })();
+    if (!targetOrigin || window.parent === window) return;
+    window.parent.postMessage({
+      type: "prisma-player:pixel-event",
+      playerId,
+      videoId: payload.videoId,
+      eventType,
+      progressPercent,
+      provider: String(payload.config.pixelProvider ?? "Personalizado"),
+      pixelId: String(payload.config.pixelId ?? ""),
+      pixelName: String(payload.config.pixelName ?? ""),
+    }, targetOrigin);
+  };
+
   const track = (eventType: "impression" | "play" | "progress" | "complete", progressPercent = 0, watchedSeconds = 0) => {
     if (!tracking) return;
     const key = `${eventType}:${progressPercent}`;
@@ -62,6 +78,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     const key = `${eventType}:${progressPercent}`;
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
+    publishPixelEvent(eventType, progressPercent);
     const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href };
     void (async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -190,9 +207,10 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     const content = document.querySelector<HTMLElement>("main[data-prisma-embed]");
     if (!content) return;
     const targetOrigin = (() => {
-      try { return new URL(document.referrer || (window.parent !== window ? document.referrer : "")).origin || "*"; }
-      catch { return "*"; }
+      try { return document.referrer ? new URL(document.referrer).origin : ""; }
+      catch { return ""; }
     })();
+    if (!targetOrigin) return;
     const publishSize = () => window.parent.postMessage({ type: "prisma-player:resize", playerId, height: Math.max(1, Math.ceil(content.getBoundingClientRect().height)) }, targetOrigin);
     const observer = new ResizeObserver(publishSize);
     observer.observe(content);

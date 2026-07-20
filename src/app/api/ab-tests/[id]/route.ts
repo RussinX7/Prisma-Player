@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { csrfGuard } from "@/lib/security/csrf";
 
 function hash(value: string) { let result = 0; for (let index = 0; index < value.length; index += 1) result = ((result << 5) - result + value.charCodeAt(index)) >>> 0; return result; }
 
@@ -22,7 +23,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   return NextResponse.json({ testId: id, variantId: variant.id, videoId: variant.video_id, playerId: config.id }, { headers: { "cache-control": "private, no-store" } });
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await context.params;

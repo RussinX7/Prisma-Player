@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { forbiddenForRole, getTeamAccountContext } from "@/lib/access/team-context";
 import { abortR2MultipartUpload, completeR2MultipartUpload, createR2MultipartUpload, describeR2Error, signR2UploadPart } from "@/lib/storage/r2";
+import { csrfGuard } from "@/lib/security/csrf";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Context) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const account = await getTeamAccountContext(userId);
+  if (!account.canEditContent) return forbiddenForRole();
   const { id } = await params;
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = body?.action;
-  const supabase = await createClient();
-  const { data: video } = await supabase.from("videos").select("id,object_path,mime_type,size_bytes,status,storage_provider").eq("id", id).eq("user_id", userId).maybeSingle();
+  const supabase = createAdminClient();
+  const { data: video } = await supabase.from("videos").select("id,object_path,mime_type,size_bytes,status,storage_provider").eq("id", id).eq("user_id", account.accountOwnerId).maybeSingle();
   if (!video || video.storage_provider !== "r2") return NextResponse.json({ error: "video_not_found" }, { status: 404 });
 
   try {
     if (action === "create") {
       if (video.status !== "processing") return NextResponse.json({ error: "invalid_status" }, { status: 409 });
-      const uploadId = await createR2MultipartUpload(video.object_path, video.mime_type, { owner: userId, video: video.id });
+      const uploadId = await createR2MultipartUpload(video.object_path, video.mime_type, { owner: account.accountOwnerId, actor: userId, video: video.id });
       return NextResponse.json({ uploadId, partSize: 25 * 1024 * 1024 });
     }
     const uploadId = typeof body?.uploadId === "string" ? body.uploadId : "";
@@ -30,7 +36,7 @@ export async function POST(request: Request, { params }: Context) {
     }
     if (action === "abort") {
       await abortR2MultipartUpload(video.object_path, uploadId);
-      await supabase.from("videos").update({ status: "failed" }).eq("id", id).eq("user_id", userId);
+      await supabase.from("videos").update({ status: "failed" }).eq("id", id).eq("user_id", account.accountOwnerId);
       return NextResponse.json({ ok: true });
     }
     if (action === "complete") {
@@ -40,8 +46,8 @@ export async function POST(request: Request, { params }: Context) {
       const head = await completeR2MultipartUpload(video.object_path, uploadId, parts.sort((a, b) => a.PartNumber - b.PartNumber));
       if (Number(head.ContentLength) !== Number(video.size_bytes)) return NextResponse.json({ error: "uploaded_size_mismatch" }, { status: 409 });
       const durationSeconds = Number(body?.durationSeconds);
-      await supabase.from("videos").update({ status: "ready", duration_seconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null }).eq("id", id).eq("user_id", userId);
-      await supabase.from("player_configs").upsert({ user_id: userId, video_id: id, config: {}, allowed_domains: [], published: true }, { onConflict: "video_id", ignoreDuplicates: true });
+      await supabase.from("videos").update({ status: "ready", duration_seconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null }).eq("id", id).eq("user_id", account.accountOwnerId);
+      await supabase.from("player_configs").upsert({ user_id: account.accountOwnerId, video_id: id, config: {}, allowed_domains: [], published: true }, { onConflict: "video_id", ignoreDuplicates: true });
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "invalid_action" }, { status: 400 });
