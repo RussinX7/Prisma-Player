@@ -39,7 +39,7 @@ export default function SettingsPage() {
     return () => window.clearTimeout(navigationTimer);
   }, []);
 
-  return <><Header fullWidth /><main className="flex-1 bg-[#f5f5f7] px-4 pb-16 pt-7 dark:bg-[#111113] sm:px-6 lg:px-8">
+  return <><main className="flex-1 bg-[#f5f5f7] px-4 pb-16 pt-7 dark:bg-[#111113] sm:px-6 lg:px-8">
     <div className="mx-auto w-full max-w-[1180px]">
       <div className="mb-7"><Link href="/dashboard/videos" className="inline-flex min-h-10 items-center gap-2 rounded-full text-[13px] font-medium text-prisma-blue"><ArrowLeft size={16} />Voltar ao painel</Link><p className="mt-3 text-[12px] font-semibold uppercase tracking-[.16em] text-prisma-blue">Conta Prisma</p><h1 className="mt-2 text-[34px] font-semibold tracking-[-1px] themeable-text-ink">Configurações</h1><p className="mt-1 max-w-2xl text-[15px] leading-6 themeable-text-ink-muted-48">Gerencie sua operação, equipe, preferências e segurança em um só lugar.</p></div>
       <nav aria-label="Seções das configurações" className="mb-6 flex gap-1 overflow-x-auto border-b themeable-border-hairline">{tabs.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => { setTab(item.id); setMessage(""); }} className={`relative flex min-h-12 shrink-0 items-center gap-2 px-3 text-[14px] font-medium transition-colors ${tab === item.id ? "text-prisma-blue after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-prisma-blue" : "themeable-text-ink-muted-48 hover:text-[#1d1d1f] dark:hover:text-white"}`}><Icon size={17} />{item.label}</button>; })}</nav>

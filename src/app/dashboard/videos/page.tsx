@@ -3,12 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle2, Clock3, Code2, Copy, Download, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Upload, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/dashboard/Header";
 import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
 import Dialog from "@/components/ui/Dialog";
 import { useVideoUploads } from "@/features/videos/components/VideoUploadProvider";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready" | "failed"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
 interface VideoFolder { id: string; name: string }
@@ -29,7 +34,6 @@ export default function VideosPage() {
   const [pendingDelete, setPendingDelete] = useState<StoredVideo | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const [menuVideo, setMenuVideo] = useState<string | null>(null);
   const [manageVideo, setManageVideo] = useState<StoredVideo | null>(null);
   const [manageMode, setManageMode] = useState<"rename" | "move">("rename");
   const [manageTitle, setManageTitle] = useState("");
@@ -42,6 +46,7 @@ export default function VideosPage() {
     if (videosResponse.ok) setVideos(videosData.videos ?? []);
     if (foldersResponse.ok) setFolders(foldersData.folders ?? []);
   }, []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     const refresh = () => void load();
@@ -53,6 +58,7 @@ export default function VideosPage() {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return videos.filter((item) => (!selectedFolder || item.folder_id === selectedFolder) && (!statusByTab[activeTab] || item.status === statusByTab[activeTab]) && (!normalizedQuery || item.title.toLocaleLowerCase("pt-BR").includes(normalizedQuery)));
   }, [activeTab, query, selectedFolder, videos]);
+
   const tabs = useMemo(() => [
     { id: "all", label: "Todos", count: videos.length },
     { id: "published", label: "Publicados", count: videos.filter((item) => item.status === "ready").length },
@@ -83,19 +89,24 @@ export default function VideosPage() {
     const data = await response.json();
     if (response.ok) { setSelectedFolder(data.folder.id); setFolderName(""); setFolderOpen(false); await load(); }
   }
+
   async function removeFolder(id: string) { if (!confirm("Excluir esta pasta? Os vídeos voltarão para Todos.")) return; await fetch(`/api/folders/${id}`, { method: "DELETE" }); if (selectedFolder === id) setSelectedFolder(null); await load(); }
+
   function edit(video: StoredVideo) {
     if (!video.signed_url) return;
     sessionStorage.setItem("prisma-mvp-video", JSON.stringify({ id: video.id, name: video.title, src: video.signed_url, type: video.mime_type }));
     router.push("/studio");
   }
+
   async function removeVideo(video: StoredVideo) {
     setDeleting(true);
     const response = await fetch(`/api/videos/${video.id}`, { method: "DELETE" });
     setDeleting(false);
     if (response.ok) { setPendingDelete(null); setFeedback("VSL excluída definitivamente"); window.setTimeout(() => setFeedback(""), 2400); await load(); }
   }
+
   function notify(message: string) { setFeedback(message); window.setTimeout(() => setFeedback(""), 2400); }
+
   async function ensurePlayer(video: StoredVideo) {
     if (video.player_id && video.published) return video.player_id;
     notify("Publicando player…");
@@ -105,22 +116,26 @@ export default function VideosPage() {
     setVideos((items) => items.map((item) => item.id === video.id ? { ...item, player_id: payload.playerConfig!.id!, published: true } : item));
     return payload.playerConfig.id;
   }
+
   async function copyEmbed(video: StoredVideo) {
     const playerId = await ensurePlayer(video); if (!playerId) return;
     const origin = window.location.origin;
     const title = video.title.replace(/"/g, "&quot;");
     await navigator.clipboard.writeText(`<prisma-player data-prisma-player="${playerId}" data-title="${title}" style="display:block;margin:0 auto;width:100%;height:1px;position:relative;background:transparent;border:0;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${playerId}?v=3" data-prisma-loader="${playerId}"></script>`);
-    notify("Código de embed copiado"); setMenuVideo(null);
+    notify("Código de embed copiado");
   }
+
   async function openPlayer(video: StoredVideo) {
     const tab = window.open("about:blank", "_blank");
     const playerId = await ensurePlayer(video);
     if (!playerId) { tab?.close(); return; }
     if (tab) { tab.opener = null; tab.location.href = `/embed/${playerId}`; }
   }
+
   function startManage(video: StoredVideo, mode: "rename" | "move") {
-    setManageVideo(video); setManageMode(mode); setManageTitle(video.title); setManageFolder(video.folder_id ?? ""); setMenuVideo(null);
+    setManageVideo(video); setManageMode(mode); setManageTitle(video.title); setManageFolder(video.folder_id ?? "");
   }
+
   async function saveManage() {
     if (!manageVideo) return;
     const body = manageMode === "rename" ? { title: manageTitle.trim() } : { folderId: manageFolder || null };
@@ -128,16 +143,14 @@ export default function VideosPage() {
     const response = await fetch(`/api/videos/${manageVideo.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     if (response.ok) { notify(manageMode === "rename" ? "Nome da VSL atualizado" : "VSL movida para a pasta escolhida"); setManageVideo(null); await load(); }
   }
+
   async function duplicateVideo(video: StoredVideo) {
     notify("Duplicando VSL…"); const response = await fetch(`/api/videos/${video.id}/duplicate`, { method: "POST" });
     if (response.ok) { notify("VSL duplicada"); await load(); } else notify("Não foi possível duplicar a VSL");
   }
 
   const actions = [{ label: "Upload", icon: <Upload size={16} />, primary: false, onClick: () => setImportOpen(true) }, { label: "Nova pasta", icon: <FolderPlus size={16} />, primary: false, onClick: () => setFolderOpen(true) }, { label: "Adicionar vídeo", icon: <Plus size={16} />, primary: true, onClick: () => setImportOpen(true) }];
-  useEffect(() => {
-    document.documentElement.classList.add("hide-page-scrollbar");
-    return () => document.documentElement.classList.remove("hide-page-scrollbar");
-  }, []);
+
   return <>
     <input ref={fileInputRef} type="file" accept="video/*" className="sr-only" onChange={(event) => { void handleFile(event.target.files?.[0]); event.target.value = ""; }} />
     <section className="videos-library-page dashboard-content flex min-w-0 flex-1 flex-col overflow-x-hidden">
@@ -149,17 +162,50 @@ export default function VideosPage() {
       </div>
       <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex gap-2 overflow-x-auto pb-1">
-        <button type="button" onClick={() => setSelectedFolder(null)} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] themeable-border-hairline ${!selectedFolder ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><Folder size={15} />Todos</button>
-        {folders.map((folder) => <div key={folder.id} className={`flex min-h-11 shrink-0 items-center rounded-full border themeable-border-hairline ${selectedFolder === folder.id ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><button type="button" onClick={() => setSelectedFolder(folder.id)} className="flex h-full items-center gap-2 pl-4 pr-2"><Folder size={15} />{folder.name}</button><button type="button" onClick={() => void removeFolder(folder.id)} aria-label={`Excluir ${folder.name}`} className="flex h-10 w-10 items-center justify-center"><Trash2 size={14} /></button></div>)}
+          <button type="button" onClick={() => setSelectedFolder(null)} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] themeable-border-hairline ${!selectedFolder ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><Folder size={15} />Todos</button>
+          {folders.map((folder) => <div key={folder.id} className={`flex min-h-11 shrink-0 items-center rounded-full border themeable-border-hairline ${selectedFolder === folder.id ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><button type="button" onClick={() => setSelectedFolder(folder.id)} className="flex h-full items-center gap-2 pl-4 pr-2"><Folder size={15} />{folder.name}</button><button type="button" onClick={() => void removeFolder(folder.id)} aria-label={`Excluir ${folder.name}`} className="flex h-10 w-10 items-center justify-center"><Trash2 size={14} /></button></div>)}
         </div>
         <label className="relative block w-full lg:w-[300px]"><Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 themeable-text-ink-muted-48" /><span className="sr-only">Buscar vídeo</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome da VSL" className="h-11 w-full rounded-full border bg-transparent pl-11 pr-4 text-[13px] outline-none transition focus:border-prisma-blue themeable-border-hairline themeable-text-ink" /></label>
       </div>
-      <div className="mt-4 min-h-[360px] flex-1 overflow-hidden rounded-[20px] border themeable-bg-canvas themeable-border-hairline">
+      <div className="mt-4 min-h-[360px] flex-1 rounded-[20px] border themeable-bg-canvas themeable-border-hairline overflow-visible">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 themeable-border-hairline"><div><h2 className="text-[15px] font-semibold themeable-text-ink">{selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name : "Todos os vídeos"}</h2><p className="mt-0.5 text-[12px] themeable-text-ink-muted-48">{visibleVideos.length} resultado{visibleVideos.length === 1 ? "" : "s"}</p></div><button type="button" onClick={() => setImportOpen(true)} className="flex min-h-10 items-center gap-2 rounded-full bg-prisma-blue px-4 text-[12px] font-semibold text-white"><Plus size={15} />Nova VSL</button></div>
-        <div className={`p-4 transition-[padding] sm:p-5 ${menuVideo ? "pb-[390px] sm:pb-[390px]" : ""}`}>
-        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b py-5 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-black text-white md:h-12 md:w-20 md:rounded-[9px]"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-[14px] bg-black/[0.025] p-3 dark:bg-white/[0.04] md:contents"><span className="text-[12px] themeable-text-ink-muted-48"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide themeable-text-ink-muted-48 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t pt-3 themeable-border-hairline md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button><button disabled={item.status === "processing"} onClick={() => setMenuVideo(menuVideo === item.id ? null : item.id)} aria-expanded={menuVideo === item.id} aria-label="Mais ações" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><MoreHorizontal size={18} /></button></div>{menuVideo === item.id && <><button type="button" aria-label="Fechar ações" onClick={() => setMenuVideo(null)} className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] md:hidden" /><div className="scrollbar-none fixed inset-x-3 bottom-3 z-50 grid max-h-[calc(100dvh-24px)] grid-cols-2 gap-1 overflow-y-auto rounded-[20px] border p-2 shadow-2xl themeable-bg-canvas themeable-border-hairline md:absolute md:inset-x-auto md:bottom-auto md:right-2 md:top-[62px] md:z-30 md:block md:max-h-none md:w-[230px] md:overflow-visible md:rounded-[16px] md:p-1.5">{[
-          { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) }, { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) }, { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) }, { label: "Abrir player", icon: ExternalLink, action: () => void openPlayer(item) }, { label: "Renomear", icon: Pencil, action: () => startManage(item, "rename") }, { label: "Mover para pasta", icon: Folder, action: () => startManage(item, "move") }, { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) }, { label: "Download do original", icon: Download, action: () => item.signed_url && window.open(item.signed_url, "_blank", "noopener,noreferrer") }, { label: "Remover definitivamente", icon: Trash2, danger: true, action: () => { setPendingDelete(item); setMenuVideo(null); } },
-        ].map((action) => { const Icon = action.icon; return <button key={action.label} onClick={action.action} className={`flex min-h-12 w-full items-center gap-2 rounded-[12px] px-3 text-left text-[12px] hover:bg-prisma-blue/10 md:min-h-10 md:gap-3 md:text-[13px] ${action.danger ? "text-red-500" : "themeable-text-ink"}`}><Icon size={16} className="shrink-0" />{action.label}</button>; })}</div></>}</article>; })}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
+        <div className="p-4 sm:p-5">
+        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b py-5 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-black text-white md:h-12 md:w-20 md:rounded-[9px]"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-[14px] bg-black/[0.025] p-3 dark:bg-white/[0.04] md:contents"><span className="text-[12px] themeable-text-ink-muted-48"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide themeable-text-ink-muted-48 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t pt-3 themeable-border-hairline md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button disabled={item.status === "processing"} aria-label="Mais ações" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><MoreHorizontal size={18} /></button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-[230px] p-1.5 bg-white dark:bg-[#1d1d1f] border border-[#e0e0e0] dark:border-white/5 rounded-[16px] shadow-2xl">
+            {[
+              { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) },
+              { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) },
+              { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) },
+              { label: "Abrir player", icon: ExternalLink, action: () => void openPlayer(item) },
+              { label: "Renomear", icon: Pencil, action: () => startManage(item, "rename") },
+              { label: "Mover para pasta", icon: Folder, action: () => startManage(item, "move") },
+              { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) },
+              { label: "Download do original", icon: Download, action: () => item.signed_url && window.open(item.signed_url, "_blank", "noopener,noreferrer") },
+              { label: "Remover definitivamente", icon: Trash2, danger: true, action: () => { setPendingDelete(item); } },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  onClick={action.action}
+                  className={`flex min-h-10 w-full items-center gap-3 rounded-[12px] px-3 text-left text-[13px] hover:bg-prisma-blue/10 transition-colors cursor-pointer outline-none ${action.danger ? "text-red-500 hover:bg-red-500/10" : "themeable-text-ink"}`}
+                >
+                  <Icon size={16} className="shrink-0" />
+                  <span>{action.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        </div></article>; })}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
         </div>
       </div>
     </section>
