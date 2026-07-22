@@ -116,6 +116,8 @@ const heatmapMetricLabel: Record<"plays" | "impressions" | "conversions", (count
  */
 const FUNNEL_RAMP = ["#6366f1", "#8b5cf6", "#a855f7", "#c026d3", "#ec4899", "#f43f5e"];
 
+const HEATMAP_GAP = 4;
+
 const suggestionPrompts = [
   "O que eu deveria melhorar primeiro nessa VSL?",
   "Onde eu deveria posicionar o CTA para aumentar conversão?",
@@ -351,6 +353,19 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
     () => buildQuantileColorScale(heatmapColumns, levelColorsFromStyles(HEATMAP_DEFAULT_LEVEL_STYLES)),
     [heatmapColumns],
   );
+
+  /**
+   * A célula é quadrada, então quem limita é a altura: 7 linhas × célula. Deixar
+   * o componente ajustar sozinho (binSize=0) explode o tamanho quando há poucas
+   * colunas — 30 dias dão só ~6 semanas. Aqui a célula cresce para ocupar a
+   * largura disponível, mas com teto para a grade não virar um paredão.
+   */
+  const heatmapBinSize = useMemo(() => {
+    const columns = heatmapColumns.length;
+    if (!columns) return 16;
+    const available = 672 - (columns - 1) * HEATMAP_GAP;
+    return Math.max(12, Math.min(34, Math.floor(available / columns)));
+  }, [heatmapColumns]);
 
   // Funnel chart data mapping
   const funnelChartData = useMemo(() => {
@@ -778,23 +793,24 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 3: FUNIL */}
             {tab === "funnel" && (
-              <section className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
+              <section className="w-full max-w-[880px] rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
                 <div className="mb-6">
                   <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Funil de Conversão da VSL</h2>
                   <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Perda de público e taxas de conversão relativas a cada etapa.</p>
                 </div>
                 
                 {/* Advanced Bklit Funnel Chart Integration */}
-                {/* max-w segura a largura: o funil tem aspect-ratio 2.2/1, então
-                    sem limite ele cresce junto com o card e fica alto demais. */}
-                <div className="mx-auto w-full max-w-[720px] py-2">
+                {/* O funil tem aspect-ratio 2.2/1 fixo, então quem define a altura
+                    é a largura. Limitar o card (e não o gráfico) deixa o funil
+                    preencher a área inteira sem sobrar margem dos lados. */}
+                <div className="w-full py-2">
                   <FunnelChart data={funnelChartData} layers={3} />
                 </div>
               </section>
             )}
 
             {tab === "heatmap" && (
-              <section className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
+              <section className="w-full max-w-[720px] rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Mapa de Calor da VSL</h2>
@@ -817,18 +833,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                 {heatmapColumns.length ? (
                   <HeatmapInteractionProvider>
                     <HeatmapInteractionBoundary>
-                      <div className="flex w-full flex-col items-stretch gap-3">
-                        {/*
-                          binSize fixo é essencial: com layout="fluid" e binSize=0 a
-                          célula vira (largura - gaps) / nº de colunas, e 30 dias dão
-                          só ~6 colunas — cada célula ficaria com centenas de px.
-                        */}
+                      {/* Períodos longos (365 dias = 53 colunas) estouram a largura
+                          mesmo na célula mínima, então a grade rola na horizontal. */}
+                      <div className="flex w-full flex-col items-stretch gap-3 overflow-x-auto">
                         <HeatmapChart
                           className="w-full"
                           data={heatmapColumns}
                           layout="fluid"
-                          binSize={15}
-                          gap={3}
+                          binSize={heatmapBinSize}
+                          gap={HEATMAP_GAP}
                           colorScale={heatmapColorScale}
                           levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
                         >
