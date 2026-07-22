@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validateOrigin } from "@/lib/security/csrf";
+import { verifyEmbedEventToken } from "@/lib/security/embed-origin";
+import { ANALYTICS } from "@/lib/constants";
 
 const allowedEvents = new Set(["impression", "play", "progress", "complete"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
-  if (Number(request.headers.get("content-length") ?? 0) > 4096) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  if (Number(request.headers.get("content-length") ?? 0) > ANALYTICS.MAX_EVENT_PAYLOAD_BYTES) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  // The A/B player posts from the same-origin embed iframe, so this matches the
+  // guard already applied to /api/analytics-events.
+  if (!validateOrigin(request)) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const testId = typeof body?.testId === "string" ? body.testId : "";
   const variantId = typeof body?.variantId === "string" ? body.variantId : "";
@@ -20,6 +26,9 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
   const { data: variant } = await supabase.from("ab_test_variants").select("user_id,video_id,test_id").eq("id", variantId).eq("test_id", testId).maybeSingle();
   if (!variant) return NextResponse.json({ error: "variant_not_found" }, { status: 404 });
+  // Same proof-of-embed requirement as /api/analytics-events, bound to the
+  // video actually served for this variant.
+  if (!verifyEmbedEventToken(typeof body?.eventToken === "string" ? body.eventToken : null, variant.video_id)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
   const [{ data: test }, { data: video }, { data: player }] = await Promise.all([
     supabase.from("ab_tests").select("status").eq("id", testId).eq("user_id", variant.user_id).maybeSingle(),
     supabase.from("videos").select("status").eq("id", variant.video_id).eq("user_id", variant.user_id).maybeSingle(),

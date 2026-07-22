@@ -15,11 +15,22 @@ async function cleanupExpired(): Promise<void> {
   }
 }
 
+/**
+ * Only headers the hosting platform itself sets can be trusted here. Anything a
+ * client can forge would let an attacker reset its own bucket on every request
+ * and walk straight through the login and password limits.
+ *
+ * Vercel strips inbound `x-vercel-*` headers and rewrites them with the real
+ * peer address, so `x-vercel-forwarded-for` is authoritative in production.
+ * `cf-connecting-ip` is only meaningful when Cloudflare actually fronts the
+ * deployment, so it stays behind an explicit opt-in.
+ */
 function clientIp(request: Request): string {
   const candidates = [
-    request.headers.get("cf-connecting-ip"),
-    request.headers.get("x-vercel-ip"),
+    process.env.TRUST_CLOUDFLARE_IP_HEADER === "true" ? request.headers.get("cf-connecting-ip") : null,
+    request.headers.get("x-vercel-forwarded-for"),
     request.headers.get("x-real-ip"),
+    // Last resort for self-hosted deployments; never reached on Vercel.
     request.headers.get("x-forwarded-for"),
   ];
 
@@ -30,51 +41,46 @@ function clientIp(request: Request): string {
   return "unknown";
 }
 
+function limitedResponse(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    { error: "rate_limited" },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.max(1, retryAfterSeconds)),
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
+/**
+ * `failClosed` decides what happens when the counter store is unreachable.
+ * Authentication-adjacent endpoints pass `true` so an outage cannot silently
+ * disable brute-force protection; telemetry endpoints stay open so a database
+ * hiccup does not drop customer analytics.
+ */
 export async function rateLimit(
   request: Request,
   scope: string,
-  options: { max: number; windowMs: number }
+  options: { max: number; windowMs: number; failClosed?: boolean }
 ): Promise<NextResponse | null> {
   await cleanupExpired();
 
-  const now = Date.now();
   const key = `${scope}:${clientIp(request)}`;
-  const expiresAt = new Date(now + options.windowMs).toISOString();
 
   try {
     const admin = createAdminClient();
-    const { data: existing } = await admin
-      .from("rate_limits")
-      .select("count, expires_at")
-      .eq("key", key)
-      .maybeSingle();
+    const { data, error } = await admin
+      .rpc("consume_rate_limit", { p_key: key, p_window_ms: options.windowMs })
+      .maybeSingle<{ hit_count: number; window_expires_at: string }>();
 
-    if (!existing || new Date(existing.expires_at).getTime() <= now) {
-      await admin
-        .from("rate_limits")
-        .upsert({ key, count: 1, expires_at: expiresAt }, { onConflict: "key" });
-      return null;
-    }
+    if (error || !data) throw error ?? new Error("rate_limit_unavailable");
+    if (data.hit_count <= options.max) return null;
 
-    const newCount = existing.count + 1;
-    await admin
-      .from("rate_limits")
-      .update({ count: newCount, expires_at: expiresAt })
-      .eq("key", key);
-
-    if (newCount <= options.max) return null;
-
-    return NextResponse.json(
-      { error: "rate_limited" },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(Math.ceil((new Date(existing.expires_at).getTime() - now) / 1000)),
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    const retryAfter = Math.ceil((new Date(data.window_expires_at).getTime() - Date.now()) / 1000);
+    return limitedResponse(retryAfter);
   } catch {
-    return null;
+    return options.failClosed ? limitedResponse(Math.ceil(options.windowMs / 1000)) : null;
   }
 }

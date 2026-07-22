@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import VideoPlayer from "./VideoPlayer";
 
-interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown> }
+interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown>; eventToken?: string }
 
 interface Tracking { testId: string; variantId: string; sessionId: string }
 
@@ -66,11 +66,11 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   };
 
   const track = (eventType: "impression" | "play" | "progress" | "complete", progressPercent = 0, watchedSeconds = 0) => {
-    if (!tracking) return;
+    if (!tracking || !payload?.eventToken) return;
     const key = `${eventType}:${progressPercent}`;
     if (sentEvents.current.has(key)) return;
     sentEvents.current.add(key);
-    void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...tracking, eventType, progressPercent, watchedSeconds }) });
+    void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...tracking, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken }) });
   };
 
   const trackAnalytics = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click", progressPercent = 0, watchedSeconds = 0) => {
@@ -79,7 +79,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
     publishPixelEvent(eventType, progressPercent);
-    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href };
+    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href };
     void (async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -145,7 +145,9 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   }, [payload]);
 
   useEffect(() => {
-    if (!payload?.videoId || !sessionId.current) return;
+    if (!payload?.videoId || !payload.eventToken || !sessionId.current) return;
+    const eventToken = payload.eventToken;
+    const videoId = payload.videoId;
     const heartbeat = () => {
       if (!isPlaying.current || document.visibilityState === "hidden") return;
       const { percent, watchedSeconds } = liveProgress.current;
@@ -153,12 +155,12 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         method: "POST",
         keepalive: true,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ videoId: payload.videoId, sessionId: sessionId.current, eventType: "heartbeat", progressPercent: percent, watchedSeconds, referrer: document.referrer, pageUrl: document.referrer || window.location.href }),
+        body: JSON.stringify({ videoId, sessionId: sessionId.current, eventType: "heartbeat", progressPercent: percent, watchedSeconds, eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href }),
       });
     };
     const timer = window.setInterval(heartbeat, 15_000);
     return () => window.clearInterval(timer);
-  }, [payload?.videoId]);
+  }, [payload?.videoId, payload?.eventToken]);
 
   useEffect(() => {
     if (!payload || !Boolean(payload.config.ctaPersist)) return;
@@ -176,9 +178,9 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   }, [currentTime, payload]);
 
   useEffect(() => {
-    if (!payload || !trackingTestId || !trackingVariantId || !trackingSessionId || sentEvents.current.has("impression:0")) return;
+    if (!payload?.eventToken || !trackingTestId || !trackingVariantId || !trackingSessionId || sentEvents.current.has("impression:0")) return;
     sentEvents.current.add("impression:0");
-    void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ testId: trackingTestId, variantId: trackingVariantId, sessionId: trackingSessionId, eventType: "impression", progressPercent: 0, watchedSeconds: 0 }) });
+    void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ testId: trackingTestId, variantId: trackingVariantId, sessionId: trackingSessionId, eventType: "impression", progressPercent: 0, watchedSeconds: 0, eventToken: payload.eventToken }) });
   }, [payload, trackingSessionId, trackingTestId, trackingVariantId]);
 
   useEffect(() => {

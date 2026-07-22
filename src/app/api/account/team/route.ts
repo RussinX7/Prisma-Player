@@ -36,9 +36,8 @@ export async function POST(request: NextRequest) {
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const limited = await rateLimit(request, `account-team-invite:${userId}`, { max: 10, windowMs: 10 * 60_000 });
+  const limited = await rateLimit(request, `account-team-invite:${userId}`, { max: 10, windowMs: 10 * 60_000, failClosed: true });
   if (limited) return limited;
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { admin, membership, seats } = await context(userId);
   if (!membership || !["owner", "admin"].includes(membership.role)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (seats <= 1) return NextResponse.json({ error: "team_not_in_plan" }, { status: 403 });
@@ -75,9 +74,8 @@ export async function PATCH(request: NextRequest) {
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const limited = await rateLimit(request, `account-team-role:${userId}`, { max: 15, windowMs: 10 * 60_000 });
+  const limited = await rateLimit(request, `account-team-role:${userId}`, { max: 15, windowMs: 10 * 60_000, failClosed: true });
   if (limited) return limited;
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { admin, membership } = await context(userId);
   if (!membership || !["owner", "admin"].includes(membership.role)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
@@ -95,9 +93,8 @@ export async function DELETE(request: NextRequest) {
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const limited = await rateLimit(request, `account-team-remove:${userId}`, { max: 15, windowMs: 10 * 60_000 });
+  const limited = await rateLimit(request, `account-team-remove:${userId}`, { max: 15, windowMs: 10 * 60_000, failClosed: true });
   if (limited) return limited;
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { admin, membership } = await context(userId);
   if (!membership || !["owner", "admin"].includes(membership.role)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await request.json().catch(() => ({}));

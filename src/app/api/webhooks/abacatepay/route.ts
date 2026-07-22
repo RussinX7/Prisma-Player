@@ -38,10 +38,15 @@ function firstString(objects: Array<Record<string, unknown> | null>, key: string
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const rawBody = await request.text();
-  const signature = request.headers.get("x-webhook-signature") || request.headers.get("x-abacate-signature");
+  const signature = request.headers.get("x-webhook-signature")
+    || request.headers.get("x-abacate-signature")
+    || request.headers.get("x-signature");
   const validSecret = verifyWebhookSecret(url.searchParams.get("webhookSecret"));
   const validSignature = verifyWebhookSignature(rawBody, signature);
-  if (!validSecret || !validSignature) {
+  // Both mechanisms prove knowledge of the same registered webhook secret, so
+  // either one is sufficient. Requiring both would reject every real delivery
+  // whenever AbacatePay sends only the URL secret.
+  if (!validSecret && !validSignature) {
     console.warn("AbacatePay webhook authentication failed", { validSecret, validSignature, hasSignature: Boolean(signature) });
     return NextResponse.json({ error: "invalid_webhook_signature" }, { status: 401 });
   }

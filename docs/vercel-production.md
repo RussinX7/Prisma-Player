@@ -14,10 +14,14 @@ SUPABASE_JWKS_URL
 NEXT_PUBLIC_SITE_URL
 NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED
 NEXT_PUBLIC_SUPABASE_APPLE_ENABLED
+EMBED_ORIGIN_SECRET
 ABACATEPAY_API_KEY
 ABACATEPAY_WEBHOOK_SECRET
-ABACATEPAY_PUBLIC_KEY
+TRUST_CLOUDFLARE_IP_HEADER
+CRON_SECRET
 ```
+
+`EMBED_ORIGIN_SECRET` é obrigatório: além de validar o domínio dos players protegidos, ele assina o token de evento que autentica toda a telemetria. Sem ele, `/api/analytics-events` e `/api/ab-events` rejeitam os eventos e o dashboard para de receber dados.
 
 Somente URL e publishable key podem usar `NEXT_PUBLIC_`. A secret key nunca entra no Git, no bundle, em logs ou em respostas da API.
 
@@ -34,8 +38,8 @@ NEXT_PUBLIC_SITE_URL=https://prisma-player.vercel.app
 NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED=false
 NEXT_PUBLIC_SUPABASE_APPLE_ENABLED=false
 ABACATEPAY_API_KEY=<chave de API v2 da AbacatePay; nunca use NEXT_PUBLIC_>
-ABACATEPAY_WEBHOOK_SECRET=<segredo aleatorio forte usado na URL do webhook>
-ABACATEPAY_PUBLIC_KEY=<opcional; use apenas para substituir a chave HMAC publica oficial>
+ABACATEPAY_WEBHOOK_SECRET=<o mesmo "secret" cadastrado em POST /webhooks/create>
+TRUST_CLOUDFLARE_IP_HEADER=false
 ```
 
 ## AbacatePay
@@ -43,9 +47,10 @@ ABACATEPAY_PUBLIC_KEY=<opcional; use apenas para substituir a chave HMAC publica
 - O PIX usa `POST /v2/checkouts/create` com produto avulso e libera 30 dias após `checkout.completed`.
 - O cartão usa `POST /v2/subscriptions/create` com produto `MONTHLY` e renovação automática.
 - Cadastre o webhook HTTPS `https://prisma-player.vercel.app/api/webhooks/abacatepay` no mesmo ambiente da chave (dev ou produção).
-- Use o mesmo valor de `ABACATEPAY_WEBHOOK_SECRET` no cadastro do webhook. A AbacatePay o envia como `?webhookSecret=...`.
+- Use o mesmo valor de `ABACATEPAY_WEBHOOK_SECRET` no campo `secret` de `POST /webhooks/create`. A AbacatePay o envia como `?webhookSecret=...` **e** o usa como chave HMAC-SHA256 para assinar o corpo bruto.
 - Assine `checkout.completed`, `checkout.refunded`, `checkout.disputed`, `checkout.lost`, `subscription.completed`, `subscription.renewed` e `subscription.cancelled`.
-- O endpoint valida o secret, o corpo bruto e `X-Webhook-Signature` antes de alterar qualquer acesso.
+- O endpoint autentica por qualquer um dos dois mecanismos (secret na URL ou assinatura HMAC), ambos comparados em tempo constante. A assinatura é aceita em hex ou base64, com ou sem prefixo `sha256=`.
+- `subscription.trial_started` e os eventos `transparent.*` são ignorados com `200`, pois o projeto usa `/checkouts/create` e `/subscriptions/create`.
 
 As duas flags de OAuth só devem virar `true` depois de configurar cada provedor no painel do Supabase. Depois de alterar qualquer variável `NEXT_PUBLIC_`, faça um novo deploy, pois o valor é incorporado ao bundle durante o build.
 

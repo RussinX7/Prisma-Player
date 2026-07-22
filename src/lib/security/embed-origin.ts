@@ -82,6 +82,63 @@ export function createEmbedOriginTokenSafely(input: { playerId: string; host: st
   }
 }
 
+const EVENT_TOKEN_KIND = "evt";
+const EVENT_TOKEN_MAX_AGE_SECONDS = 6 * 60 * 60;
+
+/**
+ * Binds telemetry to a real embed load. Without it, anyone who knows the public
+ * video UUID can forge plays and conversions — including for players whose
+ * allowed_domains they were never able to satisfy.
+ *
+ * The TTL covers a long VSL session; the token carries no secret of its own and
+ * is scoped to a single video.
+ */
+export function createEmbedEventToken(videoId: string, maxAgeSeconds = EVENT_TOKEN_MAX_AGE_SECONDS): string {
+  const payload = base64url(JSON.stringify({
+    v: TOKEN_VERSION,
+    k: EVENT_TOKEN_KIND,
+    videoId,
+    exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
+  }));
+  return `${payload}.${sign(payload)}`;
+}
+
+export function createEmbedEventTokenSafely(videoId: string): string {
+  try {
+    return createEmbedEventToken(videoId);
+  } catch (error) {
+    safeLog("embed_event_token_unavailable", {
+      reason: error instanceof Error ? error.message : "unknown_error",
+    });
+    return "";
+  }
+}
+
+export function verifyEmbedEventToken(token: string | null | undefined, videoId: string): boolean {
+  if (!token) return false;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return false;
+
+  let expected: string;
+  try {
+    expected = sign(payload);
+  } catch {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(expected, "base64url");
+  const actualBuffer = Buffer.from(signature, "base64url");
+  if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) return false;
+
+  try {
+    const parsed = JSON.parse(fromBase64url(payload)) as { v?: string; k?: string; videoId?: string; exp?: number };
+    if (parsed.v !== TOKEN_VERSION || parsed.k !== EVENT_TOKEN_KIND || parsed.videoId !== videoId) return false;
+    return Boolean(parsed.exp && parsed.exp >= Math.floor(Date.now() / 1000));
+  } catch {
+    return false;
+  }
+}
+
 export function verifyEmbedOriginToken(token: string | null | undefined, playerId: string): { host: string } | null {
   if (!token) return null;
   const [payload, signature] = token.split(".");

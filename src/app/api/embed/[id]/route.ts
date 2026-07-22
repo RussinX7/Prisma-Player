@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { domainAllowed, trustedEmbedHostFromHeaders, verifyEmbedOriginToken } from "@/lib/security/embed-origin";
+import { createEmbedEventTokenSafely, domainAllowed, trustedEmbedHostFromHeaders, verifyEmbedOriginToken } from "@/lib/security/embed-origin";
 import { signR2ReadUrl } from "@/lib/storage/r2";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -78,5 +78,5 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }));
   config.assetUrls = assetUrls;
 
-  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
+  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config, eventToken: createEmbedEventTokenSafely(video.id) }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
 }

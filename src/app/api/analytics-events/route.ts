@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
+import { verifyEmbedEventToken } from "@/lib/security/embed-origin";
 import { deliverWebhook } from "@/lib/webhooks/delivery";
 import { ANALYTICS } from "@/lib/constants";
 
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
   const eventType = String(body?.eventType ?? "");
   const progressPercent = Math.round(Number(body?.progressPercent ?? 0));
   if (!uuid.test(videoId) || !uuid.test(sessionId) || !events.has(eventType) || (eventType !== "heartbeat" && !milestones.has(progressPercent)) || progressPercent < 0 || progressPercent > 100) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
+  // Proves the event came from a real embed load that already cleared the
+  // player's domain and traffic rules, instead of anyone who knows the UUID.
+  if (!verifyEmbedEventToken(typeof body?.eventToken === "string" ? body.eventToken : null, videoId)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
   const limited = await rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: eventType === "heartbeat" ? 120 : ANALYTICS.RATE_LIMIT_MAX_REQUESTS, windowMs: ANALYTICS.RATE_LIMIT_WINDOW_MS });
   if (limited) return limited;
 
