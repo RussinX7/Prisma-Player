@@ -216,11 +216,13 @@ export function filterHeatmapColumns(
   });
 }
 
-const heatmapTooltipMonthFmt = new Intl.DateTimeFormat("en-US", {
+// PATCH LOCAL (não vem do registry @bklit/heatmap-chart — reaplicar após um
+// `shadcn add`): o componente fixa "en-US" e não expõe prop de locale.
+const heatmapTooltipMonthFmt = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
 });
 
-const heatmapTooltipWeekdayFmt = new Intl.DateTimeFormat("en-US", {
+const heatmapTooltipWeekdayFmt = new Intl.DateTimeFormat("pt-BR", {
   weekday: "long",
 });
 
@@ -241,11 +243,10 @@ function formatHeatmapOrdinalDay(day: number): string {
   }
 }
 
-/** Tooltip header date — e.g. `January 20th 2026`. */
+/** PATCH LOCAL — cabeçalho do tooltip, ex. `20 de janeiro de 2026`. */
 export function formatHeatmapTooltipDate(date: Date): string {
   const month = heatmapTooltipMonthFmt.format(date);
-  const day = formatHeatmapOrdinalDay(date.getDate());
-  return `${month} ${day} ${date.getFullYear()}`;
+  return `${date.getDate()} de ${month} de ${date.getFullYear()}`;
 }
 
 /** Tooltip weekday line — e.g. `Monday`. */
@@ -262,15 +263,15 @@ export function formatHeatmapContributionLabel(
   return `${count} ${word}`;
 }
 
-/** Sunday-first day labels for heatmap row bins. */
+/** PATCH LOCAL — rótulos das linhas em pt-BR, começando no domingo. */
 export const HEATMAP_DAY_LABELS = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
+  "Dom",
+  "Seg",
+  "Ter",
+  "Qua",
+  "Qui",
+  "Sex",
+  "Sáb",
 ] as const;
 
 /** First row of the grid — `0` = Sunday (GitHub default). */

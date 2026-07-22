@@ -103,6 +103,19 @@ const tabs = [
   { id: "live", label: "Ao vivo", icon: Radio },
 ];
 
+const heatmapMetricLabel: Record<"plays" | "impressions" | "conversions", (count: number) => string> = {
+  plays: (count) => (count === 1 ? "play" : "plays"),
+  impressions: (count) => (count === 1 ? "impressão" : "impressões"),
+  conversions: (count) => (count === 1 ? "conversão" : "conversões"),
+};
+
+/**
+ * Rampa violeta → rosa do funil. Cada etapa recebe a cor do seu ponto na rampa e
+ * um gradiente que termina na cor da etapa seguinte, então a transição entre
+ * segmentos fica contínua em vez de virar cinco blocos chapados.
+ */
+const FUNNEL_RAMP = ["#6366f1", "#8b5cf6", "#a855f7", "#c026d3", "#ec4899", "#f43f5e"];
+
 const suggestionPrompts = [
   "O que eu deveria melhorar primeiro nessa VSL?",
   "Onde eu deveria posicionar o CTA para aumentar conversão?",
@@ -342,11 +355,20 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   // Funnel chart data mapping
   const funnelChartData = useMemo(() => {
     if (!data?.funnel) return [];
-    return data.funnel.map((step) => ({
-      label: step.name,
-      value: step.value,
-      displayValue: step.value.toLocaleString("pt-BR"),
-    }));
+    return data.funnel.map((step, index) => {
+      const from = FUNNEL_RAMP[index % FUNNEL_RAMP.length]!;
+      const to = FUNNEL_RAMP[(index + 1) % FUNNEL_RAMP.length]!;
+      return {
+        label: step.name,
+        value: step.value,
+        displayValue: step.value.toLocaleString("pt-BR"),
+        color: from,
+        gradient: [
+          { offset: "0%", color: from },
+          { offset: "100%", color: to },
+        ],
+      };
+    });
   }, [data]);
 
   // Ring Charts Data mapping
@@ -763,12 +785,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                 </div>
                 
                 {/* Advanced Bklit Funnel Chart Integration */}
-                <div className="w-full py-2">
-                  <FunnelChart
-                    data={funnelChartData}
-                    color="var(--chart-1, #0066cc)"
-                    layers={3}
-                  />
+                {/* max-w segura a largura: o funil tem aspect-ratio 2.2/1, então
+                    sem limite ele cresce junto com o card e fica alto demais. */}
+                <div className="mx-auto w-full max-w-[720px] py-2">
+                  <FunnelChart data={funnelChartData} layers={3} />
                 </div>
               </section>
             )}
@@ -798,19 +818,35 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   <HeatmapInteractionProvider>
                     <HeatmapInteractionBoundary>
                       <div className="flex w-full flex-col items-stretch gap-3">
+                        {/*
+                          binSize fixo é essencial: com layout="fluid" e binSize=0 a
+                          célula vira (largura - gaps) / nº de colunas, e 30 dias dão
+                          só ~6 colunas — cada célula ficaria com centenas de px.
+                        */}
                         <HeatmapChart
                           className="w-full"
                           data={heatmapColumns}
                           layout="fluid"
+                          binSize={15}
+                          gap={3}
                           colorScale={heatmapColorScale}
                           levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
                         >
-                          <HeatmapCells />
+                          <HeatmapCells inactiveOpacity={1} inactiveScale={1} />
                           <HeatmapXAxis />
                           <HeatmapYAxis />
-                          <HeatmapTooltip instant />
+                          <HeatmapTooltip
+                            instant
+                            formatLabel={(count) => `${format(count)} ${heatmapMetricLabel[heatmapMetric](count)}`}
+                          />
                         </HeatmapChart>
-                        <HeatmapLegend levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES} />
+                        <HeatmapLegend
+                          inactiveOpacity={1}
+                          inactiveScale={1}
+                          lessLabel="Menos"
+                          moreLabel="Mais"
+                          levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
+                        />
                       </div>
                     </HeatmapInteractionBoundary>
                   </HeatmapInteractionProvider>
