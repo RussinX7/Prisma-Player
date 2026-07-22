@@ -1,5 +1,11 @@
 export { LineChart } from "./line-chart";
 export { Line } from "./line";
+// Subcomponentes do LineChart (visx). Os nomes levam o prefixo `Line` porque
+// `Grid`/`XAxis`/`ChartTooltip` já estão ocupados pelos equivalentes do
+// AreaChart, que roda em Recharts e usa outro contexto — misturar os dois quebra.
+export { Grid as LineGrid } from "./grid";
+export { XAxis as LineXAxis } from "./x-axis";
+export { ChartTooltip as LineChartTooltip } from "./tooltip";
 export { ChartStatFlow } from "./chart-stat-flow";
 export { useChart } from "./chart-context";
 
@@ -10,3 +16,22 @@ export { AreaChart, Area, Grid, XAxis as AreaXAxis, ChartTooltip as AreaChartToo
 
 // Choropleth chart exports
 export * from "./choropleth";
+
+// Heatmap (mapa de calor de atividade da VSL)
+export {
+  HeatmapChart,
+  HeatmapCells,
+  HeatmapXAxis,
+  HeatmapYAxis,
+  HeatmapTooltip,
+  HeatmapLegend,
+  HeatmapInteractionProvider,
+  HeatmapInteractionBoundary,
+  HEATMAP_DEFAULT_LEVEL_STYLES,
+  getHeatmapContributionLevel,
+  buildHeatmapColumns,
+  type HeatmapBin,
+  type HeatmapColumn,
+  type HeatmapLevelStyle,
+  type HeatmapLevelStyles,
+} from "./heatmap-chart";

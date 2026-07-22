@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CheckCircle2, Clock3, Code2, Copy, Download, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Upload, Video } from "lucide-react";
+import { BarChart3, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Code2, Copy, Download, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Upload, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
@@ -18,6 +18,21 @@ import {
 interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready" | "failed"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
 interface VideoFolder { id: string; name: string }
 const statusByTab: Record<string, StoredVideo["status"] | undefined> = { published: "ready", drafts: "draft", processing: "processing" };
+const PAGE_SIZE = 4;
+
+/**
+ * Janela deslizante de páginas: mostra sempre a primeira e a última, mais as
+ * vizinhas da atual, e substitui os saltos por reticências. Mantém a barra com
+ * largura estável mesmo em bibliotecas grandes.
+ */
+function buildPageItems(current: number, total: number): (number | "gap")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = new Set([1, total, current, current - 1, current + 1]);
+  if (current <= 3) [2, 3, 4].forEach((page) => pages.add(page));
+  if (current >= total - 2) [total - 3, total - 2, total - 1].forEach((page) => pages.add(page));
+  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+  return sorted.flatMap((page, index) => (index > 0 && page - sorted[index - 1]! > 1 ? ["gap" as const, page] : [page]));
+}
 
 export default function VideosPage() {
   const router = useRouter();
@@ -38,6 +53,7 @@ export default function VideosPage() {
   const [manageMode, setManageMode] = useState<"rename" | "move">("rename");
   const [manageTitle, setManageTitle] = useState("");
   const [manageFolder, setManageFolder] = useState<string>("");
+  const [page, setPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -58,6 +74,23 @@ export default function VideosPage() {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return videos.filter((item) => (!selectedFolder || item.folder_id === selectedFolder) && (!statusByTab[activeTab] || item.status === statusByTab[activeTab]) && (!normalizedQuery || item.title.toLocaleLowerCase("pt-BR").includes(normalizedQuery)));
   }, [activeTab, query, selectedFolder, videos]);
+
+  const pageCount = Math.max(1, Math.ceil(visibleVideos.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedVideos = useMemo(
+    () => visibleVideos.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [visibleVideos, currentPage],
+  );
+
+  // Trocar de aba, pasta ou busca sempre volta para a primeira página, senão o
+  // usuário cai numa página que já não existe no novo filtro. É um ajuste em
+  // render (e não um efeito) para não gerar um segundo passe de renderização.
+  const filterKey = `${activeTab}|${query}|${selectedFolder ?? ""}`;
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey);
+    setPage(1);
+  }
 
   const tabs = useMemo(() => [
     { id: "all", label: "Todos", count: videos.length },
@@ -167,10 +200,10 @@ export default function VideosPage() {
         </div>
         <label className="relative block w-full lg:w-[300px]"><Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 themeable-text-ink-muted-48" /><span className="sr-only">Buscar vídeo</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome da VSL" className="h-11 w-full rounded-full border bg-transparent pl-11 pr-4 text-[13px] outline-none transition focus:border-prisma-blue themeable-border-hairline themeable-text-ink" /></label>
       </div>
-      <div className="mt-4 min-h-[360px] flex-1 rounded-[20px] border themeable-bg-canvas themeable-border-hairline overflow-visible">
+      <div className="mt-4 min-h-[360px] rounded-[20px] border themeable-bg-canvas themeable-border-hairline overflow-visible">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 themeable-border-hairline"><div><h2 className="text-[15px] font-semibold themeable-text-ink">{selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name : "Todos os vídeos"}</h2><p className="mt-0.5 text-[12px] themeable-text-ink-muted-48">{visibleVideos.length} resultado{visibleVideos.length === 1 ? "" : "s"}</p></div><button type="button" onClick={() => setImportOpen(true)} className="flex min-h-10 items-center gap-2 rounded-full bg-prisma-blue px-4 text-[12px] font-semibold text-white"><Plus size={15} />Nova VSL</button></div>
         <div className="p-4 sm:p-5">
-        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{visibleVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b py-5 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-black text-white md:h-12 md:w-20 md:rounded-[9px]"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-[14px] bg-black/[0.025] p-3 dark:bg-white/[0.04] md:contents"><span className="text-[12px] themeable-text-ink-muted-48"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide themeable-text-ink-muted-48 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t pt-3 themeable-border-hairline md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button>
+        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{pagedVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b py-5 last:border-b-0 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-black text-white md:h-12 md:w-20 md:rounded-[9px]"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-[14px] bg-black/[0.025] p-3 dark:bg-white/[0.04] md:contents"><span className="text-[12px] themeable-text-ink-muted-48"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide themeable-text-ink-muted-48 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t pt-3 themeable-border-hairline md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button>
         
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -205,7 +238,18 @@ export default function VideosPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        </div></article>; })}</div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
+        </div></article>; })}
+        {pageCount > 1 && <nav aria-label="Paginação de VSLs" className="flex flex-wrap items-center justify-between gap-3 border-t px-3 pt-4 themeable-border-hairline">
+          <p className="text-[12px] themeable-text-ink-muted-48">Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, visibleVideos.length)} de {visibleVideos.length}</p>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} aria-label="Página anterior" className="grid h-9 w-9 place-items-center rounded-full border transition hover:bg-prisma-blue/10 disabled:opacity-30 themeable-border-hairline themeable-text-ink"><ChevronLeft size={16} /></button>
+            {buildPageItems(currentPage, pageCount).map((item, index) => item === "gap"
+              ? <span key={`gap-${index}`} aria-hidden className="grid h-9 w-9 place-items-center text-[13px] themeable-text-ink-muted-48">…</span>
+              : <button key={item} type="button" onClick={() => setPage(item)} aria-label={`Página ${item}`} aria-current={item === currentPage ? "page" : undefined} className={`grid h-9 min-w-9 place-items-center rounded-full border px-2 text-[13px] transition ${item === currentPage ? "border-transparent bg-prisma-blue font-semibold text-white" : "hover:bg-prisma-blue/10 themeable-border-hairline themeable-text-ink"}`}>{item}</button>)}
+            <button type="button" onClick={() => setPage(currentPage + 1)} disabled={currentPage === pageCount} aria-label="Próxima página" className="grid h-9 w-9 place-items-center rounded-full border transition hover:bg-prisma-blue/10 disabled:opacity-30 themeable-border-hairline themeable-text-ink"><ChevronRight size={16} /></button>
+          </div>
+        </nav>}
+        </div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
         </div>
       </div>
     </section>

@@ -125,18 +125,24 @@ export function StatCardChoropleth({
     return staticGetVisitorValue(feature);
   };
 
+  /**
+   * Escala sequencial de 5 níveis nas CSS vars `--choropleth-*`, que já trazem
+   * valores próprios para claro e escuro — a cor acompanha o tema sem precisar
+   * ler o tema em JS. Países sem dados usam o tom neutro `empty`, e não o
+   * primeiro nível, para não parecerem tráfego baixo.
+   */
   const getFeatureColor = (feature: ChoroplethFeature): string => {
     const name = feature.properties?.name as string;
     if (isDynamic) {
       const val = realCountriesMap.get(name);
-      if (!val) return "var(--muted, #f1f5f9)";
-      
+      if (!val) return "var(--choropleth-empty)";
+
       const ratio = val / maxRealValue;
-      if (ratio >= 0.8) return "#0066cc";
-      if (ratio >= 0.5) return "#10b981";
-      if (ratio >= 0.3) return "#6366f1";
-      if (ratio >= 0.1) return "#f59e0b";
-      return "#94a3b8";
+      if (ratio >= 0.8) return "var(--choropleth-05)";
+      if (ratio >= 0.5) return "var(--choropleth-04)";
+      if (ratio >= 0.3) return "var(--choropleth-03)";
+      if (ratio >= 0.1) return "var(--choropleth-02)";
+      return "var(--choropleth-01)";
     }
     return staticGetVisitorColor(feature);
   };
@@ -175,6 +181,8 @@ export function StatCardChoropleth({
               <StatCardChoroplethHoverBridge onHoverChange={setHover} />
               <ChoroplethFeatureComponent
                 getFeatureColor={getFeatureColor}
+                stroke="var(--choropleth-stroke)"
+                strokeWidth={0.5}
               />
               <ChoroplethTooltip
                 getFeatureValue={getFeatureValue}

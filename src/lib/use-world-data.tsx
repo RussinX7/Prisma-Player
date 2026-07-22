@@ -23,8 +23,12 @@ interface WorldTopology extends Topology {
   };
 }
 
-const WORLD_DATA_URL =
-  "https://raw.githubusercontent.com/subyfly/topojson/refs/heads/master/world-countries.json";
+/**
+ * Servido pelo próprio app (`public/geo`). Antes vinha de raw.githubusercontent.com,
+ * o que quebrava o mapa por dois motivos: a CSP só permite `connect-src 'self'`
+ * (mais Supabase/R2/PostHog), e o mapa ficava refém de um host de terceiros.
+ */
+const WORLD_DATA_URL = "/geo/world-countries.json";
 
 // Global cache to avoid refetching across component mounts
 let globalWorldDataCache: FeatureCollection<
@@ -54,6 +58,9 @@ function fetchWorldData(): Promise<FeatureCollection<
   globalFetchPromise = (async () => {
     try {
       const response = await fetch(WORLD_DATA_URL);
+      if (!response.ok) {
+        throw new Error(`World data request failed with ${response.status}`);
+      }
       const topology = (await response.json()) as WorldTopology;
       const objectKey = Object.keys(topology.objects)[0];
       if (!objectKey) {
@@ -71,6 +78,8 @@ function fetchWorldData(): Promise<FeatureCollection<
       return geojson;
     } catch (error) {
       console.error("Failed to fetch world data:", error);
+      // Sem isso a promise falha fica no cache e o mapa nunca mais tenta de novo.
+      globalFetchPromise = null;
       return null;
     }
   })();

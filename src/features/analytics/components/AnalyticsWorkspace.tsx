@@ -6,6 +6,7 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
+  CalendarDays,
   Download,
   History,
   Lightbulb,
@@ -33,6 +34,20 @@ import {
   Grid,
   AreaXAxis,
   AreaChartTooltip,
+  LineChart,
+  Line,
+  LineGrid,
+  LineXAxis,
+  LineChartTooltip,
+  HeatmapChart,
+  HeatmapCells,
+  HeatmapXAxis,
+  HeatmapYAxis,
+  HeatmapTooltip,
+  HeatmapLegend,
+  HeatmapInteractionProvider,
+  HeatmapInteractionBoundary,
+  buildHeatmapColumns,
 } from "@/components/charts";
 import { StatCardLine } from "@/components/stat-card-line";
 import { StatCardChoropleth } from "@/components/stat-card-choropleth";
@@ -80,6 +95,7 @@ const tabs = [
   { id: "overview", label: "Visão geral", icon: BarChart3 },
   { id: "retention", label: "Retenção", icon: Activity },
   { id: "funnel", label: "Funil", icon: TrendingUp },
+  { id: "heatmap", label: "Mapa de calor", icon: CalendarDays },
   { id: "audience", label: "Público", icon: Users },
   { id: "technology", label: "Tecnologia", icon: MonitorSmartphone },
   { id: "live", label: "Ao vivo", icon: Radio },
@@ -205,10 +221,6 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   // Segment detailed view state
   const [activePanel, setActivePanel] = useState<{ type: "metric" | "segment" | "insight" | "retention-pitch" | "live-session"; title: string; subtitle?: string; data: any } | null>(null);
 
-  // Hover & Tooltip positions for Interactive Retention SVG graph
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-
   // Ring chart active hover states
   const [hoveredDevicesIndex, setHoveredDevicesIndex] = useState<number | null>(null);
   const [hoveredBrowsersIndex, setHoveredBrowsersIndex] = useState<number | null>(null);
@@ -294,6 +306,31 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       visitors: p.rate,
     }));
   }, [data]);
+
+  /**
+   * O LineChart posiciona o eixo X por `Date`, mas a retenção é medida em marcos
+   * de % assistido. Cada marco vira um dia sintético só para dar ordem e
+   * espaçamento; o rótulo real vem de `formatTick`/`rows`, que leem `point`.
+   */
+  const retentionLineData = useMemo(() => {
+    if (!data?.retention) return [];
+    return data.retention.map((p, index) => ({
+      date: new Date(2000, 0, 1 + index),
+      point: p.point,
+      rate: p.rate,
+      viewers: p.viewers,
+    }));
+  }, [data]);
+
+  const [heatmapMetric, setHeatmapMetric] = useState<"plays" | "impressions" | "conversions">("plays");
+
+  const heatmapColumns = useMemo(
+    () =>
+      buildHeatmapColumns(
+        (data?.timeline ?? []).map((entry) => ({ date: entry.date, value: entry[heatmapMetric] })),
+      ),
+    [data, heatmapMetric],
+  );
 
   // Funnel chart data mapping
   const funnelChartData = useMemo(() => {
@@ -660,115 +697,25 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       </span>
                     </div>
 
-                    {/* Pure SVG Graph Container */}
-                    <div 
-                      className="relative h-[340px] overflow-hidden rounded-xl bg-[#f5f5f7] dark:bg-[#252527] border border-[#e0e0e0] dark:border-white/5 p-4 cursor-crosshair transition-colors"
-                      onMouseMove={(e) => {
-                        if (!data.retention.length) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const clientX = e.clientX - rect.left;
-                        const clientY = e.clientY - rect.top;
-
-                        const percent = clientX / rect.width;
-                        let closestIndex = 0;
-                        let minDiff = Infinity;
-                        data.retention.forEach((p, index) => {
-                          const diff = Math.abs((p.point / 100) - percent);
-                          if (diff < minDiff) {
-                            minDiff = diff;
-                            closestIndex = index;
-                          }
-                        });
-
-                        setHoverIndex(closestIndex);
-                        setTooltipPos({ x: clientX, y: clientY });
-                      }}
-                      onMouseLeave={() => setHoverIndex(null)}
-                    >
-                      <svg 
-                        viewBox="0 0 1000 360" 
-                        preserveAspectRatio="none" 
-                        className="h-full w-full overflow-visible"
+                    {/* Curva de retenção no LineChart (visx) */}
+                    <div className="relative h-[340px] overflow-hidden rounded-xl bg-[#f5f5f7] dark:bg-[#252527] border border-[#e0e0e0] dark:border-white/5 p-2 transition-colors">
+                      <LineChart
+                        data={retentionLineData}
+                        xDataKey="date"
+                        margin={{ top: 24, right: 28, bottom: 34, left: 46 }}
+                        className="h-full w-full"
                       >
-                        <defs>
-                          <linearGradient id="overlayRetentionFill" x1="0" x2="0" y1="0" y2="1">
-                            <stop offset="0%" stopColor="#0066cc" stopOpacity="0.20" />
-                            <stop offset="100%" stopColor="#0066cc" stopOpacity="0.01" />
-                          </linearGradient>
-                        </defs>
-
-                        {/* Grid Lines */}
-                        {[0, 25, 50, 75, 100].map((pct) => (
-                          <line 
-                            key={pct} 
-                            x1="0" 
-                            x2="1000" 
-                            y1={360 - (pct / 100) * 310 - 30} 
-                            y2={360 - (pct / 100) * 310 - 30} 
-                            stroke="currentColor" 
-                            className="text-black/[0.04] dark:text-white/[0.04]" 
-                            strokeDasharray="4 6" 
-                          />
-                        ))}
-
-                        {/* Area Fill */}
-                        {data.retention.length > 1 && (
-                          <path 
-                            d={`M 0,330 ${data.retention.map((p, idx) => {
-                              const x = (idx / (data.retention.length - 1)) * 1000;
-                              const y = 360 - (p.rate / 100) * 310 - 30;
-                              return `L ${x},${y}`;
-                            }).join(" ")} L 1000,330 Z`} 
-                            fill="url(#overlayRetentionFill)" 
-                          />
-                        )}
-
-                        {/* Polyline Path */}
-                        <polyline 
-                          points={data.retention.map((p, idx) => {
-                            const x = data.retention.length === 1 ? 500 : (idx / (data.retention.length - 1)) * 1000;
-                            const y = 360 - (p.rate / 100) * 310 - 30;
-                            return `${x},${y}`;
-                          }).join(" ")} 
-                          fill="none" 
-                          stroke="#0066cc" 
-                          strokeWidth="2.5" 
-                          vectorEffect="non-scaling-stroke" 
-                          className="dark:stroke-[#2997ff]"
+                        <LineGrid horizontal />
+                        <Line dataKey="rate" stroke="var(--prisma-blue, #0066cc)" strokeWidth={2.5} />
+                        <LineXAxis formatTick={(_date, index) => `${retentionLineData[index]?.point ?? 0}%`} />
+                        <LineChartTooltip
+                          showDatePill={false}
+                          rows={(point) => [
+                            { color: "var(--prisma-blue, #0066cc)", label: `${point.point as number}% do vídeo`, value: format(point.rate as number, true) },
+                            { color: "var(--color-ink-muted-48, #a1a1a6)", label: "Espectadores", value: format(point.viewers as number) },
+                          ]}
                         />
-
-                        {/* Hover circle indicator */}
-                        {hoverIndex !== null && data.retention[hoverIndex] && (
-                          <>
-                            <line 
-                              x1={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                              x2={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                              y1="0" 
-                              y2="330" 
-                              stroke="currentColor" 
-                              className="text-black/10 dark:text-white/10" 
-                              strokeDasharray="3 3" 
-                            />
-                            <circle 
-                              cx={(hoverIndex / (data.retention.length - 1)) * 1000} 
-                              cy={360 - (data.retention[hoverIndex].rate / 100) * 310 - 30} 
-                              r="6" 
-                              className="fill-[#0066cc] stroke-white dark:stroke-black" 
-                              strokeWidth="2" 
-                            />
-                          </>
-                        )}
-                      </svg>
-
-                      {/* Tooltip Overlay */}
-                      {hoverIndex !== null && data.retention[hoverIndex] && (
-                        <div className="absolute rounded-xl border bg-white/95 p-3 shadow-xl backdrop-blur-sm border-[#e0e0e0] dark:bg-[#1d1d1f]/95 dark:border-white/5 pointer-events-none text-[12px] min-w-36" style={{ left: `${Math.min(tooltipPos.x, tooltipPos.x > 140 ? tooltipPos.x - 160 : tooltipPos.x + 10)}px`, top: `${Math.max(10, Math.min(tooltipPos.y - 40, 240))}px` }}>
-                          <span className="block text-[#7a7a7a] dark:text-[#cccccc] font-medium">Progresso</span>
-                          <strong className="block text-[15px] font-bold text-[#1d1d1f] dark:text-white mt-0.5">{data.retention[hoverIndex].point}% do vídeo</strong>
-                          <span className="block text-[#7a7a7a] mt-2 font-medium">Público Retido</span>
-                          <strong className="block text-[15px] font-bold text-prisma-blue mt-0.5">{format(data.retention[hoverIndex].rate, true)}</strong>
-                        </div>
-                      )}
+                      </LineChart>
                     </div>
                   </article>
 
@@ -816,6 +763,50 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                     layers={3}
                   />
                 </div>
+              </section>
+            )}
+
+            {tab === "heatmap" && (
+              <section className="rounded-[22px] border bg-white p-5 border-[#e0e0e0] dark:bg-[#1d1d1f] dark:border-white/5 sm:p-6 shadow-sm">
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-[16px] font-semibold tracking-tight text-[#1d1d1f] dark:text-[#ffffff]">Mapa de Calor da VSL</h2>
+                    <p className="text-[12px] text-[#7a7a7a] dark:text-[#cccccc]">Intensidade por dia da semana. Revela em que dias a VSL realmente performa.</p>
+                  </div>
+                  <div className="flex gap-1 rounded-full border p-1 border-[#e0e0e0] dark:border-white/10">
+                    {([["plays", "Plays"], ["impressions", "Impressões"], ["conversions", "Conversões"]] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setHeatmapMetric(id)}
+                        className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${heatmapMetric === id ? "bg-prisma-blue text-white" : "text-[#7a7a7a] hover:text-[#1d1d1f] dark:text-[#cccccc] dark:hover:text-white"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {heatmapColumns.length ? (
+                  <HeatmapInteractionProvider>
+                    <HeatmapInteractionBoundary className="flex w-full flex-col items-stretch gap-3">
+                      {/* --heatmap-cell mantém células e rótulos do eixo Y na mesma altura. */}
+                      <div className="overflow-x-auto" style={{ ["--heatmap-cell" as string]: "14px" }}>
+                        <HeatmapChart data={heatmapColumns} className="min-w-[560px]">
+                          <HeatmapXAxis />
+                          <div className="flex">
+                            <HeatmapYAxis />
+                            <HeatmapCells />
+                          </div>
+                          <HeatmapTooltip />
+                        </HeatmapChart>
+                      </div>
+                      <HeatmapLegend />
+                    </HeatmapInteractionBoundary>
+                  </HeatmapInteractionProvider>
+                ) : (
+                  <p className="py-16 text-center text-[13px] text-[#7a7a7a] dark:text-[#cccccc]">Ainda não há dados suficientes no período selecionado.</p>
+                )}
               </section>
             )}
 

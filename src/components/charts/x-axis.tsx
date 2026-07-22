@@ -20,6 +20,12 @@ export interface XAxisProps {
    * `"domain"` — evenly spaced ticks across the time domain (may not align with hover).
    */
   tickMode?: "domain" | "data";
+  /**
+   * Formata o rótulo do tick. Sem isso os rótulos são sempre datas curtas, o que
+   * não serve para eixos que só usam `Date` como posição — retenção por marco do
+   * vídeo, por exemplo, onde o eixo é "% assistido".
+   */
+  formatTick?: (date: Date, index: number) => string;
 }
 
 interface AxisTick {
@@ -381,6 +387,7 @@ export function selectEvenlySpacedIndices(
 function buildDataAlignedTicks({
   data,
   dateLabels,
+  formatTick,
   marginLeft,
   targetTickCount,
   xAccessor,
@@ -388,6 +395,7 @@ function buildDataAlignedTicks({
 }: {
   data: Record<string, unknown>[];
   dateLabels: string[];
+  formatTick?: (date: Date, index: number) => string;
   marginLeft: number;
   targetTickCount: number;
   xAccessor: (d: Record<string, unknown>) => Date;
@@ -415,7 +423,8 @@ function buildDataAlignedTicks({
       continue;
     }
     const date = xAccessor(point);
-    const label = dateLabels[index] ?? shortDateFmt.format(date);
+    const label =
+      formatTick?.(date, index) ?? dateLabels[index] ?? shortDateFmt.format(date);
     if (seenLabels.has(label)) {
       continue;
     }
@@ -576,6 +585,7 @@ const XAxisInner = memo(function XAxisInner({
   numTicks = 5,
   tickerHalfWidth = 50,
   tickMode = "data",
+  formatTick,
   container,
 }: XAxisProps & { container: HTMLDivElement }) {
   const { xScale, margin, tooltipData, data, xAccessor, dateLabels, xDomain } =
@@ -605,6 +615,7 @@ const XAxisInner = memo(function XAxisInner({
     const dataTicks = buildDataAlignedTicks({
       data,
       dateLabels,
+      formatTick,
       marginLeft: margin.left,
       targetTickCount: numTicks,
       xAccessor,
@@ -629,6 +640,7 @@ const XAxisInner = memo(function XAxisInner({
     xDomain,
     data,
     dateLabels,
+    formatTick,
     xAccessor,
     xScale,
     margin.left,
@@ -639,7 +651,8 @@ const XAxisInner = memo(function XAxisInner({
   const crosshairX = tooltipData ? tooltipData.x + margin.left : null;
   const hoveredLabel =
     isHovering && tooltipData
-      ? (dateLabels[tooltipData.index] ??
+      ? (formatTick?.(xAccessor(tooltipData.point), tooltipData.index) ??
+        dateLabels[tooltipData.index] ??
         shortDateFmt.format(xAccessor(tooltipData.point)))
       : null;
 
