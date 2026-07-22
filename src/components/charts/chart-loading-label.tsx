@@ -2,6 +2,8 @@
 
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+// O registry gera este import como "../components/shimmering-text", que só
+// resolve na estrutura de pastas dele. Reaplicar após um `shadcn add`.
 import { ShimmeringText } from "../shimmering-text";
 import {
   LINE_LOADING_PULSE_EASE,

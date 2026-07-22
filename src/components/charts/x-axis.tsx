@@ -21,9 +21,10 @@ export interface XAxisProps {
    */
   tickMode?: "domain" | "data";
   /**
+   * PATCH LOCAL (não vem do registry @bklit/x-axis — reaplicar após `shadcn add`).
    * Formata o rótulo do tick. Sem isso os rótulos são sempre datas curtas, o que
-   * não serve para eixos que só usam `Date` como posição — retenção por marco do
-   * vídeo, por exemplo, onde o eixo é "% assistido".
+   * não serve para eixos que só usam `Date` como posição — a retenção por marco
+   * do vídeo, onde o eixo é "% assistido".
    */
   formatTick?: (date: Date, index: number) => string;
 }

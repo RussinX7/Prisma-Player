@@ -1,11 +1,23 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import type { Transition } from "motion/react";
+import { motion, useTransform } from "motion/react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
+import { useEnterComplete } from "./use-enter-complete";
+import { useMountProgress } from "./use-mount-progress";
+
+// ─── Public types ───────────────────────────────────────────────────
 
 export interface FunnelGradientStop {
-  offset: string;
+  offset: string | number;
   color: string;
 }
 
@@ -13,17 +25,15 @@ export interface FunnelStage {
   label: string;
   value: number;
   displayValue?: string;
+  /** Override the chart-level color for this segment */
   color?: string;
+  /**
+   * Apply a linear gradient to this segment.
+   * Provide an array of color stops, e.g. `[{ offset: "0%", color: "#8B5CF6" }, { offset: "100%", color: "#3B82F6" }]`.
+   * When set, this takes priority over the segment and chart-level `color` for the innermost ring.
+   * Outer halo rings use the first stop color as their solid color.
+   */
   gradient?: FunnelGradientStop[];
-}
-
-export interface GridConfig {
-  bands?: boolean;
-  bandColor?: string;
-  lines?: boolean;
-  lineColor?: string;
-  lineOpacity?: number;
-  lineWidth?: number;
 }
 
 export interface FunnelChartProps {
@@ -31,321 +41,1001 @@ export interface FunnelChartProps {
   orientation?: "horizontal" | "vertical";
   color?: string;
   layers?: number;
-  edges?: "curved" | "straight";
-  gap?: number;
-  staggerDelay?: number;
+  className?: string;
+  style?: CSSProperties;
   showPercentage?: boolean;
   showValues?: boolean;
   showLabels?: boolean;
+  /** Controlled hover state — index of the hovered segment */
+  hoveredIndex?: number | null;
+  /** Callback when hover state changes */
+  onHoverChange?: (index: number | null) => void;
   formatPercentage?: (pct: number) => string;
   formatValue?: (value: number) => string;
+  /** Stagger delay between segments in seconds. Default 0.12 */
+  staggerDelay?: number;
+  /** Framer Motion transition for segment enter animation */
+  enterTransition?: Transition;
+  /** Gap between segments in pixels. Default 4 */
+  gap?: number;
+  /**
+   * Render a visx pattern definition. Receives a unique `id` string per segment
+   * and the resolved `color`. Return a `<PatternLines>` (or any visx pattern)
+   * inside an SVG `<defs>`. The component will use `fill="url(#id)"` on the
+   * innermost ring while keeping outer halo rings as solid color.
+   */
+  renderPattern?: (id: string, color: string) => ReactNode;
+  /** Edge style for the funnel segments. Default "curved" */
+  edges?: "curved" | "straight";
+  /**
+   * Controls how segment labels (value, percentage, stage name) are arranged.
+   * - "spread": Value/percentage/label are spread apart (top/center/bottom for horizontal,
+   *   left/center/right for vertical). This is the default.
+   * - "grouped": All label items stack together in a tight group.
+   *
+   * When "grouped", use `labelOrientation` and `labelAlign` for full control.
+   */
   labelLayout?: "spread" | "grouped";
+  /**
+   * Stack direction of the label group. Only applies when `labelLayout="grouped"`.
+   * - "vertical": Items stack top-to-bottom. Default for horizontal funnels.
+   * - "horizontal": Items stack left-to-right. Default for vertical funnels.
+   */
   labelOrientation?: "vertical" | "horizontal";
+  /**
+   * Where the label group sits within the segment cell.
+   * - "center" (default), "start", "end"
+   * For horizontal funnel: start=top, end=bottom.
+   * For vertical funnel: start=left, end=right.
+   */
   labelAlign?: "center" | "start" | "end";
-  hoveredIndex?: number | null;
-  onHoverChange?: (index: number | null) => void;
-  grid?: boolean | GridConfig;
-  renderPattern?: (id: string, color: string) => React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
+  /** Grid configuration. Pass `true` for default bands + lines, or an object for fine control. */
+  grid?:
+    | boolean
+    | {
+        /** Show alternating background bands behind each segment. Default true */
+        bands?: boolean;
+        /** Color of the background bands. Default "var(--color-muted)" */
+        bandColor?: string;
+        /** Show grid lines at each gap between segments. Default true */
+        lines?: boolean;
+        /** Color of the grid lines. Default "var(--chart-grid)" */
+        lineColor?: string;
+        /** Opacity of the grid lines. Default 1 */
+        lineOpacity?: number;
+        /** Width of the grid lines in pixels. Default 1 */
+        lineWidth?: number;
+      };
 }
+
+// ─── Defaults ───────────────────────────────────────────────────────
+
+import { intFmt } from "./chart-formatters";
+
+const fmtPct = (p: number) => `${Math.round(p)}%`;
+const fmtVal = intFmt;
+
+// ─── SVG helpers ────────────────────────────────────────────────────
+
+/**
+ * Builds a single segment path for one stage in the funnel.
+ * Each segment is a smooth trapezoid-like shape transitioning from
+ * the height of the current norm to the next norm.
+ */
+function hSegmentPath(
+  normStart: number,
+  normEnd: number,
+  segW: number,
+  H: number,
+  layerScale: number,
+  straight = false
+) {
+  const my = H / 2;
+  const h0 = normStart * H * 0.44 * layerScale;
+  const h1 = normEnd * H * 0.44 * layerScale;
+
+  if (straight) {
+    return `M 0 ${my - h0} L ${segW} ${my - h1} L ${segW} ${my + h1} L 0 ${my + h0} Z`;
+  }
+
+  const cx = segW * 0.55;
+  const top = `M 0 ${my - h0} C ${cx} ${my - h0}, ${segW - cx} ${my - h1}, ${segW} ${my - h1}`;
+  const bot = `L ${segW} ${my + h1} C ${segW - cx} ${my + h1}, ${cx} ${my + h0}, 0 ${my + h0}`;
+  return `${top} ${bot} Z`;
+}
+
+function vSegmentPath(
+  normStart: number,
+  normEnd: number,
+  segH: number,
+  W: number,
+  layerScale: number,
+  straight = false
+) {
+  const mx = W / 2;
+  const w0 = normStart * W * 0.44 * layerScale;
+  const w1 = normEnd * W * 0.44 * layerScale;
+
+  if (straight) {
+    return `M ${mx - w0} 0 L ${mx - w1} ${segH} L ${mx + w1} ${segH} L ${mx + w0} 0 Z`;
+  }
+
+  const cy = segH * 0.55;
+  const left = `M ${mx - w0} 0 C ${mx - w0} ${cy}, ${mx - w1} ${segH - cy}, ${mx - w1} ${segH}`;
+  const right = `L ${mx + w1} ${segH} C ${mx + w1} ${segH - cy}, ${mx + w0} ${cy}, ${mx + w0} 0`;
+  return `${left} ${right} Z`;
+}
+
+// ─── Animated Segment ───────────────────────────────────────────────
+
+function HRing({
+  d,
+  color,
+  fill,
+  opacity,
+  hovered,
+  ringIndex,
+  totalRings,
+}: {
+  d: string;
+  color: string;
+  fill?: string;
+  opacity: number;
+  hovered: boolean;
+  ringIndex: number;
+  totalRings: number;
+}) {
+  const extraScale = 1 + (ringIndex / Math.max(totalRings - 1, 1)) * 0.12;
+
+  return (
+    <motion.path
+      animate={{ scaleY: hovered ? extraScale : 1 }}
+      d={d}
+      fill={fill ?? color}
+      opacity={opacity}
+      style={{ transformOrigin: "center center" }}
+      transition={{
+        type: "spring",
+        stiffness: 300 - ringIndex * 60,
+        damping: 24 - ringIndex * 3,
+      }}
+    />
+  );
+}
+
+function HSegment({
+  index,
+  normStart,
+  normEnd,
+  segW,
+  fullH,
+  color,
+  layers,
+  staggerDelay,
+  enterTransition,
+  hovered,
+  dimmed,
+  renderPattern,
+  straight,
+  gradientStops,
+}: {
+  index: number;
+  normStart: number;
+  normEnd: number;
+  segW: number;
+  fullH: number;
+  color: string;
+  layers: number;
+  staggerDelay: number;
+  enterTransition?: Transition;
+  hovered: boolean;
+  dimmed: boolean;
+  renderPattern?: (id: string, color: string) => ReactNode;
+  straight: boolean;
+  gradientStops?: FunnelGradientStop[];
+}) {
+  const patternId = `funnel-h-pattern-${index}`;
+  const gradientId = `funnel-h-grad-${index}`;
+  const mountProgress = useMountProgress(
+    enterTransition,
+    index * staggerDelay,
+    index
+  );
+  const enterComplete = useEnterComplete(mountProgress);
+  const entranceScaleX = useTransform(mountProgress, [0, 1], [0, 1]);
+  const entranceScaleY = useTransform(mountProgress, [0, 1], [0, 1]);
+
+  const rings = Array.from({ length: layers }, (_, l) => {
+    const scale = 1 - (l / layers) * 0.35;
+    const opacity = 0.18 + (l / (layers - 1 || 1)) * 0.65;
+    return {
+      d: hSegmentPath(normStart, normEnd, segW, fullH, scale, straight),
+      opacity,
+    };
+  });
+
+  return (
+    <motion.div
+      animate={{ opacity: dimmed ? 0.4 : 1 }}
+      className="pointer-events-none relative shrink-0 overflow-visible"
+      style={{
+        width: segW,
+        height: fullH,
+        zIndex: hovered ? 10 : 1,
+      }}
+      transition={{ opacity: { duration: 0.15 } }}
+    >
+      {enterComplete ? (
+        <div className="absolute inset-0 overflow-visible">
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full overflow-visible"
+            preserveAspectRatio="none"
+            role="presentation"
+            viewBox={`0 0 ${segW} ${fullH}`}
+          >
+            <defs>
+              {gradientStops && (
+                <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
+                  {gradientStops.map((stop) => (
+                    <stop
+                      key={`${stop.offset}-${stop.color}`}
+                      offset={
+                        typeof stop.offset === "number"
+                          ? `${stop.offset * 100}%`
+                          : stop.offset
+                      }
+                      stopColor={stop.color}
+                    />
+                  ))}
+                </linearGradient>
+              )}
+              {renderPattern?.(patternId, color)}
+            </defs>
+            {rings.map((r, i) => {
+              const isInnermost = i === rings.length - 1;
+              let ringFill: string | undefined;
+              if (isInnermost && renderPattern) {
+                ringFill = `url(#${patternId})`;
+              } else if (isInnermost && gradientStops) {
+                ringFill = `url(#${gradientId})`;
+              }
+              const ringKey = `h-ring-${r.opacity.toFixed(2)}`;
+              return (
+                <HRing
+                  color={color}
+                  d={r.d}
+                  fill={ringFill}
+                  hovered={hovered}
+                  key={ringKey}
+                  opacity={r.opacity}
+                  ringIndex={i}
+                  totalRings={layers}
+                />
+              );
+            })}
+          </svg>
+        </div>
+      ) : (
+        <motion.div
+          className="absolute inset-0 overflow-visible"
+          style={{
+            scaleX: entranceScaleX,
+            scaleY: entranceScaleY,
+            transformOrigin: "left center",
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full overflow-visible"
+            preserveAspectRatio="none"
+            role="presentation"
+            viewBox={`0 0 ${segW} ${fullH}`}
+          >
+            <defs>
+              {gradientStops && (
+                <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
+                  {gradientStops.map((stop) => (
+                    <stop
+                      key={`${stop.offset}-${stop.color}`}
+                      offset={
+                        typeof stop.offset === "number"
+                          ? `${stop.offset * 100}%`
+                          : stop.offset
+                      }
+                      stopColor={stop.color}
+                    />
+                  ))}
+                </linearGradient>
+              )}
+              {renderPattern?.(patternId, color)}
+            </defs>
+            {rings.map((r, i) => {
+              const isInnermost = i === rings.length - 1;
+              let ringFill: string | undefined;
+              if (isInnermost && renderPattern) {
+                ringFill = `url(#${patternId})`;
+              } else if (isInnermost && gradientStops) {
+                ringFill = `url(#${gradientId})`;
+              }
+              const ringKey = `h-ring-${r.opacity.toFixed(2)}`;
+              return (
+                <HRing
+                  color={color}
+                  d={r.d}
+                  fill={ringFill}
+                  hovered={hovered}
+                  key={ringKey}
+                  opacity={r.opacity}
+                  ringIndex={i}
+                  totalRings={layers}
+                />
+              );
+            })}
+          </svg>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+function VRing({
+  d,
+  color,
+  fill,
+  opacity,
+  hovered,
+  ringIndex,
+  totalRings,
+}: {
+  d: string;
+  color: string;
+  fill?: string;
+  opacity: number;
+  hovered: boolean;
+  ringIndex: number;
+  totalRings: number;
+}) {
+  const extraScale = 1 + (ringIndex / Math.max(totalRings - 1, 1)) * 0.12;
+
+  return (
+    <motion.path
+      animate={{ scaleX: hovered ? extraScale : 1 }}
+      d={d}
+      fill={fill ?? color}
+      opacity={opacity}
+      style={{ transformOrigin: "center center" }}
+      transition={{
+        type: "spring",
+        stiffness: 300 - ringIndex * 60,
+        damping: 24 - ringIndex * 3,
+      }}
+    />
+  );
+}
+
+function VSegment({
+  index,
+  normStart,
+  normEnd,
+  segH,
+  fullW,
+  color,
+  layers,
+  staggerDelay,
+  enterTransition,
+  hovered,
+  dimmed,
+  renderPattern,
+  straight,
+  gradientStops,
+}: {
+  index: number;
+  normStart: number;
+  normEnd: number;
+  segH: number;
+  fullW: number;
+  color: string;
+  layers: number;
+  staggerDelay: number;
+  enterTransition?: Transition;
+  hovered: boolean;
+  dimmed: boolean;
+  renderPattern?: (id: string, color: string) => ReactNode;
+  straight: boolean;
+  gradientStops?: FunnelGradientStop[];
+}) {
+  const patternId = `funnel-v-pattern-${index}`;
+  const gradientId = `funnel-v-grad-${index}`;
+  const mountProgress = useMountProgress(
+    enterTransition,
+    index * staggerDelay,
+    index
+  );
+  const enterComplete = useEnterComplete(mountProgress);
+  const entranceScaleY = useTransform(mountProgress, [0, 1], [0, 1]);
+  const entranceScaleX = useTransform(mountProgress, [0, 1], [0, 1]);
+
+  const rings = Array.from({ length: layers }, (_, l) => {
+    const scale = 1 - (l / layers) * 0.35;
+    const opacity = 0.18 + (l / (layers - 1 || 1)) * 0.65;
+    return {
+      d: vSegmentPath(normStart, normEnd, segH, fullW, scale, straight),
+      opacity,
+    };
+  });
+
+  return (
+    <motion.div
+      animate={{ opacity: dimmed ? 0.4 : 1 }}
+      className="pointer-events-none relative shrink-0 overflow-visible"
+      style={{
+        width: fullW,
+        height: segH,
+        zIndex: hovered ? 10 : 1,
+      }}
+      transition={{ opacity: { duration: 0.15 } }}
+    >
+      {enterComplete ? (
+        <div className="absolute inset-0 overflow-visible">
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full overflow-visible"
+            preserveAspectRatio="none"
+            role="presentation"
+            viewBox={`0 0 ${fullW} ${segH}`}
+          >
+            <defs>
+              {gradientStops && (
+                <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                  {gradientStops.map((stop) => (
+                    <stop
+                      key={`${stop.offset}-${stop.color}`}
+                      offset={
+                        typeof stop.offset === "number"
+                          ? `${stop.offset * 100}%`
+                          : stop.offset
+                      }
+                      stopColor={stop.color}
+                    />
+                  ))}
+                </linearGradient>
+              )}
+              {renderPattern?.(patternId, color)}
+            </defs>
+            {rings.map((r, i) => {
+              const isInnermost = i === rings.length - 1;
+              let ringFill: string | undefined;
+              if (isInnermost && renderPattern) {
+                ringFill = `url(#${patternId})`;
+              } else if (isInnermost && gradientStops) {
+                ringFill = `url(#${gradientId})`;
+              }
+              const ringKey = `v-ring-${r.opacity.toFixed(2)}`;
+              return (
+                <VRing
+                  color={color}
+                  d={r.d}
+                  fill={ringFill}
+                  hovered={hovered}
+                  key={ringKey}
+                  opacity={r.opacity}
+                  ringIndex={i}
+                  totalRings={layers}
+                />
+              );
+            })}
+          </svg>
+        </div>
+      ) : (
+        <motion.div
+          className="absolute inset-0 overflow-visible"
+          style={{
+            scaleY: entranceScaleY,
+            scaleX: entranceScaleX,
+            transformOrigin: "center top",
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full overflow-visible"
+            preserveAspectRatio="none"
+            role="presentation"
+            viewBox={`0 0 ${fullW} ${segH}`}
+          >
+            <defs>
+              {gradientStops && (
+                <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                  {gradientStops.map((stop) => (
+                    <stop
+                      key={`${stop.offset}-${stop.color}`}
+                      offset={
+                        typeof stop.offset === "number"
+                          ? `${stop.offset * 100}%`
+                          : stop.offset
+                      }
+                      stopColor={stop.color}
+                    />
+                  ))}
+                </linearGradient>
+              )}
+              {renderPattern?.(patternId, color)}
+            </defs>
+            {rings.map((r, i) => {
+              const isInnermost = i === rings.length - 1;
+              let ringFill: string | undefined;
+              if (isInnermost && renderPattern) {
+                ringFill = `url(#${patternId})`;
+              } else if (isInnermost && gradientStops) {
+                ringFill = `url(#${gradientId})`;
+              }
+              const ringKey = `v-ring-${r.opacity.toFixed(2)}`;
+              return (
+                <VRing
+                  color={color}
+                  d={r.d}
+                  fill={ringFill}
+                  hovered={hovered}
+                  key={ringKey}
+                  opacity={r.opacity}
+                  ringIndex={i}
+                  totalRings={layers}
+                />
+              );
+            })}
+          </svg>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Label overlay ──────────────────────────────────────────────────
+
+function SegmentLabel({
+  stage,
+  pct,
+  isHorizontal,
+  showValues,
+  showPercentage,
+  showLabels,
+  formatPercentage,
+  formatValue,
+  index,
+  staggerDelay,
+  layout = "spread",
+  orientation,
+  align = "center",
+}: {
+  stage: FunnelStage;
+  pct: number;
+  isHorizontal: boolean;
+  showValues: boolean;
+  showPercentage: boolean;
+  showLabels: boolean;
+  formatPercentage: (p: number) => string;
+  formatValue: (v: number) => string;
+  index: number;
+  staggerDelay: number;
+  layout?: "spread" | "grouped";
+  orientation?: "vertical" | "horizontal";
+  align?: "center" | "start" | "end";
+}) {
+  const display = stage.displayValue ?? formatValue(stage.value);
+
+  const valueEl = showValues && (
+    <span className="whitespace-nowrap font-semibold text-foreground text-sm">
+      {display}
+    </span>
+  );
+  const pctEl = showPercentage && (
+    <span className="rounded-full bg-foreground px-3 py-1 font-bold text-background text-xs shadow-sm">
+      {formatPercentage(pct)}
+    </span>
+  );
+  const labelEl = showLabels && (
+    <span className="whitespace-nowrap font-medium text-muted-foreground text-xs">
+      {stage.label}
+    </span>
+  );
+
+  // ── Spread layout (default): items pushed to edges with center element ──
+  if (layout === "spread") {
+    return (
+      <motion.div
+        animate={{ opacity: 1 }}
+        className={cn(
+          "absolute inset-0 flex",
+          isHorizontal ? "flex-col items-center" : "flex-row items-center"
+        )}
+        initial={{ opacity: 0 }}
+        transition={{
+          delay: index * staggerDelay + 0.25,
+          duration: 0.35,
+          ease: "easeOut",
+        }}
+      >
+        {isHorizontal ? (
+          <>
+            <div className="flex h-[16%] items-end justify-center pb-1">
+              {valueEl}
+            </div>
+            <div className="flex flex-1 items-center justify-center">
+              {pctEl}
+            </div>
+            <div className="flex h-[16%] items-start justify-center pt-1">
+              {labelEl}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex w-[16%] items-center justify-end pr-2">
+              {valueEl}
+            </div>
+            <div className="flex flex-1 items-center justify-center">
+              {pctEl}
+            </div>
+            <div className="flex w-[16%] items-center justify-start pl-2">
+              {labelEl}
+            </div>
+          </>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ── Grouped layout: items stacked tightly together ──
+  const resolvedOrientation =
+    orientation ?? (isHorizontal ? "vertical" : "horizontal");
+  const isVerticalStack = resolvedOrientation === "vertical";
+
+  // Map align to flexbox alignment on the cross axes
+  const justifyMap = {
+    start: "justify-start",
+    center: "justify-center",
+    end: "justify-end",
+  } as const;
+  const itemsMap = {
+    start: "items-start",
+    center: "items-center",
+    end: "items-end",
+  } as const;
+
+  // The outer container uses the chart orientation to position the group,
+  // and the inner group uses the label orientation for stacking.
+  return (
+    <motion.div
+      animate={{ opacity: 1 }}
+      className={cn(
+        "absolute inset-0 flex",
+        // For horizontal funnel, align controls vertical placement
+        // For vertical funnel, align controls horizontal placement
+        isHorizontal
+          ? cn("flex-col items-center", justifyMap[align])
+          : cn("flex-row items-center", justifyMap[align])
+      )}
+      initial={{ opacity: 0 }}
+      style={{
+        padding: isHorizontal ? "8% 0" : "0 8%",
+      }}
+      transition={{
+        delay: index * staggerDelay + 0.25,
+        duration: 0.35,
+        ease: "easeOut",
+      }}
+    >
+      <div
+        className={cn(
+          "flex gap-1.5",
+          isVerticalStack
+            ? cn("flex-col", itemsMap[isHorizontal ? "center" : align])
+            : cn("flex-row", itemsMap.center)
+        )}
+      >
+        {valueEl}
+        {pctEl}
+        {labelEl}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────
 
 export function FunnelChart({
   data,
   orientation = "horizontal",
-  color = "var(--prisma-blue, #0066cc)",
+  color = "var(--chart-1)",
   layers = 3,
-  edges = "curved",
-  gap = 4,
-  staggerDelay = 0.12,
+  className,
+  style,
   showPercentage = true,
   showValues = true,
   showLabels = true,
-  formatPercentage = (pct) => `${Math.round(pct)}%`,
-  formatValue = (val) => val.toLocaleString(),
-  hoveredIndex: controlledHoveredIndex,
+  hoveredIndex: hoveredIndexProp,
   onHoverChange,
-  className,
-  style,
+  formatPercentage = fmtPct,
+  formatValue = fmtVal,
+  staggerDelay = 0.12,
+  enterTransition,
+  gap = 4,
+  renderPattern,
+  edges = "curved",
+  labelLayout = "spread",
+  labelOrientation,
+  labelAlign = "center",
+  grid: gridProp = false,
 }: FunnelChartProps) {
-  const [localHoveredIndex, setLocalHoveredIndex] = useState<number | null>(null);
-  const activeHoveredIndex = controlledHoveredIndex !== undefined ? controlledHoveredIndex : localHoveredIndex;
+  const ref = useRef<HTMLDivElement>(null);
+  const [sz, setSz] = useState({ w: 0, h: 0 });
+  const [internalHoveredIndex, setInternalHoveredIndex] = useState<
+    number | null
+  >(null);
 
-  const handleHover = (index: number | null) => {
-    setLocalHoveredIndex(index);
-    onHoverChange?.(index);
-  };
-
-  const maxValue = useMemo(() => {
-    if (!data.length) return 1;
-    return Math.max(...data.map((d) => d.value), 1);
-  }, [data]);
-
-  // Dimensions
-  const chartHeight = 320;
-  const chartWidth = 800;
-
-  const segments = useMemo(() => {
-    const totalSegments = data.length;
-    if (totalSegments === 0) return [];
-
-    const isHorizontal = orientation === "horizontal";
-    const totalGaps = (totalSegments - 1) * gap;
-    const segmentLength = ((isHorizontal ? chartWidth : chartHeight) - totalGaps) / totalSegments;
-
-    return data.map((stage, index) => {
-      const valuePct = stage.value / maxValue;
-      const prevStage = data[index - 1];
-      const prevValuePct = prevStage ? prevStage.value / maxValue : valuePct;
-
-      const currentSize = 100 * valuePct;
-      const prevSize = 100 * prevValuePct;
-
-      // Calculate path coords relative to a 0-100 vertical height box for each segment
-      // horizontal flow: X goes from start to end, Y scales symmetrically
-      const segmentStart = index * (segmentLength + gap);
-      const segmentEnd = segmentStart + segmentLength;
-
-      const yTopStart = 50 - prevSize / 2;
-      const yBottomStart = 50 + prevSize / 2;
-      const yTopEnd = 50 - currentSize / 2;
-      const yBottomEnd = 50 + currentSize / 2;
-
-      let path = "";
-      if (isHorizontal) {
-        if (edges === "curved") {
-          const cpX = (segmentStart + segmentEnd) / 2;
-          path = `
-            M ${segmentStart} ${(yTopStart / 100) * chartHeight}
-            C ${cpX} ${(yTopStart / 100) * chartHeight}, ${cpX} ${(yTopEnd / 100) * chartHeight}, ${segmentEnd} ${(yTopEnd / 100) * chartHeight}
-            L ${segmentEnd} ${(yBottomEnd / 100) * chartHeight}
-            C ${cpX} ${(yBottomEnd / 100) * chartHeight}, ${cpX} ${(yBottomStart / 100) * chartHeight}, ${segmentStart} ${(yBottomStart / 100) * chartHeight}
-            Z
-          `;
-        } else {
-          path = `
-            M ${segmentStart} ${(yTopStart / 100) * chartHeight}
-            L ${segmentEnd} ${(yTopEnd / 100) * chartHeight}
-            L ${segmentEnd} ${(yBottomEnd / 100) * chartHeight}
-            L ${segmentStart} ${(yBottomStart / 100) * chartHeight}
-            Z
-          `;
-        }
+  const isControlled = hoveredIndexProp !== undefined;
+  const hoveredIndex = isControlled ? hoveredIndexProp : internalHoveredIndex;
+  const setHoveredIndex = useCallback(
+    (index: number | null) => {
+      if (isControlled) {
+        onHoverChange?.(index);
       } else {
-        // Vertical flow: Y goes from start to end, X scales symmetrically
-        const xLeftStart = 50 - prevSize / 2;
-        const xRightStart = 50 + prevSize / 2;
-        const xLeftEnd = 50 - currentSize / 2;
-        const xRightEnd = 50 + currentSize / 2;
-
-        if (edges === "curved") {
-          const cpY = (segmentStart + segmentEnd) / 2;
-          path = `
-            M ${(xLeftStart / 100) * chartWidth} ${segmentStart}
-            C ${(xLeftStart / 100) * chartWidth} ${cpY}, ${(xLeftEnd / 100) * chartWidth} ${cpY}, ${(xLeftEnd / 100) * chartWidth} ${segmentEnd}
-            L ${(xRightEnd / 100) * chartWidth} ${segmentEnd}
-            C ${(xRightEnd / 100) * chartWidth} ${cpY}, ${(xRightStart / 100) * chartWidth} ${cpY}, ${(xRightStart / 100) * chartWidth} ${segmentStart}
-            Z
-          `;
-        } else {
-          path = `
-            M ${(xLeftStart / 100) * chartWidth} ${segmentStart}
-            L ${(xLeftEnd / 100) * chartWidth} ${segmentEnd}
-            L ${(xRightEnd / 100) * chartWidth} ${segmentEnd}
-            L ${(xRightStart / 100) * chartWidth} ${segmentStart}
-            Z
-          `;
-        }
+        setInternalHoveredIndex(index);
       }
+    },
+    [isControlled, onHoverChange]
+  );
 
-      const conversionRate = maxValue > 0 ? (stage.value / maxValue) * 100 : 0;
+  const measure = useCallback(() => {
+    if (!ref.current) {
+      return;
+    }
+    const { width: w, height: h } = ref.current.getBoundingClientRect();
+    if (w > 0 && h > 0) {
+      setSz({ w, h });
+    }
+  }, []);
 
-      return {
-        stage,
-        index,
-        path,
-        segmentStart,
-        segmentEnd,
-        conversionRate,
-        yTopEnd: (yTopEnd / 100) * chartHeight,
-        yBottomEnd: (yBottomEnd / 100) * chartHeight,
-        yCenterEnd: 50,
-      };
-    });
-  }, [data, maxValue, orientation, edges, gap]);
+  useEffect(() => {
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (ref.current) {
+      ro.observe(ref.current);
+    }
+    return () => ro.disconnect();
+  }, [measure]);
+
+  if (!data.length) {
+    return null;
+  }
+
+  const first = data[0];
+  if (!first) {
+    return null;
+  }
+  const max = first.value;
+  const n = data.length;
+  const norms = data.map((d) => d.value / max);
+  const horiz = orientation === "horizontal";
+  const { w: W, h: H } = sz;
+
+  const totalGap = gap * (n - 1);
+  const segW = (W - (horiz ? totalGap : 0)) / n;
+  const segH = (H - (horiz ? 0 : totalGap)) / n;
+
+  // Resolve grid config
+  const gridEnabled = gridProp !== false;
+  const gridCfg = typeof gridProp === "object" ? gridProp : {};
+  const showBands = gridEnabled && (gridCfg.bands ?? true);
+  const bandColor = gridCfg.bandColor ?? "var(--color-muted)";
+  const showGridLines = gridEnabled && (gridCfg.lines ?? true);
+  const gridLineColor = gridCfg.lineColor ?? "var(--chart-grid)";
+  const gridLineOpacity = gridCfg.lineOpacity ?? 1;
+  const gridLineWidth = gridCfg.lineWidth ?? 1;
 
   return (
     <div
-      className={cn("relative w-full select-none flex flex-col items-center", className)}
-      style={style}
+      className={cn("relative w-full select-none overflow-visible", className)}
+      ref={ref}
+      style={{
+        aspectRatio: horiz ? "2.2 / 1" : "1 / 1.8",
+        ...style,
+      }}
     >
-      <div className="relative w-full h-[340px] flex items-center justify-center">
-        <svg
-          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          className="w-full h-full overflow-visible"
-        >
-          <defs>
+      {W > 0 && H > 0 && (
+        <>
+          {/* Grid layer: background bands + grid lines */}
+          {gridEnabled && (
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              preserveAspectRatio="none"
+              role="presentation"
+              viewBox={`0 0 ${W} ${H}`}
+            >
+              {/* Background bands — alternating on even segments */}
+              {showBands &&
+                data.map((stage, i) => {
+                  if (i % 2 !== 0) {
+                    return null;
+                  }
+                  if (horiz) {
+                    const x = (segW + gap) * i;
+                    return (
+                      <rect
+                        fill={bandColor}
+                        height={H}
+                        key={`band-${stage.label}`}
+                        width={segW}
+                        x={x}
+                        y={0}
+                      />
+                    );
+                  }
+                  const y = (segH + gap) * i;
+                  return (
+                    <rect
+                      fill={bandColor}
+                      height={segH}
+                      key={`band-${stage.label}`}
+                      width={W}
+                      x={0}
+                      y={y}
+                    />
+                  );
+                })}
+            </svg>
+          )}
+
+          {/* Segments container — overflow-visible so hover scale is not clipped */}
+          <div
+            className={cn(
+              "absolute inset-0 flex overflow-visible",
+              horiz ? "flex-row" : "flex-col"
+            )}
+            style={{ gap }}
+          >
             {data.map((stage, i) => {
-              const segColor = stage.color || color;
-              return (
-                <linearGradient
-                  key={i}
-                  id={`funnel-grad-${i}`}
-                  x1="0"
-                  y1="0"
-                  x2={orientation === "horizontal" ? "1" : "0"}
-                  y2={orientation === "horizontal" ? "0" : "1"}
-                >
-                  {stage.gradient ? (
-                    stage.gradient.map((stop, sIdx) => (
-                      <stop key={sIdx} offset={stop.offset} stopColor={stop.color} />
-                    ))
-                  ) : (
-                    <>
-                      <stop offset="0%" stopColor={segColor} stopOpacity={0.85} />
-                      <stop offset="100%" stopColor={segColor} stopOpacity={0.55} />
-                    </>
-                  )}
-                </linearGradient>
+              const normStart = norms[i] ?? 0;
+              const normEnd = norms[Math.min(i + 1, n - 1)] ?? 0;
+              const firstStop = stage.gradient?.[0];
+              const segColor = firstStop
+                ? firstStop.color
+                : (stage.color ?? color);
+
+              return horiz ? (
+                <HSegment
+                  color={segColor}
+                  dimmed={hoveredIndex !== null && hoveredIndex !== i}
+                  enterTransition={enterTransition}
+                  fullH={H}
+                  gradientStops={stage.gradient}
+                  hovered={hoveredIndex === i}
+                  index={i}
+                  key={stage.label}
+                  layers={layers}
+                  normEnd={normEnd}
+                  normStart={normStart}
+                  renderPattern={renderPattern}
+                  segW={segW}
+                  staggerDelay={staggerDelay}
+                  straight={edges === "straight"}
+                />
+              ) : (
+                <VSegment
+                  color={segColor}
+                  dimmed={hoveredIndex !== null && hoveredIndex !== i}
+                  enterTransition={enterTransition}
+                  fullW={W}
+                  gradientStops={stage.gradient}
+                  hovered={hoveredIndex === i}
+                  index={i}
+                  key={stage.label}
+                  layers={layers}
+                  normEnd={normEnd}
+                  normStart={normStart}
+                  renderPattern={renderPattern}
+                  segH={segH}
+                  staggerDelay={staggerDelay}
+                  straight={edges === "straight"}
+                />
               );
             })}
-          </defs>
+          </div>
 
-          {/* Halo Rings & Segments */}
-          {segments.map((seg, i) => {
-            const isHovered = activeHoveredIndex === i;
-            const anyHovered = activeHoveredIndex !== null;
-            const segColor = seg.stage.color || color;
-
-            // Halo configuration
-            const haloScales = Array.from({ length: layers }, (_, lIdx) => 1 + (lIdx + 1) * 0.05);
-
-            return (
-              <g
-                key={i}
-                onMouseEnter={() => handleHover(i)}
-                onMouseLeave={() => handleHover(null)}
-                className="cursor-pointer"
-              >
-                {/* Concentric Halo Rings (renders only when hovered or always with low opacity) */}
-                {haloScales.map((scale, lIdx) => (
-                  <motion.path
-                    key={lIdx}
-                    d={seg.path}
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{
-                      scale: isHovered ? scale : 1,
-                      opacity: isHovered ? 0.15 / (lIdx + 1) : 0,
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 120,
-                      damping: 15,
-                    }}
-                    style={{
-                      originX: orientation === "horizontal" ? `${(seg.segmentStart + seg.segmentEnd) / (2 * chartWidth)}` : 0.5,
-                      originY: orientation === "horizontal" ? 0.5 : `${(seg.segmentStart + seg.segmentEnd) / (2 * chartHeight)}`,
-                    }}
-                    fill="none"
-                    stroke={segColor}
-                    strokeWidth={4 / (lIdx + 1)}
+          {/* Grid lines — rendered above segments so they're visible */}
+          {gridEnabled && showGridLines && (
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              preserveAspectRatio="none"
+              role="presentation"
+              viewBox={`0 0 ${W} ${H}`}
+            >
+              {Array.from({ length: n - 1 }, (_, i) => {
+                const idx = i + 1;
+                const gridKey = `grid-${idx}`;
+                if (horiz) {
+                  const x = segW * idx + gap * i + gap / 2;
+                  return (
+                    <line
+                      key={gridKey}
+                      stroke={gridLineColor}
+                      strokeOpacity={gridLineOpacity}
+                      strokeWidth={gridLineWidth}
+                      x1={x}
+                      x2={x}
+                      y1={0}
+                      y2={H}
+                    />
+                  );
+                }
+                const y = segH * idx + gap * i + gap / 2;
+                return (
+                  <line
+                    key={gridKey}
+                    stroke={gridLineColor}
+                    strokeOpacity={gridLineOpacity}
+                    strokeWidth={gridLineWidth}
+                    x1={0}
+                    x2={W}
+                    y1={y}
+                    y2={y}
                   />
-                ))}
+                );
+              })}
+            </svg>
+          )}
 
-                {/* Primary Segment Solid Shape */}
-                <motion.path
-                  d={seg.path}
-                  initial={{ scaleY: 0, opacity: 0 }}
-                  animate={{
-                    scaleY: anyHovered && !isHovered ? 0.92 : 1,
-                    scaleX: anyHovered && !isHovered ? 0.96 : 1,
-                    opacity: anyHovered && !isHovered ? 0.45 : 1,
-                  }}
-                  transition={{
-                    delay: i * staggerDelay,
-                    type: "spring",
-                    stiffness: 100,
-                    damping: 16,
-                  }}
-                  fill={`url(#funnel-grad-${i})`}
-                  className="transition-all duration-300"
-                />
+          {/* Label overlays — one per segment, positioned over each segment cell.
+              These are the hover triggers for each segment. */}
+          {data.map((stage, i) => {
+            const pct = (stage.value / max) * 100;
+            const posStyle: CSSProperties = horiz
+              ? {
+                  left: (segW + gap) * i,
+                  width: segW,
+                  top: 0,
+                  height: H,
+                }
+              : {
+                  top: (segH + gap) * i,
+                  height: segH,
+                  left: 0,
+                  width: W,
+                };
 
-                {/* Inner Overlay Border */}
-                <motion.path
-                  d={seg.path}
-                  initial={{ opacity: 0 }}
-                  animate={{
-                    opacity: isHovered ? 0.9 : 0.15,
-                  }}
-                  fill="none"
-                  stroke={segColor}
-                  strokeWidth={isHovered ? 2.5 : 1.2}
-                />
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Labels Overlay */}
-        <div className="absolute inset-0 pointer-events-none flex justify-between px-4">
-          {segments.map((seg, i) => {
-            const isHovered = activeHoveredIndex === i;
-            const percent = seg.conversionRate;
-            const isHorizontal = orientation === "horizontal";
-
-            // Placement calculations
-            const widthPct = (1 / data.length) * 100;
-            const leftOffset = (seg.segmentStart / chartWidth) * 100;
-            const sizePct = (seg.segmentEnd - seg.segmentStart) / chartWidth * 100;
+            const isDimmed = hoveredIndex !== null && hoveredIndex !== i;
 
             return (
-              <div
-                key={i}
-                className="absolute flex flex-col justify-center items-center text-center transition-all duration-300"
-                style={{
-                  left: isHorizontal ? `${leftOffset}%` : "0%",
-                  top: isHorizontal ? "0%" : `${leftOffset}%`,
-                  width: isHorizontal ? `${sizePct}%` : "100%",
-                  height: isHorizontal ? "100%" : `${sizePct}%`,
-                  transform: isHovered ? "scale(1.05)" : "scale(1)",
-                }}
+              <motion.div
+                animate={{ opacity: isDimmed ? 0.4 : 1 }}
+                className="absolute cursor-pointer"
+                key={`lbl-${stage.label}`}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                style={{ ...posStyle, zIndex: 20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 24 }}
               >
-                {/* Badge Percentage */}
-                {showPercentage && (
-                  <motion.span
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: i * staggerDelay + 0.1 }}
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm transition-colors",
-                      isHovered
-                        ? "bg-prisma-blue text-white"
-                        : "bg-black/5 dark:bg-white/10 text-slate-700 dark:text-slate-300"
-                    )}
-                  >
-                    {formatPercentage(percent)}
-                  </motion.span>
-                )}
-
-                {/* Value Label */}
-                {showValues && (
-                  <strong className="mt-1 text-[14px] font-bold text-slate-800 dark:text-white leading-tight">
-                    {seg.stage.displayValue || formatValue(seg.stage.value)}
-                  </strong>
-                )}
-
-                {/* Label */}
-                {showLabels && (
-                  <span className="text-[11px] text-[#7a7a7a] dark:text-[#cccccc] font-semibold tracking-tight mt-0.5 truncate max-w-full">
-                    {seg.stage.label}
-                  </span>
-                )}
-              </div>
+                <SegmentLabel
+                  align={labelAlign}
+                  formatPercentage={formatPercentage}
+                  formatValue={formatValue}
+                  index={i}
+                  isHorizontal={horiz}
+                  layout={labelLayout}
+                  orientation={labelOrientation}
+                  pct={pct}
+                  showLabels={showLabels}
+                  showPercentage={showPercentage}
+                  showValues={showValues}
+                  stage={stage}
+                  staggerDelay={staggerDelay}
+                />
+              </motion.div>
             );
           })}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

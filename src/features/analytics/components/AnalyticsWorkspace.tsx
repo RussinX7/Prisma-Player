@@ -47,8 +47,10 @@ import {
   HeatmapLegend,
   HeatmapInteractionProvider,
   HeatmapInteractionBoundary,
-  buildHeatmapColumns,
+  HEATMAP_DEFAULT_LEVEL_STYLES,
+  levelColorsFromStyles,
 } from "@/components/charts";
+import { buildHeatmapColumns, buildQuantileColorScale } from "@/lib/heatmap-data";
 import { StatCardLine } from "@/components/stat-card-line";
 import { StatCardChoropleth } from "@/components/stat-card-choropleth";
 
@@ -330,6 +332,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         (data?.timeline ?? []).map((entry) => ({ date: entry.date, value: entry[heatmapMetric] })),
       ),
     [data, heatmapMetric],
+  );
+
+  const heatmapColorScale = useMemo(
+    () => buildQuantileColorScale(heatmapColumns, levelColorsFromStyles(HEATMAP_DEFAULT_LEVEL_STYLES)),
+    [heatmapColumns],
   );
 
   // Funnel chart data mapping
@@ -789,19 +796,22 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
                 {heatmapColumns.length ? (
                   <HeatmapInteractionProvider>
-                    <HeatmapInteractionBoundary className="flex w-full flex-col items-stretch gap-3">
-                      {/* --heatmap-cell mantém células e rótulos do eixo Y na mesma altura. */}
-                      <div className="overflow-x-auto" style={{ ["--heatmap-cell" as string]: "14px" }}>
-                        <HeatmapChart data={heatmapColumns} className="min-w-[560px]">
+                    <HeatmapInteractionBoundary>
+                      <div className="flex w-full flex-col items-stretch gap-3">
+                        <HeatmapChart
+                          className="w-full"
+                          data={heatmapColumns}
+                          layout="fluid"
+                          colorScale={heatmapColorScale}
+                          levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
+                        >
+                          <HeatmapCells />
                           <HeatmapXAxis />
-                          <div className="flex">
-                            <HeatmapYAxis />
-                            <HeatmapCells />
-                          </div>
-                          <HeatmapTooltip />
+                          <HeatmapYAxis />
+                          <HeatmapTooltip instant />
                         </HeatmapChart>
+                        <HeatmapLegend levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES} />
                       </div>
-                      <HeatmapLegend />
                     </HeatmapInteractionBoundary>
                   </HeatmapInteractionProvider>
                 ) : (
