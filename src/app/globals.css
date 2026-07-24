@@ -368,6 +368,11 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 @utility animate-fade-in {
   animation: fade-in 0.8s ease-out forwards;
 }
@@ -389,6 +394,7 @@ body {
 @utility animate-dialog-backdrop { animation: dialog-backdrop 160ms ease-out both; }
 @utility animate-dialog-panel { animation: dialog-panel 220ms cubic-bezier(.2,.8,.2,1) both; }
 @utility animate-status-pop { animation: status-pop 220ms cubic-bezier(.2,.8,.2,1) both; }
+@utility animate-slide-up { animation: slide-up 500ms cubic-bezier(0.32,0.72,0,1) both; }
 
 .themeable-bg-canvas { background-color: var(--color-canvas); }
 .themeable-bg-canvas-parchment { background-color: var(--color-canvas-parchment); }
