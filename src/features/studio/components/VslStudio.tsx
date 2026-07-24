@@ -7,7 +7,6 @@ import { ArrowLeft, Captions, Check, Clock3, Code2, FastForward, Gauge, Globe2, 
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/features/player/components";
-import { createClient } from "@/lib/supabase/client";
 
 interface StoredVideo { id?: string; name: string; src: string; type: string }
 type ModuleId = "style" | "progress" | "autoplay" | "turbo" | "headlines" | "hooks" | "traffic" | "actions" | "thumbnail" | "resume" | "pixels" | "captions" | "protection" | "playback";
@@ -167,13 +166,17 @@ export default function VslStudio() {
           return merged;
         });
         const assets = loaded.assets ?? {};
-        const supabase = createClient();
-        const signed = await Promise.all(Object.entries(assets).map(async ([kind, path]) => {
-          const { data } = await supabase.storage.from("player-assets").createSignedUrl(path, 3600);
-          return [kind, data?.signedUrl] as const;
-        }));
+        // URLs assinadas vêm do backend (admin client). O navegador não enxerga
+        // mais a estrutura do bucket "player-assets" nem recebe a publishable
+        // key para assinar paths arbitrários.
+        const signResponse = await fetch("/api/studio/asset-sign", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ videoId: video?.id, assets }),
+        });
+        const signPayload = await signResponse.json().catch(() => null) as { signedUrls?: Record<string, string> } | null;
         if (!activeRequest) return;
-        for (const [kind, url] of signed) {
+        for (const [kind, url] of Object.entries(signPayload?.signedUrls ?? {})) {
           if (!url) continue;
           if (kind === "thumbnailStart") setPosterUrl(url);
           if (kind === "thumbnailPause") setPausePosterUrl(url);
@@ -195,17 +198,24 @@ export default function VslStudio() {
     let persistedConfig = config;
     if (video?.id) {
       if (Object.keys(assetFiles).length > 0) {
-        const supabase = createClient();
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) { setSaveError("Sua sessão expirou."); setSaving(false); return; }
         const assets = { ...config.assets };
         for (const [kind, file] of Object.entries(assetFiles)) {
           if (!file) continue;
-          const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
-          const path = `${userData.user.id}/${video.id}/${kind}-${crypto.randomUUID()}.${extension}`;
-          const { data, error } = await supabase.storage.from("player-assets").upload(path, file, { contentType: file.type || undefined, cacheControl: "31536000", upsert: false });
-          if (error || !data) { setSaveError(`Não foi possível enviar ${file.name}.`); setSaving(false); return; }
-          assets[kind] = data.path;
+          // Upload também é feito pelo backend. O path é montado server-side com
+          // o account owner autenticado + UUID forte; o navegador não decide mais
+          // a localização do arquivo no bucket.
+          const form = new FormData();
+          form.append("videoId", video.id);
+          form.append("kind", kind);
+          form.append("file", file);
+          const uploadResponse = await fetch("/api/studio/asset-upload", { method: "POST", body: form });
+          const uploadPayload = await uploadResponse.json().catch(() => null) as { path?: string; error?: string } | null;
+          if (!uploadResponse.ok || !uploadPayload?.path) {
+            setSaveError(`Não foi possível enviar ${file.name}: ${uploadPayload?.error ?? "unknown"}`);
+            setSaving(false);
+            return;
+          }
+          assets[kind] = uploadPayload.path;
         }
         persistedConfig = { ...config, assets };
         setConfig(persistedConfig);
