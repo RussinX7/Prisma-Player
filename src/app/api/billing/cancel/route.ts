@@ -3,12 +3,18 @@ import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abacateRequest } from "@/lib/billing/abacatepay/client";
 import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
   const csrf = csrfGuard(request);
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Limita chamadas simultâneas/consecutivas que poderiam atingir o gateway.
+  // fail-open aqui: preferimos deixar o usuario cancelar a cancelar por falha do
+  // contador, ao contrario dos endpoints de checkout (que criam custo novo).
+  const cancelLimit = await rateLimit(request, `billing-cancel:${userId}`, { max: 3, windowMs: 60_000 });
+  if (cancelLimit) return cancelLimit;
   const admin = createAdminClient();
   const result = await admin.from("subscriptions").select("id,billing_method,provider_subscription_id,status").eq("user_id", userId).single();
   if (result.error || !result.data) return NextResponse.json({ error: "subscription_not_found" }, { status: 404 });

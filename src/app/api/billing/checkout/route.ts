@@ -5,12 +5,17 @@ import { createBillingCheckout } from "@/lib/billing/service";
 import type { BillingPlan } from "@/lib/billing/catalog";
 import { AbacatePayError } from "@/lib/billing/abacatepay/client";
 import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
   const csrf = csrfGuard(request);
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Custo real em chamadas à AbacatePay por checkout criado: fail-closed protege
+  // contra spam de criação mesmo quando o contador de rate limit fica indisponível.
+  const checkoutLimit = await rateLimit(request, `billing-checkout:${userId}`, { max: 5, windowMs: 60_000, failClosed: true });
+  if (checkoutLimit) return checkoutLimit;
 
   const body = await request.json().catch(() => null) as { plan?: unknown; method?: unknown } | null;
   const slug = typeof body?.plan === "string" ? body.plan : "";

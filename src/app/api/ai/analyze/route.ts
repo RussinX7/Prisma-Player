@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeWithNvidia } from "@/lib/ai/nvidia";
@@ -115,11 +115,20 @@ export async function POST(request: Request) {
     const reference = `ai_analysis:${job.id}`;
     const { data: remaining, error: debitError } = await admin.rpc("consume_ai_credit", { p_user_id: usageUserId, p_reference: reference, p_metadata: { analysisId: job.id, videoId, actorUserId: userId } });
     if (debitError || typeof remaining !== "number") throw new Error("credit_debit_failed");
-    await admin.from("ai_analysis_jobs").update({ status: "completed", result: analysis.result, model: analysis.model, credits_used: 1, completed_at: new Date().toISOString() }).eq("id", job.id);
+    // Marca o job como concluído em segundo plano: o crédito já foi debitado e o
+    // resultado já existe, então o cliente deve recebê-lo mesmo que esta gravação
+    // falhe. O sweep de timeout (no topo do handler) recompõe o estado se necessário.
+    after(async () => {
+      try {
+        await admin.from("ai_analysis_jobs").update({ status: "completed", result: analysis.result, model: analysis.model, credits_used: 1, completed_at: new Date().toISOString() }).eq("id", job.id);
+      } catch (error) {
+        console.error("ai_analysis_job_complete_failed", { jobId: job.id, error: error instanceof Error ? error.message : "unknown" });
+      }
+    });
     return NextResponse.json({ id: job.id, result: analysis.result, balance: remaining });
   } catch (cause) {
     const code = cause instanceof Error ? cause.message.slice(0, 80) : "analysis_failed";
     await admin.from("ai_analysis_jobs").update({ status: "failed", error_code: code, completed_at: new Date().toISOString() }).eq("id", job.id);
-    return NextResponse.json({ error: code }, { status: code === "nvidia_not_configured" ? 503 : 502 });
+    return NextResponse.json({ error: code }, { status: code === "nvidia_not_configured" ? 503 : code === "insufficient_credits" ? 402 : 502 });
   }
 }

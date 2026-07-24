@@ -75,14 +75,24 @@ export async function POST(request: Request) {
   const creditCheckoutId = firstString([metadataObject], "prismaCreditCheckoutId");
   const admin = createAdminClient();
 
-  const existing = await admin.from("payment_webhook_events").select("status").eq("provider_event_id", providerEventId).maybeSingle();
-  if (existing.data?.status === "processed" || existing.data?.status === "ignored") return NextResponse.json({ ok: true, duplicate: true });
-  if (!existing.data) {
-    const inserted = await admin.from("payment_webhook_events").insert({ provider_event_id: providerEventId, event_name: event.event, provider_object_id: providerObjectId, payload: event });
-    if (inserted.error && inserted.error.code !== "23505") return NextResponse.json({ error: "event_store_failed" }, { status: 500 });
+  // Garante que a linha do evento exista como pendente. Em caso de concorrência
+  // (duas entregas simultâneas do mesmo evento), o ON CONFLICT nao eleva erro.
+  await admin.from("payment_webhook_events")
+    .upsert({ provider_event_id: providerEventId, event_name: event.event, provider_object_id: providerObjectId, payload: event }, { onConflict: "provider_event_id", ignoreDuplicates: true });
+
+  // Claim atômico: so avanca quem conseguir mudar de pending/failed -> processing.
+  // Qualquer estado terminal (processed/ignored/processing de outra instancia) faz
+  // esta requisicao responder como duplicada sem processar nada de novo.
+  const claimed = await admin.from("payment_webhook_events")
+    .update({ status: "processing", processing_error: null })
+    .eq("provider_event_id", providerEventId)
+    .in("status", ["pending", "failed"])
+    .select("id")
+    .maybeSingle();
+  if (claimed.error || !claimed.data) {
+    return NextResponse.json({ ok: true, duplicate: true });
   }
 
-  await admin.from("payment_webhook_events").update({ status: "processing", processing_error: null }).eq("provider_event_id", providerEventId);
   try {
     const isCreditCheckout = Boolean(creditCheckoutId || externalId?.startsWith("prisma_ai_"));
     if (isCreditCheckout) {
