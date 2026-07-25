@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createEmbedEventTokenSafely, domainAllowed, trustedEmbedHostFromHeaders, verifyEmbedOriginToken } from "@/lib/security/embed-origin";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { signR2ReadUrl } from "@/lib/storage/r2";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMBED_CONFIG_RATE_LIMIT_MAX = Number(process.env.EMBED_CONFIG_RATE_LIMIT_MAX ?? "300");
+const EMBED_CONFIG_RATE_LIMIT_WINDOW_MS = Number(process.env.EMBED_CONFIG_RATE_LIMIT_WINDOW_MS ?? "60_000");
 
 function requestDevice(userAgent: string) {
   if (/ipad|tablet/i.test(userAgent)) return "tablet";
@@ -19,6 +22,10 @@ function csvValues(value: unknown) {
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   if (!uuid.test(id)) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
+
+  const limited = await rateLimit(request, `embed-config:${id}`, { max: EMBED_CONFIG_RATE_LIMIT_MAX, windowMs: EMBED_CONFIG_RATE_LIMIT_WINDOW_MS });
+  if (limited) return limited;
+
   const supabase = createAdminClient();
   const fields = "id,video_id,config,allowed_domains,published";
   const byPlayerId = await supabase.from("player_configs").select(fields).eq("id", id).eq("published", true).maybeSingle();
@@ -78,5 +85,5 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }));
   config.assetUrls = assetUrls;
 
-  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config, eventToken: createEmbedEventTokenSafely(video.id) }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive" } });
+  return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config, eventToken: createEmbedEventTokenSafely(video.id) }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive", "cloudflare-cdn-cache": "no-store" } });
 }

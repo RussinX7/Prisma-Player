@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { forbiddenForRole, getTeamAccountContext } from "@/lib/access/team-context";
+import { purgeEmbedManifest } from "@/lib/cache/embed-purge";
 import { csrfGuard } from "@/lib/security/csrf";
 
 export async function GET(request: Request) {
@@ -15,7 +16,10 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: "config_load_failed" }, { status: 400 });
   if (data && data.config && typeof data.config === "object" && Number((data.config as Record<string, unknown>).radius) === 12) {
     const config = { ...(data.config as Record<string, unknown>), radius: 0 };
-    if (account.canEditContent) await supabase.from("player_configs").update({ config, updated_at: new Date().toISOString() }).eq("id", data.id).eq("user_id", account.accountOwnerId);
+    if (account.canEditContent) {
+      await supabase.from("player_configs").update({ config, updated_at: new Date().toISOString() }).eq("id", data.id).eq("user_id", account.accountOwnerId);
+      void purgeEmbedManifest(data.id);
+    }
     return NextResponse.json({ playerConfig: { ...data, config } });
   }
   return NextResponse.json({ playerConfig: data });
@@ -44,6 +48,7 @@ export async function PUT(request: Request) {
   const { data, error } = await supabase.from("player_configs").upsert({ user_id: account.accountOwnerId, video_id: body.videoId, config, allowed_domains: domains, published: true, updated_at: new Date().toISOString() }, { onConflict: "video_id" }).select().single();
   if (error) return NextResponse.json({ error: "config_save_failed" }, { status: 400 });
   await supabase.from("videos").update({ status: "ready", updated_at: new Date().toISOString() }).eq("id", body.videoId).eq("user_id", account.accountOwnerId);
+  void purgeEmbedManifest(data.id);
   return NextResponse.json({ playerConfig: data });
 }
 
@@ -61,9 +66,13 @@ export async function POST(request: Request) {
   if (!ownedVideo) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const { data: existing } = await supabase.from("player_configs").select("id,published").eq("video_id", body.videoId).eq("user_id", account.accountOwnerId).maybeSingle();
   if (existing) {
-    if (!existing.published) await supabase.from("player_configs").update({ published: true, updated_at: new Date().toISOString() }).eq("id", existing.id).eq("user_id", account.accountOwnerId);
+    if (!existing.published) {
+      await supabase.from("player_configs").update({ published: true, updated_at: new Date().toISOString() }).eq("id", existing.id).eq("user_id", account.accountOwnerId);
+      void purgeEmbedManifest(existing.id);
+    }
     return NextResponse.json({ playerConfig: { ...existing, published: true } });
   }
   const { data, error } = await supabase.from("player_configs").insert({ user_id: account.accountOwnerId, video_id: body.videoId, config: {}, allowed_domains: [], published: true }).select("id,published").single();
+  if (data) void purgeEmbedManifest(data.id);
   return error ? NextResponse.json({ error: "player_create_failed" }, { status: 400 }) : NextResponse.json({ playerConfig: data }, { status: 201 });
 }

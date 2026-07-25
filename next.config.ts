@@ -55,6 +55,7 @@ const nextConfig: NextConfig = {
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         { key: "Content-Security-Policy", value: contentSecurityPolicy("*") },
+        { key: "CDN-Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=600" },
       ],
     }, {
       source: "/:path((?!embed(?:/|$)).*)",

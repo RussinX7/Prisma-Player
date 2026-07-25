@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
+import { purgeEmbedManifest } from "@/lib/cache/embed-purge";
 import { createClient } from "@/lib/supabase/server";
 import { csrfGuard } from "@/lib/security/csrf";
 
@@ -23,8 +24,10 @@ export async function PUT(request: Request) {
   const body = await request.json().catch(() => null) as { domains?: unknown } | null;
   const domains = Array.isArray(body?.domains) ? [...new Set(body.domains.map(normalize).filter(Boolean))].slice(0, 100) : [];
   const supabase = await createClient();
+  const { data: affected } = await supabase.from("player_configs").select("id").eq("user_id", userId);
   const { error } = await supabase.from("account_security_settings").upsert({ user_id: userId, allowed_domains: domains, updated_at: new Date().toISOString() });
   if (error) return NextResponse.json({ error: "security_save_failed" }, { status: 400 });
   await supabase.from("player_configs").update({ allowed_domains: domains, updated_at: new Date().toISOString() }).eq("user_id", userId);
+  if (affected?.length) await Promise.all(affected.map((row) => purgeEmbedManifest(row.id)));
   return NextResponse.json({ domains });
 }
