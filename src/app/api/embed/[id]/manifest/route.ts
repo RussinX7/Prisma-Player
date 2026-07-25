@@ -7,6 +7,33 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const RATE_LIMIT_MAX = Number(process.env.EMBED_MANIFEST_RATE_LIMIT_MAX ?? "600");
 const RATE_LIMIT_WINDOW_MS = Number(process.env.EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS ?? "60_000");
 
+/**
+ * Allowlist de chaves PUBLICAS do player config que o manifest cachea na borda.
+ * Regras de trafego (allowedCountries/allowedDevices/browserLanguage/trafficEnabled)
+ * sao intencionalmente OMITIDAS: sao checadas por request no endpoint dinamico
+ * /api/embed/:id, evitando evasao por cache da CDN e por fingerprint de pais.
+ * Adicionar uma chave aqui so faze-lo apos revisao de seguranca (vazamento potencial).
+ */
+const MANIFEST_CONFIG_KEYS = [
+  "autoplayMessage", "autoplayBackground", "autoplayTextColor", "autoplayRadius",
+  "accent", "progressColor", "progressHeight", "smartProgress", "smartAutoplay",
+  "smartPause", "muted", "loop", "bigPlay", "playPause", "fullscreenDesktop", "fullscreenMobile",
+  "radius", "playbackRate", "thumbnailEnabled", "captionsEnabled",
+  "ctaEnabled", "ctaStart", "ctaEnd", "ctaText", "ctaUrl", "ctaNewTab", "ctaBackground",
+  "ctaTextColor", "ctaFontSize", "ctaRadius", "ctaPaddingX", "ctaPaddingY", "ctaShadow",
+  "ctaPulse", "ctaHoverBackground", "ctaHoverTextColor", "ctaPersist", "ctaAutoScroll",
+  "headline", "headlineColor", "headlineBackground", "headlineAlign",
+] as const;
+
+function sanitizeConfigForManifest(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of MANIFEST_CONFIG_KEYS) {
+    if (key in raw) out[key] = raw[key];
+  }
+  if (Number(out.radius) === 12) out.radius = 0;
+  return out;
+}
+
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   if (!uuid.test(id)) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
@@ -36,12 +63,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const host = trustedEmbedHostFromHeaders(request.headers);
   if (domains.length > 0 && (!host || !domains.includes(host))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
-  const config = playerConfig.config && typeof playerConfig.config === "object" ? { ...(playerConfig.config as Record<string, unknown>) } : {};
-  if (Number(config.radius) === 12) config.radius = 0;
-  delete config.assetUrls;
+  const config = playerConfig.config && typeof playerConfig.config === "object"
+    ? sanitizeConfigForManifest(playerConfig.config as Record<string, unknown>)
+    : {};
 
   return NextResponse.json(
-    { id: playerConfig.id, videoId: playerConfig.video_id, config },
+    { id: playerConfig.id, videoId: playerConfig.video_id, config, allowedDomains: domains },
     {
       headers: {
         "content-type": "application/json; charset=utf-8",

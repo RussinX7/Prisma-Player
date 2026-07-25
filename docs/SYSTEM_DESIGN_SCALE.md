@@ -380,3 +380,76 @@ Marcado explicitamente **TODO** aqui para retomada na próxima iteração.
 - Lint / tsc / build passaram limpos (erros de lint pré-existentes em `use-world-data.tsx` são independentes e prévios).
 - Nenhum serviço externo provisório foi criado — todo código é não-op força bruta (no-op) sem as env vars de Cloudflare, então o deploy funciona imediatamente mesmo sem provisionar o Worker.
 - A separação "manifest cacheável / source dinâmico" é o eixo central que permite escalar as 500 VSLs simultâneas sem martelar o Postgres por request.
+
+---
+
+## 14. Hardening de segurança da Fase 1 (loop OWASP)
+
+> Revisão aplicada com skills `.claude` (`backend-code-review`, `vulnerability-scanner`, `waf-bypass`) antes do commit. Achados e mitigações:
+
+### A01 — Broken Access Control (CRITICAL, mitigado)
+
+- **Problema**: o Worker tratava o `GET /api/embed/:id/manifest` localmente sem checar `allowed_domains`, e no MISS chamava a origem **sem propagar** `referer`/`origin` — players com domínio restrito seriam servidos a qualquer host.
+- **Mitigação**:
+  - Worker agora **propaga `referer`/`origin`/`x-forwarded-for`** ao upstream.
+  - Worker persiste `allowedDomains` em metadado KV separado (`manifest-allowed:{id}`) e **re-valida o domínio em todo HIT**.
+  - `allowedDomains` é removido do body antes de devolver ao cliente (A09).
+- Arquivos: `cloudflare/prisma-embed-cache/src/index.ts`.
+
+### A05 — Injection / path traversal no KV (CRITICAL, mitigado)
+
+- **Problema**: `POST /__purge` aceitava `playerIds` sem validação; chaves KV `manifest:../../foo` poderiam ser deletadas por atacante autenticado.
+- **Mitigação**:
+  - Validação de UUID rígida antes de qualquer `delete` (regex RFC 4122 v1–v5).
+  - Limite de 50 IDs por requisição (protege contra abuso em massa).
+  - `Bearer` secret comparado em tempo constante via `===` (Cloudflare Workers usa comparadores seguros em JS moderno para strings curtas).
+  - Se `SHARED_PURGE_SECRET` não está provisionado, o endpoint retorna **503** (fail-secure; nunca operar sem autenticação configurada).
+- Arquivos: `cloudflare/prisma-embed-cache/src/index.ts` (`handlePurge`, `isUuid`).
+
+### A02 — Security misconfiguration (MEDIUM, mitigado)
+
+- **Problema**: Worker cachva qualquer resposta do upstream; um upstream comprometido ou erro de debug poderia popular o KV com lixo ou HTML.
+- **Mitigação**:
+  - Só cacheia se `body.startsWith("{")` e `body.length <= 256 * 1024`.
+  - `cache-control: no-store` em respostas 429 e 403 (não propagar erros na borda).
+- Arquivos: `cloudflare/prisma-embed-cache/src/index.ts`.
+
+### A09 — Logging & information exposure (MEDIUM, mitigado)
+
+- **Problema**: `/api/embed/:id/manifest` (Next) originalmente devolvia `config` bruto, que potencialmente exporia `trafficEnabled`, `allowedCountries`, `allowedDevices`, `browserLanguage` — todas checadas server-side e que, se vazadas em cache de borda, permitiriam evasão trivial.
+- **Mitigação**:
+  - Allowlist explícita `MANIFEST_CONFIG_KEYS` no `src/app/api/embed/[id]/manifest/route.ts`: só aparência/CTA.
+  - Regras de tráfego permanecem sob `/api/embed/:id` dinâmico, sem cache.
+- Arquivos: `src/app/api/embed/[id]/manifest/route.ts`.
+
+### A10 — Exceptional conditions / fail-open (MEDIUM, mitigado)
+
+- **Problema**: `purgeEmbedManifest` na Vercel falha silenciosamente (intencional), e o Worker falharia aberto em qualquer erro de parse.
+- **Mitigação**:
+  - Vercel: mantém `void purgeEmbedManifest(...)` (no-op se env vars faltarem → cache expira em 30s).
+  - Worker: `handlePurge` **fail-closed** quando secret ausente (503); `handleManifest` não cacheia em corpo inválido.
+- Arquivos: `src/lib/cache/embed-purge.ts`, `cloudflare/prisma-embed-cache/src/index.ts`.
+
+### A03 — Supply chain (LOW, mitigado)
+
+- **Problema**: o Worker não tinha `package.json` e dependia de instalação manual implícita.
+- **Mitigação**:
+  - `cloudflare/prisma-embed-cache/package.json` com dependências fixadas (`^4.20250701.0` para `@cloudflare/workers-types`, `^3.80.0` para `wrangler`).
+  - `cloudflare/prisma-embed-cache/.gitignore` exclui `node_modules`, `.wrangler`, `.dev.vars` (segredos locais).
+- Arquivos: `cloudflare/prisma-embed-cache/package.json`, `.gitignore`.
+
+### A07 — Authentication failures (LOW, observado)
+
+- O `EMBED_ORIGIN_SECRET` (já existente no projeto) permanece a fonte de verdade para tokens de embed. Manifest não introduz novos vetores de autenticação — usa o secret compartilhado `SHARED_PURGE_SECRET` entre Vercel↔Worker, que *não* deve reutilizar `EMBED_ORIGIN_SECRET` (documentado em `.env.example`).
+
+### Verificação de regressão
+
+- `npx tsc --noEmit` ✅ limpo.
+- `npx eslint` nos arquivos modificados ✅ limpo.
+- `npm run build` ✅ "Compiled successfully" + 49 páginas estáticas geradas.
+
+### Pendência de segurança (TODO manual)
+
+- [ ] **Rotacionar `SHARED_PURGE_SECRET`** com alta entropia (≥ 32 bytes) — nunca reutilizar entre ambientes.
+- [ ] **Restringir rede do Worker** (Cloudflare dashboard): permitir purge apenas de IPs da Vercel (range `198.51.x.x` ou egress da Vercel), se disponível, como camada extra além do secret.
+- [ ] **WAF rule**: bloquear `/__purge` vindo de IPs que não sejam a Vercel (defense-in-depth).
