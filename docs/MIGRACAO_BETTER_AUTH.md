@@ -97,23 +97,32 @@ Se as opções acima não funcionarem, use Direct Connection:
 
 5. Cole no `.env.local`
 
-### ⏳ Passo 2: Rodar Migrations do Better Auth
+### ⏳ Passo 2: Criar Tabelas do Better Auth no Supabase
 
-Depois de configurar `DATABASE_URL`, execute:
+**Opção 1: Via Supabase SQL Editor (RECOMENDADO)**
+
+1. Acesse: https://supabase.com/dashboard/project/jghtmqzgyyonelfmjdxb/sql/new
+2. Copie o conteúdo do arquivo `scripts/apply-better-auth-migration.sql`
+3. Cole no SQL Editor
+4. Clique em **"Run"**
+5. Verifique se aparecem 4 tabelas criadas: `user`, `session`, `account`, `verification`
+
+**Opção 2: Via Supabase CLI**
 
 ```powershell
-# Gerar schema do Better Auth
-npx @better-auth/cli generate
-
-# Aplicar migrations no banco
-npx @better-auth/cli migrate
+# Aplicar a migration
+npx supabase db push --db-url "postgresql://postgres:brVmdNusjxC9ke0m@db.jghtmqzgyyonelfmjdxb.supabase.co:5432/postgres"
 ```
 
-Isso criará as tabelas necessárias:
-- `user` (usuários)
-- `session` (sessões)
-- `account` (OAuth providers)
-- `verification` (tokens de verificação)
+**Verificar se as tabelas foram criadas:**
+
+No SQL Editor, execute:
+```sql
+SELECT tablename FROM pg_tables 
+WHERE tablename IN ('user', 'session', 'account', 'verification');
+```
+
+Deve retornar 4 linhas.
 
 ### ⏳ Passo 3: Reescrever Auth Server
 
