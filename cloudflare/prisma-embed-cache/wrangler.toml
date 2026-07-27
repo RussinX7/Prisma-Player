@@ -24,9 +24,9 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # Altere pelo hostname real do seu deploy Vercel (CNAME do projeto).
-ORIGIN = "prisma.vercel.app"
+ORIGIN = "prisma-player.vercel.app"
 # Host que o Worker envia no header `host` ao bater na origem.
-ORIGIN_HOST = "app.prismaplayer.com.br"
+ORIGIN_HOST = "prisma-player.vercel.app"
 # Limites de rate-limit na borda (janela deslizante simples por IP no KV).
 MANIFEST_PER_MINUTE_PER_IP = "600"
 EMBED_CONFIG_PER_MINUTE_PER_IP = "300"
@@ -37,5 +37,5 @@ EMBED_CONFIG_PER_MINUTE_PER_IP = "300"
 
 [[kv_namespaces]]
 binding = "PLAYER_CACHE"
-id = "preencher-pelo-comando-wrangler-kv-namespace-create"
-preview_id = "preencher-pelo-comando-wrangler-kv-namespace-create"
+id = "446a630735654645a88b48be1ad00e3a"
+preview_id = "446a630735654645a88b48be1ad00e3a"

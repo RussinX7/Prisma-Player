@@ -19,6 +19,12 @@ ABACATEPAY_API_KEY
 ABACATEPAY_WEBHOOK_SECRET
 TRUST_CLOUDFLARE_IP_HEADER
 CRON_SECRET
+CLOUDFLARE_PURGE_URL
+CLOUDFLARE_PURGE_SECRET
+EMBED_CONFIG_RATE_LIMIT_MAX
+EMBED_CONFIG_RATE_LIMIT_WINDOW_MS
+EMBED_MANIFEST_RATE_LIMIT_MAX
+EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS
 ```
 
 `EMBED_ORIGIN_SECRET` é obrigatório: além de validar o domínio dos players protegidos, ele assina o token de evento que autentica toda a telemetria. Sem ele, `/api/analytics-events` e `/api/ab-events` rejeitam os eventos e o dashboard para de receber dados.
@@ -37,9 +43,16 @@ SUPABASE_JWKS_URL=https://jghtmqzgyyonelfmjdxb.supabase.co/auth/v1/.well-known/j
 NEXT_PUBLIC_SITE_URL=https://prisma-player.vercel.app
 NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED=false
 NEXT_PUBLIC_SUPABASE_APPLE_ENABLED=false
+EMBED_ORIGIN_SECRET=<gere um secret aleatório de 32 bytes; nunca reutilize SUPABASE keys>
 ABACATEPAY_API_KEY=<chave de API v2 da AbacatePay; nunca use NEXT_PUBLIC_>
 ABACATEPAY_WEBHOOK_SECRET=<o mesmo "secret" cadastrado em POST /webhooks/create>
-TRUST_CLOUDFLARE_IP_HEADER=false
+TRUST_CLOUDFLARE_IP_HEADER=true
+CLOUDFLARE_PURGE_URL=https://prisma-embed-cache.raynanbarbosa803.workers.dev/__purge
+CLOUDFLARE_PURGE_SECRET=<mesmo valor do SHARED_PURGE_SECRET provisionado no Worker>
+EMBED_CONFIG_RATE_LIMIT_MAX=300
+EMBED_CONFIG_RATE_LIMIT_WINDOW_MS=60000
+EMBED_MANIFEST_RATE_LIMIT_MAX=600
+EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS=60000
 ```
 
 ## AbacatePay

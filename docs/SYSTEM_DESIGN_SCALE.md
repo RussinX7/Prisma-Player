@@ -324,14 +324,14 @@ Mantém 12 etapas server-side, mas repõe:
 
 ### Configuração de ambiente (Vercel / `.env.local`)
 
-- [ ] **Definir em produção/preview (Vercel Environment Variables):**
+- [x] **Definir em produção/preview (Vercel Environment Variables):**
   - `EMBED_CONFIG_RATE_LIMIT_MAX` (default 300) — ajuste conforme o plano mais agressivo.
   - `EMBED_CONFIG_RATE_LIMIT_WINDOW_MS` (default 60000).
   - `EMBED_MANIFEST_RATE_LIMIT_MAX` (default 600).
   - `EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS` (default 60000).
-  - `CLOUDFLARE_PURGE_URL` — URL do Worker `/__purge` (após deploy).
+  - `CLOUDFLARE_PURGE_URL` — `https://prisma-embed-cache.raynanbarbosa803.workers.dev/__purge`
   - `CLOUDFLARE_PURGE_SECRET` — o mesmo que `SHARED_PURGE_SECRET` no Worker.
-- [ ] **Definir `TRUST_CLOUDFLARE_IP_HEADER=true` na Vercel** (somente depois de Cloudflare estar realmente fronting) para que o rate-limit por IP confie no `cf-connecting-ip`.
+- [x] **Definir `TRUST_CLOUDFLARE_IP_HEADER=true` na Vercel** (somente depois de Cloudflare estar realmente fronting) para que o rate-limit por IP confie no `cf-connecting-ip`.
 
 ### Hooks de purge (chamar `purgeEmbedManifest`) — ~~concluído~~ ✅
 
@@ -342,16 +342,17 @@ Mantém 12 etapas server-side, mas repõe:
 
 ### Cloudflare (dashboard / wrangler)
 
-- [ ] **Criar KV namespace** com `npx wrangler kv:namespace create PLAYER_CACHE` (o comando preenche automaticamente `id`/`preview_id` em `wrangler.toml` — **não edita à mão**).
-- [ ] **Provisionar secrets no Worker**:
+- [x] **Criar KV namespace** com `npx wrangler kv:namespace create PLAYER_CACHE` (namespace `prisma_player_cache` ID `446a630735654645a88b48be1ad00e3a`).
+- [x] **Provisionar secrets no Worker**:
   - `wrangler secret put SHARED_PURGE_SECRET` (valor aleatório longo; mesmo que `CLOUDFLARE_PURGE_SECRET`).
-- [ ] **Ajustar `wrangler.toml` `[vars]`** (`ORIGIN`/`ORIGIN_HOST`) para o hostname real do seu deploy Vercel — apenas na primeira vez.
-- [ ] **Instalar dependências do Worker** e fazer deploy:
+- [x] **Ajustar `wrangler.toml` `[vars]`** (`ORIGIN`/`ORIGIN_HOST`) para o hostname real do seu deploy Vercel — `prisma-player.vercel.app`.
+- [x] **Instalar dependências do Worker** e fazer deploy:
   ```bash
   cd cloudflare/prisma-embed-cache
   npm install wrangler @cloudflare/workers-types --save-dev
   npx wrangler deploy
   ```
+  Worker deployado em: `https://prisma-embed-cache.raynanbarbosa803.workers.dev`
 - [ ] **Configurar DNS/roteamento**: o hostname `app.prismaplayer.com.br` (ou o que você usa) deve apontar para o Worker; o Worker proxya para a Vercel (`ORIGIN`/`ORIGIN_HOST` em `wrangler.toml`). Se mantiver o domínio na Vercel só com proxy via Cloudflare, ajuste `ORIGIN` para o CNAME da Vercel.
 - [ ] **Habilitar WAF + DDoS** no mesmo domínio (managed rules + rate limit rules no painel como cinturão extra, paralelo ao Worker).
 - [ ] **(Opcional, Fase 2)** criar Cloudflare Queues para ingestão de eventos — ainda não necessário aqui.
