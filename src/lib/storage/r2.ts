@@ -108,6 +108,11 @@ export function abortR2MultipartUpload(key: string, uploadId: string) {
   return client().send(new AbortMultipartUploadCommand({ Bucket: bucket(), Key: key, UploadId: uploadId }));
 }
 
+/** Confirma que o objeto existe no bucket (usado ao promover um vídeo a "ready"). */
+export function headR2Object(key: string) {
+  return client().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
+}
+
 export function deleteR2Object(key: string) {
   return client().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
 }

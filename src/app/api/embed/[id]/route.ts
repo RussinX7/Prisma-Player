@@ -3,10 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createEmbedEventTokenSafely, domainAllowed, trustedEmbedHostFromHeaders, verifyEmbedOriginToken } from "@/lib/security/embed-origin";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { signR2ReadUrl } from "@/lib/storage/r2";
+import { getAccountAccess } from "@/lib/access/service";
+import { ownedAssetPaths } from "@/lib/player/assets";
+import { envInt } from "@/lib/config/env";
+import { VIDEO } from "@/lib/constants";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const EMBED_CONFIG_RATE_LIMIT_MAX = Number(process.env.EMBED_CONFIG_RATE_LIMIT_MAX ?? "300");
-const EMBED_CONFIG_RATE_LIMIT_WINDOW_MS = Number(process.env.EMBED_CONFIG_RATE_LIMIT_WINDOW_MS ?? "60_000");
+const EMBED_CONFIG_RATE_LIMIT_MAX = envInt("EMBED_CONFIG_RATE_LIMIT_MAX", 300);
+const EMBED_CONFIG_RATE_LIMIT_WINDOW_MS = envInt("EMBED_CONFIG_RATE_LIMIT_WINDOW_MS", 60_000);
 
 function requestDevice(userAgent: string) {
   if (/ipad|tablet/i.test(userAgent)) return "tablet";
@@ -27,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (limited) return limited;
 
   const supabase = createAdminClient();
-  const fields = "id,video_id,config,allowed_domains,published";
+  const fields = "id,video_id,user_id,config,allowed_domains,published";
   const byPlayerId = await supabase.from("player_configs").select(fields).eq("id", id).eq("published", true).maybeSingle();
   if (byPlayerId.error) {
     console.error("embed player lookup failed", { code: byPlayerId.error.code, message: byPlayerId.error.message });
@@ -44,6 +48,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   if (!playerConfig) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
+
+  // O embed é a entrega do produto. Sem esta verificação, cancelar a assinatura
+  // não tirava nada do ar: a VSL continuava hospedada e servida indefinidamente.
+  const ownerAccess = await getAccountAccess(playerConfig.user_id);
+  if (!ownerAccess.hasAccess) {
+    return NextResponse.json({ error: "player_unavailable" }, { status: 402, headers: { "cache-control": "private, no-store" } });
+  }
 
   const originToken = new URL(request.url).searchParams.get("originToken");
   const verifiedOrigin = verifyEmbedOriginToken(originToken, playerConfig.id) || verifyEmbedOriginToken(originToken, id);
@@ -71,18 +82,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { data: video } = await supabase.from("videos").select("id,title,object_path,mime_type,user_id,storage_provider").eq("id", playerConfig.video_id).eq("status", "ready").maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
   const source = video.storage_provider === "r2"
-    ? await signR2ReadUrl(video.object_path, 1800).catch(() => null)
-    : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 900)).data?.signedUrl ?? null;
+    ? await signR2ReadUrl(video.object_path, VIDEO.R2_SIGNED_URL_EXPIRY_SECONDS).catch(() => null)
+    : (await supabase.storage.from("videos").createSignedUrl(video.object_path, VIDEO.SUPABASE_SIGNED_URL_EXPIRY_SECONDS)).data?.signedUrl ?? null;
   if (!source) return NextResponse.json({ error: "source_unavailable" }, { status: 503 });
 
   if (Number(config.radius) === 12) config.radius = 0;
-  const assets = config.assets && typeof config.assets === "object" ? config.assets as Record<string, unknown> : {};
+  // Só assina assets do próprio dono do player: `config` é jsonb livre gravado
+  // pelo usuário e antes qualquer caminho colocado ali era assinado.
+  const assets = ownedAssetPaths(config.assets, video.user_id);
   const assetUrls: Record<string, string> = {};
   await Promise.all(Object.entries(assets).map(async ([kind, path]) => {
-    if (typeof path !== "string") return;
-    const { data } = await supabase.storage.from("player-assets").createSignedUrl(path, 900);
+    const { data } = await supabase.storage.from("player-assets").createSignedUrl(path, VIDEO.SUPABASE_SIGNED_URL_EXPIRY_SECONDS);
     if (data?.signedUrl) assetUrls[kind] = data.signedUrl;
   }));
+  config.assets = assets;
   config.assetUrls = assetUrls;
 
   return NextResponse.json({ id: playerConfig.id, videoId: playerConfig.video_id, title: video.title, source, type: video.mime_type, config, eventToken: createEmbedEventTokenSafely(video.id) }, { headers: { "cache-control": "private, no-store, max-age=0", "x-robots-tag": "noindex, nofollow, noarchive", "cloudflare-cdn-cache": "no-store" } });

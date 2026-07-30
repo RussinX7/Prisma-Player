@@ -1,41 +1,60 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth/server";
+import { guard } from "@/lib/api/guard";
+import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteR2Object } from "@/lib/storage/r2";
-import { csrfGuard } from "@/lib/security/csrf";
-import { forbiddenForRole, getTeamAccountContext } from "@/lib/access/team-context";
+import { deleteR2Object, headR2Object } from "@/lib/storage/r2";
+import { VIDEO } from "@/lib/constants";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const csrf = csrfGuard(request);
-  if (csrf) return csrf;
-  const userId = await getCurrentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const account = await getTeamAccountContext(userId);
-  if (!account.canEditContent) return forbiddenForRole();
+  const gate = await guard(request, { csrf: true, role: "edit", paid: true });
+  if (!gate.ok) return gate.response;
+  const { account } = gate;
+
   const { id } = await context.params;
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const parsed = await readJsonBody<Record<string, unknown>>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
+  const supabase = createAdminClient();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof body?.title === "string") {
-    const title = body.title.trim().slice(0, 200);
+    const title = body.title.trim().slice(0, VIDEO.MAX_TITLE_LENGTH);
     if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 400 });
     updates.title = title;
   }
-  if (body && "folderId" in body) updates.folder_id = typeof body.folderId === "string" ? body.folderId : null;
-  const supabase = createAdminClient();
+  if (body && "folderId" in body) {
+    const folderId = typeof body.folderId === "string" ? body.folderId : null;
+    // O POST já validava a pasta; o PATCH não. A FK composta do banco impedia o
+    // vazamento, mas devolvia um erro genérico em vez de dizer o que houve.
+    if (folderId) {
+      const folder = await supabase.from("video_folders").select("id").eq("id", folderId).eq("user_id", account.accountOwnerId).maybeSingle();
+      if (!folder.data) return NextResponse.json({ error: "folder_not_found" }, { status: 404 });
+    }
+    updates.folder_id = folderId;
+  }
+
   if (body?.status === "ready" || body?.status === "failed") {
-    const { data: current } = await supabase.from("videos").select("object_path,status").eq("id", id).eq("user_id", account.accountOwnerId).maybeSingle();
+    const { data: current } = await supabase.from("videos").select("object_path,status,storage_provider").eq("id", id).eq("user_id", account.accountOwnerId).maybeSingle();
     if (!current || current.status !== "processing") return NextResponse.json({ error: "invalid_status_transition" }, { status: 409 });
     if (body.status === "ready") {
-      const separator = current.object_path.lastIndexOf("/");
-      const folder = current.object_path.slice(0, separator);
-      const fileName = current.object_path.slice(separator + 1);
-      const { data: objects, error: storageError } = await supabase.storage.from("videos").list(folder, { search: fileName, limit: 2 });
-      if (storageError || !objects?.some((object) => object.name === fileName)) return NextResponse.json({ error: "uploaded_file_not_found" }, { status: 409 });
+      // A verificação olhava sempre o Supabase Storage, mesmo com o vídeo no R2
+      // (o caminho padrão): todo finalize de vídeo em R2 falhava por aqui.
+      const uploaded = current.storage_provider === "r2"
+        ? await headR2Object(current.object_path).then(() => true).catch(() => false)
+        : await (async () => {
+            const separator = current.object_path.lastIndexOf("/");
+            const folder = current.object_path.slice(0, separator);
+            const fileName = current.object_path.slice(separator + 1);
+            const { data: objects, error: storageError } = await supabase.storage.from("videos").list(folder, { search: fileName, limit: 2 });
+            return !storageError && Boolean(objects?.some((object) => object.name === fileName));
+          })();
+      if (!uploaded) return NextResponse.json({ error: "uploaded_file_not_found" }, { status: 409 });
       updates.status = "ready";
       const duration = Number(body.durationSeconds);
       if (Number.isFinite(duration) && duration > 0) updates.duration_seconds = duration;
     } else updates.status = "failed";
   }
+
   const { data, error } = await supabase.from("videos").update(updates).eq("id", id).eq("user_id", account.accountOwnerId).select("id,title,folder_id").maybeSingle();
   if (error || !data) return NextResponse.json({ error: "video_update_failed" }, { status: 400 });
   if (body?.status === "ready") await supabase.from("player_configs").upsert({ user_id: account.accountOwnerId, video_id: id, config: {}, allowed_domains: [], published: true }, { onConflict: "video_id", ignoreDuplicates: true });
@@ -43,12 +62,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-  const csrf = csrfGuard(request);
-  if (csrf) return csrf;
-  const userId = await getCurrentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const account = await getTeamAccountContext(userId);
-  if (!account.canManageAccount) return forbiddenForRole();
+  const gate = await guard(request, { csrf: true, role: "manage" });
+  if (!gate.ok) return gate.response;
+  const { account } = gate;
+
   const { id } = await context.params;
   const supabase = createAdminClient();
   const { data: video, error: videoError } = await supabase.from("videos").select("id,object_path,storage_provider").eq("id", id).eq("user_id", account.accountOwnerId).maybeSingle();

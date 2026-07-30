@@ -3,17 +3,19 @@ import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
 import { verifyEmbedEventToken } from "@/lib/security/embed-origin";
+import { readJsonBody } from "@/lib/api/request";
 import { ANALYTICS } from "@/lib/constants";
 
 const allowedEvents = new Set(["impression", "play", "progress", "complete"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
-  if (Number(request.headers.get("content-length") ?? 0) > ANALYTICS.MAX_EVENT_PAYLOAD_BYTES) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   // The A/B player posts from the same-origin embed iframe, so this matches the
   // guard already applied to /api/analytics-events.
   if (!validateOrigin(request)) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const parsed = await readJsonBody<Record<string, unknown>>(request, ANALYTICS.MAX_EVENT_PAYLOAD_BYTES);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const testId = typeof body?.testId === "string" ? body.testId : "";
   const variantId = typeof body?.variantId === "string" ? body.variantId : "";
   const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";

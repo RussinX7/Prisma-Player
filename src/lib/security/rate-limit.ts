@@ -41,18 +41,40 @@ function clientIp(request: Request): string {
   return "unknown";
 }
 
-function limitedResponse(retryAfterSeconds: number): NextResponse {
+/**
+ * Headers padrão de rate limit (`X-RateLimit-*` de facto + `RateLimit-Policy`
+ * do draft IETF). Sem eles o cliente não tem como se auto-regular e só descobre
+ * o limite quando leva 429 — o que, num player embutido em site de terceiro,
+ * vira chamado de suporte.
+ */
+function limitHeaders(max: number, remaining: number, resetEpochSeconds: number): Record<string, string> {
+  return {
+    "X-RateLimit-Limit": String(max),
+    "X-RateLimit-Remaining": String(Math.max(0, remaining)),
+    "X-RateLimit-Reset": String(resetEpochSeconds),
+    "RateLimit-Policy": `${max};w=${Math.max(1, resetEpochSeconds - Math.floor(Date.now() / 1000))}`,
+    "Cache-Control": "no-store",
+  };
+}
+
+function limitedResponse(max: number, retryAfterSeconds: number, resetEpochSeconds: number): NextResponse {
   return NextResponse.json(
-    { error: "rate_limited" },
+    { error: "rate_limited", retryAfterSeconds: Math.max(1, retryAfterSeconds) },
     {
       status: 429,
       headers: {
+        ...limitHeaders(max, 0, resetEpochSeconds),
         "Retry-After": String(Math.max(1, retryAfterSeconds)),
-        "Cache-Control": "no-store",
       },
     },
   );
 }
+
+export type RateLimitOptions = { max: number; windowMs: number; failClosed?: boolean };
+
+export type RateLimitResult =
+  | { limited: true; response: NextResponse }
+  | { limited: false; headers: Record<string, string> };
 
 /**
  * `failClosed` decides what happens when the counter store is unreachable.
@@ -60,27 +82,35 @@ function limitedResponse(retryAfterSeconds: number): NextResponse {
  * disable brute-force protection; telemetry endpoints stay open so a database
  * hiccup does not drop customer analytics.
  */
-export async function rateLimit(
-  request: Request,
-  scope: string,
-  options: { max: number; windowMs: number; failClosed?: boolean }
-): Promise<NextResponse | null> {
+export async function consumeRateLimit(request: Request, scope: string, options: RateLimitOptions): Promise<RateLimitResult> {
   await cleanupExpired();
 
+  // A janela chegava como NaN quando a variável de ambiente usava "60_000";
+  // o valor virava `null` no RPC e a janela caía para 1 segundo.
+  const windowMs = Number.isFinite(options.windowMs) && options.windowMs > 0 ? Math.round(options.windowMs) : 60_000;
   const key = `${scope}:${clientIp(request)}`;
 
   try {
     const admin = createAdminClient();
     const { data, error } = await admin
-      .rpc("consume_rate_limit", { p_key: key, p_window_ms: options.windowMs })
+      .rpc("consume_rate_limit", { p_key: key, p_window_ms: windowMs })
       .maybeSingle<{ hit_count: number; window_expires_at: string }>();
 
     if (error || !data) throw error ?? new Error("rate_limit_unavailable");
-    if (data.hit_count <= options.max) return null;
-
+    const resetEpochSeconds = Math.ceil(new Date(data.window_expires_at).getTime() / 1000);
+    if (data.hit_count <= options.max) {
+      return { limited: false, headers: limitHeaders(options.max, options.max - data.hit_count, resetEpochSeconds) };
+    }
     const retryAfter = Math.ceil((new Date(data.window_expires_at).getTime() - Date.now()) / 1000);
-    return limitedResponse(retryAfter);
+    return { limited: true, response: limitedResponse(options.max, retryAfter, resetEpochSeconds) };
   } catch {
-    return options.failClosed ? limitedResponse(Math.ceil(options.windowMs / 1000)) : null;
+    const resetEpochSeconds = Math.ceil((Date.now() + windowMs) / 1000);
+    if (!options.failClosed) return { limited: false, headers: limitHeaders(options.max, options.max, resetEpochSeconds) };
+    return { limited: true, response: limitedResponse(options.max, Math.ceil(windowMs / 1000), resetEpochSeconds) };
   }
+}
+
+export async function rateLimit(request: Request, scope: string, options: RateLimitOptions): Promise<NextResponse | null> {
+  const result = await consumeRateLimit(request, scope, options);
+  return result.limited ? result.response : null;
 }

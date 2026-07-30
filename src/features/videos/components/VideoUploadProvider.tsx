@@ -19,6 +19,7 @@ interface CreatedVideo {
   title: string;
   folder_id: string | null;
   mime_type: string;
+  object_path: string;
   status: "processing";
   created_at: string;
   storage_provider: "supabase" | "r2";
@@ -70,18 +71,19 @@ export function VideoUploadProvider({ children }: { children: React.ReactNode })
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Sua sessão expirou. Entre novamente para enviar o vídeo.");
 
-    const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-150) || "video.mp4";
-    const objectPath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
     const durationPromise = readDuration(file);
     const response = await fetch("/api/videos", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: file.name, objectPath, mimeType: file.type, sizeBytes: file.size, folderId, status: "processing" }),
+      body: JSON.stringify({ title: file.name, fileName: file.name, mimeType: file.type, sizeBytes: file.size, folderId, status: "processing" }),
     });
-    const payload = await response.json().catch(() => null) as { video?: CreatedVideo; error?: string } | null;
-    if (!response.ok || !payload?.video) throw new Error(payload?.error || "Não foi possível preparar o envio.");
+    const payload = await response.json().catch(() => null) as { video?: CreatedVideo; error?: string; message?: string } | null;
+    if (!response.ok || !payload?.video) throw new Error(payload?.message || payload?.error || "Não foi possível preparar o envio.");
 
     const video = payload.video;
+    // O caminho do objeto agora é decidido pelo servidor: usar o valor devolvido
+    // mantém o upload alinhado com a linha gravada em `videos`.
+    const objectPath = video.object_path;
     setTasks((current) => [{ videoId: video.id, fileName: file.name, progress: 0, state: "uploading" }, ...current.filter((task) => task.videoId !== video.id)]);
     notifyVideosChanged();
 

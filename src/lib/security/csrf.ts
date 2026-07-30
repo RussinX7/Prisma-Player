@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
 
-const ALLOWED_ORIGINS_CACHE = new Set<string>();
-
-function getAllowedOrigins(): Set<string> {
-  if (ALLOWED_ORIGINS_CACHE.size > 0) return ALLOWED_ORIGINS_CACHE;
+/**
+ * Origens fixas derivadas do ambiente. Calculadas uma vez e nunca mutadas.
+ *
+ * A versão anterior fazia `cache.add(origemDaRequisicao)` a cada chamada, ou
+ * seja, guardava estado de requisição num Set de módulo. Em serverless, com a
+ * instância reaproveitada, o conjunto crescia com todo host que já tinha
+ * respondido (incluindo previews) e virava um vazamento lento de memória.
+ */
+function buildConfiguredOrigins(): ReadonlySet<string> {
+  const origins = new Set<string>();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   if (siteUrl) {
-    try { ALLOWED_ORIGINS_CACHE.add(new URL(siteUrl).origin); } catch {}
+    try { origins.add(new URL(siteUrl).origin); } catch {}
   }
-  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-  if (vercelUrl) {
-    try { ALLOWED_ORIGINS_CACHE.add(new URL(vercelUrl).origin); } catch {}
+  if (process.env.VERCEL_URL) {
+    try { origins.add(new URL(`https://${process.env.VERCEL_URL}`).origin); } catch {}
   }
-  ALLOWED_ORIGINS_CACHE.add("http://localhost:3000");
-  return ALLOWED_ORIGINS_CACHE;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    try { origins.add(new URL(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`).origin); } catch {}
+  }
+  if (process.env.NODE_ENV !== "production") origins.add("http://localhost:3000");
+  return origins;
 }
+
+const CONFIGURED_ORIGINS = buildConfiguredOrigins();
 
 function requestOrigin(request: Request): string {
   try {
@@ -24,19 +34,20 @@ function requestOrigin(request: Request): string {
   }
 }
 
+function isAllowed(candidate: string, selfOrigin: string): boolean {
+  return candidate === selfOrigin || CONFIGURED_ORIGINS.has(candidate);
+}
+
 export function validateOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
-  const allowed = getAllowedOrigins();
-  const currentOrigin = requestOrigin(request);
-  if (currentOrigin) allowed.add(currentOrigin);
+  const selfOrigin = requestOrigin(request);
 
   if (!origin && !referer) return false;
 
   if (origin) {
     try {
-      const originUrl = new URL(origin);
-      if (allowed.has(originUrl.origin)) return true;
+      if (isAllowed(new URL(origin).origin, selfOrigin)) return true;
     } catch {
       return false;
     }
@@ -44,8 +55,7 @@ export function validateOrigin(request: Request): boolean {
 
   if (referer) {
     try {
-      const refererUrl = new URL(referer);
-      if (allowed.has(refererUrl.origin)) return true;
+      if (isAllowed(new URL(referer).origin, selfOrigin)) return true;
     } catch {
       return false;
     }

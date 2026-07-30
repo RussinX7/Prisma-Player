@@ -14,11 +14,22 @@ export type TeamAccountContext = {
 
 export async function getTeamAccountContext(userId: string): Promise<TeamAccountContext> {
   const admin = createAdminClient();
+
+  // A equipe própria sempre vence. O trigger de signup cria a equipe do usuário
+  // e as adesões vindas de convite na MESMA transação, então `joined_at` é
+  // idêntico e ordenar só por ele não tem desempate: um usuário convidado antes
+  // de se cadastrar podia acordar dentro da conta de quem o convidou.
+  const ownTeam = await admin.from("account_teams").select("id").eq("owner_id", userId).maybeSingle();
+  if (ownTeam.data) {
+    return { actorUserId: userId, accountOwnerId: userId, teamId: ownTeam.data.id, role: "owner", canEditContent: true, canManageAccount: true };
+  }
+
   const membership = await admin.from("account_team_members")
     .select("team_id,role")
     .eq("user_id", userId)
     .eq("status", "active")
     .order("joined_at")
+    .order("team_id")
     .limit(1)
     .maybeSingle();
 

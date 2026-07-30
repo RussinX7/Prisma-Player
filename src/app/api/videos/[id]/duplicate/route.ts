@@ -1,23 +1,35 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth/server";
+import { guard } from "@/lib/api/guard";
+import { getStorageUsedBytes } from "@/lib/access/service";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { forbiddenForRole, getTeamAccountContext } from "@/lib/access/team-context";
 import { copyR2Object, deleteR2Object } from "@/lib/storage/r2";
-import { csrfGuard } from "@/lib/security/csrf";
+import { VIDEO } from "@/lib/constants";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const csrf = csrfGuard(request);
-  if (csrf) return csrf;
-  const userId = await getCurrentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const account = await getTeamAccountContext(userId);
-  if (!account.canEditContent) return forbiddenForRole();
+  const gate = await guard(request, { csrf: true, role: "edit", paid: true });
+  if (!gate.ok) return gate.response;
+  const { account, plan } = gate;
+
   const { id } = await context.params;
   const supabase = createAdminClient();
   const { data: original } = await supabase.from("videos").select("title,folder_id,object_path,mime_type,size_bytes,duration_seconds,storage_provider").eq("id", id).eq("user_id", account.accountOwnerId).eq("status", "ready").maybeSingle();
   if (!original) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
+
+  // Duplicar consome exatamente o mesmo espaço do original: a quota vale aqui
+  // igual ao upload, senão o limite de armazenamento é contornável com um clique.
+  const usedBytes = await getStorageUsedBytes(account.accountOwnerId);
+  if (usedBytes + Number(original.size_bytes || 0) > plan.quotas.storageBytes) {
+    return NextResponse.json({
+      error: "storage_quota_exceeded",
+      message: "Seu plano atingiu o limite de armazenamento. Exclua vídeos ou faça upgrade para continuar.",
+      usedBytes,
+      limitBytes: plan.quotas.storageBytes,
+    }, { status: 413 });
+  }
+
   const extension = original.object_path.includes(".") ? `.${original.object_path.split(".").pop()}` : "";
-  const objectPath = `${userId}/${crypto.randomUUID()}-copy${extension}`;
+  // Mesmo prefixo do titular usado na criação, para que a exclusão encontre o arquivo.
+  const objectPath = `${account.accountOwnerId}/${crypto.randomUUID()}-copy${extension}`;
   const cleanup = async () => original.storage_provider === "r2"
     ? deleteR2Object(objectPath).catch(() => undefined)
     : supabase.storage.from("videos").remove([objectPath]);
@@ -31,7 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const { data, error } = await supabase.from("videos").insert({
-    user_id: account.accountOwnerId, title: `${original.title} (cópia)`.slice(0, 200), folder_id: original.folder_id,
+    user_id: account.accountOwnerId, title: `${original.title} (cópia)`.slice(0, VIDEO.MAX_TITLE_LENGTH), folder_id: original.folder_id,
     object_path: objectPath, mime_type: original.mime_type, size_bytes: original.size_bytes,
     duration_seconds: original.duration_seconds, status: "ready", storage_provider: original.storage_provider,
   }).select("id").single();

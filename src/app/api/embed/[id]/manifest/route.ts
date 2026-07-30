@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { trustedEmbedHostFromHeaders } from "@/lib/security/embed-origin";
+import { domainAllowed, trustedEmbedHostFromHeaders } from "@/lib/security/embed-origin";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { envInt } from "@/lib/config/env";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const RATE_LIMIT_MAX = Number(process.env.EMBED_MANIFEST_RATE_LIMIT_MAX ?? "600");
-const RATE_LIMIT_WINDOW_MS = Number(process.env.EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS ?? "60_000");
+const RATE_LIMIT_MAX = envInt("EMBED_MANIFEST_RATE_LIMIT_MAX", 600);
+const RATE_LIMIT_WINDOW_MS = envInt("EMBED_MANIFEST_RATE_LIMIT_WINDOW_MS", 60_000);
 
 /**
  * Allowlist de chaves PUBLICAS do player config que o manifest cachea na borda.
@@ -61,7 +62,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((d) => d.trim()).filter(Boolean) : [];
   const host = trustedEmbedHostFromHeaders(request.headers);
-  if (domains.length > 0 && (!host || !domains.includes(host))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
+  // Usa a mesma normalização do endpoint dinâmico (www., https://, curinga *.).
+  // A comparação exata anterior bloqueava clientes legítimos que cadastraram o
+  // domínio em qualquer outro formato.
+  if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
   const config = playerConfig.config && typeof playerConfig.config === "object"
     ? sanitizeConfigForManifest(playerConfig.config as Record<string, unknown>)

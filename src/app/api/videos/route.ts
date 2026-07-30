@@ -1,69 +1,110 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth/server";
+import { guard } from "@/lib/api/guard";
+import { readJsonBody } from "@/lib/api/request";
+import { getStorageUsedBytes } from "@/lib/access/service";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { forbiddenForRole, getTeamAccountContext } from "@/lib/access/team-context";
 import { isR2Configured, r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r2";
-import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { VIDEO } from "@/lib/constants";
 
-function normalizeObjectPath(value: unknown, userId: string): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.includes("\\0") || trimmed.includes("\\") || trimmed.startsWith("/") || trimmed.startsWith("../") || trimmed.includes("/../") || trimmed.endsWith("/..") || trimmed === "..") return null;
-  const parts = trimmed.split("/").filter(Boolean);
-  if (parts.length < 2 || parts[0] !== userId || parts.some((part) => part === "." || part === ".." || !part)) return null;
-  return trimmed;
+/**
+ * O caminho do objeto passou a ser montado no servidor. Antes vinha do cliente
+ * e era validado contra o id de quem chamava, mas a linha em `videos` é gravada
+ * com o id do TITULAR — então um membro de equipe criava arquivos num prefixo
+ * que a rotina de exclusão (que filtra pelo prefixo do titular) nunca limparia.
+ *
+ * O prefixo difere por backend de propósito: no R2 quem escreve é o servidor,
+ * então usamos o titular; no Supabase Storage o upload é feito pelo navegador e
+ * a policy exige `(storage.foldername(name))[1] = auth.uid()`, então usamos o
+ * id de quem envia. Em ambos os casos o cliente não escolhe mais o caminho.
+ */
+function buildObjectPath(fileNameHint: unknown, prefixUserId: string): string {
+  const safeName = String(fileNameHint ?? "video.mp4")
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .slice(-150) || "video.mp4";
+  return `${prefixUserId}/${crypto.randomUUID()}-${safeName}`;
 }
 
 export async function GET(request: Request) {
-  const userId = await getCurrentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const cursor = new URL(request.url).searchParams.get("cursor");
+  const gate = await guard(request);
+  if (!gate.ok) return gate.response;
+  const { account } = gate;
+
+  const limited = await rateLimit(request, `videos-list:${account.accountOwnerId}`, { max: 120, windowMs: 60_000 });
+  if (limited) return limited;
+
   const params = new URL(request.url).searchParams;
+  const cursor = params.get("cursor");
   const folderId = params.get("folderId");
   const status = params.get("status");
-  const account = await getTeamAccountContext(userId);
   const supabase = createAdminClient();
-  let query = supabase.from("videos").select("id,title,folder_id,object_path,mime_type,size_bytes,status,duration_seconds,created_at,storage_provider").eq("user_id", account.accountOwnerId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(30);
+  let query = supabase.from("videos").select("id,title,folder_id,object_path,mime_type,size_bytes,status,duration_seconds,created_at,storage_provider").eq("user_id", account.accountOwnerId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(VIDEO.LIST_PAGE_SIZE);
   if (cursor) query = query.lt("created_at", cursor);
   if (folderId) query = query.eq("folder_id", folderId);
   if (status && ["draft", "processing", "ready"].includes(status)) query = query.eq("status", status);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "videos_load_failed" }, { status: 500 });
+
   const ids = (data ?? []).map((video) => video.id);
-  const [{ data: playEvents }, { data: configs }] = ids.length ? await Promise.all([
-    supabase.from("video_events").select("video_id,session_id").in("video_id", ids).eq("event_type", "play"),
-    supabase.from("player_configs").select("id,video_id,published").in("video_id", ids),
-  ]) : [{ data: [] }, { data: [] }];
+  // Antes: SELECT sem limite em `video_events` trazendo todos os plays da conta
+  // para contar sessões únicas em JavaScript. Como o upsert de eventos já é
+  // único por (video_id, session_id, event_type, progress_percent), contar as
+  // linhas no Postgres com `head: true` dá o mesmo número sem trafegar nada.
+  const [playCounts, configs] = ids.length
+    ? await Promise.all([
+        Promise.all(ids.map(async (videoId) => {
+          const { count } = await supabase.from("video_events").select("session_id", { count: "exact", head: true }).eq("video_id", videoId).eq("event_type", "play");
+          return [videoId, count ?? 0] as const;
+        })),
+        supabase.from("player_configs").select("id,video_id,published").in("video_id", ids).then((result) => result.data ?? []),
+      ])
+    : [[] as Array<readonly [string, number]>, [] as Array<{ id: string; video_id: string; published: boolean }>];
+
+  const playsByVideo = new Map(playCounts);
+  const configByVideo = new Map(configs.map((config) => [config.video_id, config]));
   const videos = await Promise.all((data ?? []).map(async (video) => {
     const signedUrl = video.status === "ready"
       ? video.storage_provider === "r2"
-        ? await signR2ReadUrl(video.object_path, 3600).catch(() => null)
-        : (await supabase.storage.from("videos").createSignedUrl(video.object_path, 3600)).data?.signedUrl ?? null
+        ? await signR2ReadUrl(video.object_path, VIDEO.R2_SIGNED_URL_EXPIRY_SECONDS).catch(() => null)
+        : (await supabase.storage.from("videos").createSignedUrl(video.object_path, VIDEO.R2_SIGNED_URL_EXPIRY_SECONDS)).data?.signedUrl ?? null
       : null;
-    const plays = new Set((playEvents ?? []).filter((event) => event.video_id === video.id).map((event) => event.session_id)).size;
-    const player = (configs ?? []).find((config) => config.video_id === video.id);
-    return { ...video, signed_url: signedUrl, plays, player_id: player?.id ?? null, published: Boolean(player?.published) };
+    const player = configByVideo.get(video.id);
+    return { ...video, signed_url: signedUrl, plays: playsByVideo.get(video.id) ?? 0, player_id: player?.id ?? null, published: Boolean(player?.published) };
   }));
-  return NextResponse.json({ videos, nextCursor: data?.at(-1)?.created_at ?? null });
+  return NextResponse.json({ videos, nextCursor: data?.at(-1)?.created_at ?? null }, { headers: { "cache-control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
-  const csrf = csrfGuard(request);
-  if (csrf) return csrf;
-  const userId = await getCurrentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const account = await getTeamAccountContext(userId);
-  if (!account.canEditContent) return forbiddenForRole();
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  const objectPath = normalizeObjectPath(body?.objectPath, userId);
-  if (!body || !objectPath) return NextResponse.json({ error: "invalid_object_path" }, { status: 400 });
+  const gate = await guard(request, { csrf: true, role: "edit", paid: true });
+  if (!gate.ok) return gate.response;
+  const { userId, account, plan } = gate;
+
+  const parsed = await readJsonBody<Record<string, unknown>>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
+  if (!body) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   const supabase = createAdminClient();
   const sizeBytes = Number(body.sizeBytes);
   const storageProvider = isR2Configured() ? "r2" : "supabase";
+  const objectPath = buildObjectPath(body.fileName ?? body.title, storageProvider === "r2" ? account.accountOwnerId : userId);
   const maxBytes = storageProvider === "r2" ? r2MaxUploadBytes() : 5 * 1024 ** 3;
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes) return NextResponse.json({ error: "invalid_file_size", maxBytes }, { status: 422 });
-  const title = String(body.title ?? "Vídeo").trim().replace(/\s+/g, " ").slice(0, 200);
+
+  // Quota do plano. Sem isto o armazenamento — e o custo de R2 — não tinha teto.
+  const usedBytes = await getStorageUsedBytes(account.accountOwnerId);
+  if (usedBytes + sizeBytes > plan.quotas.storageBytes) {
+    return NextResponse.json({
+      error: "storage_quota_exceeded",
+      message: "Seu plano atingiu o limite de armazenamento. Exclua vídeos ou faça upgrade para continuar.",
+      usedBytes,
+      limitBytes: plan.quotas.storageBytes,
+    }, { status: 413 });
+  }
+
+  const title = String(body.title ?? "Vídeo").trim().replace(/\s+/g, " ").slice(0, VIDEO.MAX_TITLE_LENGTH);
   const mimeType = String(body.mimeType || "video/mp4").trim().toLowerCase();
   const supportedMime = mimeType.startsWith("video/") || mimeType === "application/vnd.apple.mpegurl";
   if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 422 });

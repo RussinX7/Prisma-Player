@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
 import { verifyEmbedEventToken } from "@/lib/security/embed-origin";
 import { deliverWebhook } from "@/lib/webhooks/delivery";
+import { readJsonBody } from "@/lib/api/request";
+import { getAccountPlan } from "@/lib/access/service";
 import { ANALYTICS } from "@/lib/constants";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,9 +37,12 @@ function first(params: URLSearchParams, names: string[]) {
 }
 
 export async function POST(request: Request) {
-  if (Number(request.headers.get("content-length") ?? 0) > ANALYTICS.MAX_EVENT_PAYLOAD_BYTES) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   if (!validateOrigin(request)) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  // Mede os bytes reais: só o header `content-length` deixava passar qualquer
+  // cliente que usasse `Transfer-Encoding: chunked`.
+  const parsed = await readJsonBody<Record<string, unknown>>(request, ANALYTICS.MAX_EVENT_PAYLOAD_BYTES);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const videoId = String(body?.videoId ?? "");
   const sessionId = String(body?.sessionId ?? "");
   const eventType = String(body?.eventType ?? "");
@@ -78,7 +83,13 @@ export async function POST(request: Request) {
   }, { onConflict: "video_id,session_id,event_type,progress_percent", ignoreDuplicates: true });
 
   if (!error) after(async () => {
-    const { data: controls } = await supabase.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", video.user_id).maybeSingle();
+    const [{ data: controls }, plan] = await Promise.all([
+      supabase.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", video.user_id).maybeSingle(),
+      getAccountPlan(video.user_id),
+    ]);
+    // Webhook de saída é recurso de plano superior: a checagem existia apenas na
+    // tela, então quem tivesse ativado a chave uma vez continuava recebendo.
+    if (!plan.capabilities.outgoing_webhooks) return;
     if (controls?.outgoing_webhooks_enabled && controls.webhook_url && Array.isArray(controls.webhook_events) && controls.webhook_events.includes(eventType)) {
       await deliverWebhook(controls.webhook_url, { id: randomUUID(), event: `vsl.${eventType}`, timestamp: new Date().toISOString(), data: { video_id: video.id, video_title: video.title, session_id: sessionId, progress_percent: progressPercent, watched_seconds: watchedSeconds, country_code: country, device_type: context.device } }).catch(() => undefined);
     }

@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth/server";
+import { NextResponse } from "next/server";
+import { guard } from "@/lib/api/guard";
+import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
+import { ANALYTICS } from "@/lib/constants";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const segments = new Set(["all", "buyers", "completers", "engagers_75", "cta_clickers"]);
@@ -13,16 +15,25 @@ function distribution(rows: Session[], key: "country" | "device" | "os" | "brows
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([name, count]) => `${name}: ${count} (${(count / Math.max(rows.length, 1) * 100).toFixed(1)}%)`).join("\n");
 }
 
-export async function POST(request: NextRequest) {
-  const csrf = csrfGuard(request); if (csrf) return csrf;
-  const userId = await getCurrentUserId(); if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await request.json().catch(() => null) as { videoId?: string; segment?: string } | null;
-  const videoId = body?.videoId ?? "", segment = body?.segment ?? "engagers_75";
+export async function POST(request: Request) {
+  const gate = await guard(request, { csrf: true, role: "read", paid: true });
+  if (!gate.ok) return gate.response;
+  const ownerId = gate.account.accountOwnerId;
+  // Exportar público exige `audience_sync`, um recurso de plano superior.
+  if (!gate.plan.capabilities.audience_sync) {
+    return NextResponse.json({ error: "plan_upgrade_required", capability: "audience_sync", message: "A exportação de público faz parte de um plano superior." }, { status: 402 });
+  }
+  const limited = await rateLimit(request, `audience-export:${ownerId}`, { max: 10, windowMs: 10 * 60_000 });
+  if (limited) return limited;
+
+  const parsed = await readJsonBody<{ videoId?: string; segment?: string }>(request);
+  if (!parsed.ok) return parsed.response;
+  const videoId = parsed.body?.videoId ?? "", segment = parsed.body?.segment ?? "engagers_75";
   if (!uuid.test(videoId) || !segments.has(segment)) return NextResponse.json({ error: "invalid_export_request" }, { status: 400 });
   const admin = createAdminClient();
-  const { data: video } = await admin.from("videos").select("id,title").eq("id", videoId).eq("user_id", userId).eq("status", "ready").maybeSingle();
+  const { data: video } = await admin.from("videos").select("id,title").eq("id", videoId).eq("user_id", ownerId).eq("status", "ready").maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
-  const { data: events, error } = await admin.from("video_events").select("session_id,event_type,progress_percent,country_code,device_type,os_name,browser_name,traffic_source,campaign_id,utm_campaign,risk_score").eq("video_id", videoId).lt("risk_score", 70).order("created_at", { ascending: false }).limit(50000);
+  const { data: events, error } = await admin.from("video_events").select("session_id,event_type,progress_percent,country_code,device_type,os_name,browser_name,traffic_source,campaign_id,utm_campaign,risk_score").eq("video_id", videoId).eq("user_id", ownerId).lt("risk_score", 70).order("created_at", { ascending: false }).limit(ANALYTICS.MAX_EVENTS_PER_ANALYSIS);
   if (error) return NextResponse.json({ error: "audience_unavailable" }, { status: 503 });
   const map = new Map<string, Session>();
   for (const event of events ?? []) {
