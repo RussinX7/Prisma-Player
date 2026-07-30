@@ -28,7 +28,11 @@ function localizeTree(root: ParentNode, locale: AppLocale) {
   let node = walker.nextNode() as Text | null;
   while (node) {
     const parent = node.parentElement;
-    if (parent && !["SCRIPT", "STYLE", "CODE", "PRE", "TEXTAREA"].includes(parent.tagName)) {
+    if (
+      parent &&
+      !parent.closest("[data-i18n-managed]") &&
+      !["SCRIPT", "STYLE", "CODE", "PRE", "TEXTAREA"].includes(parent.tagName)
+    ) {
       if (!originalText.has(node)) originalText.set(node, node.nodeValue ?? "");
       const source = originalText.get(node) ?? "";
       const next = translateString(source, locale);
@@ -38,6 +42,7 @@ function localizeTree(root: ParentNode, locale: AppLocale) {
   }
   const elements = root instanceof Element ? [root, ...root.querySelectorAll("*")] : [...root.querySelectorAll("*")];
   for (const element of elements) {
+    if (element.closest("[data-i18n-managed]")) continue;
     for (const attribute of ["placeholder", "title", "aria-label"]) {
       const current = element.getAttribute(attribute);
       if (!current) continue;

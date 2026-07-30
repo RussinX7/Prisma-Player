@@ -1,12 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Check, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { Check, ChevronDown, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LocaleFlag } from "@/i18n/flags";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { AppLocale } from "@/i18n/types";
+import { authService } from "@/services/auth/client";
+import { accountService, type AccountIdentity } from "@/services/account/client";
 
 const languages = [
   { code: "pt-BR", label: "Português" },
@@ -15,75 +29,117 @@ const languages = [
 ] satisfies Array<{ code: AppLocale; label: string }>;
 
 export default function AccountMenu() {
-  const [open, setOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const { locale, setLocale, t } = useI18n();
-  const [profile, setProfile] = useState({ name: "Conta Prisma", email: "" });
+  const [profile, setProfile] = useState<AccountIdentity>({
+    name: "Conta Prisma",
+    email: "",
+  });
   const [isAdmin, setIsAdmin] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const close = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  useEffect(() => {
-    void fetch("/api/account/access", { cache: "no-store" }).then((response) => response.json()).then((data) => setIsAdmin(Boolean(data.isAdmin))).catch(() => setIsAdmin(false));
-  }, []);
-
-  useEffect(() => {
-    const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      setProfile({ name: String(data.user.user_metadata.full_name ?? data.user.email ?? "Conta Prisma"), email: data.user.email ?? "" });
+    void Promise.allSettled([
+      accountService.getIdentity(),
+      accountService.getAccess(),
+    ]).then(([identity, access]) => {
+      if (identity.status === "fulfilled") setProfile(identity.value);
+      if (access.status === "fulfilled") setIsAdmin(access.value.isAdmin);
     });
   }, []);
 
   async function logout() {
-    await createClient().auth.signOut({ scope: "local" });
+    await authService.signOut();
     window.location.assign("/login");
   }
 
-  const initials = profile.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "PP";
+  const initials =
+    profile.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "PP";
 
   return (
-    <div ref={rootRef} className="relative">
-      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex h-11 w-11 items-center justify-center rounded-full bg-prisma-blue text-[13px] font-semibold text-white transition-transform active:scale-95">
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-10 rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground"
+            aria-label="Abrir menu da conta"
+          />
+        }
+      >
         {initials}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-[min(320px,calc(100vw-24px))] rounded-[18px] border p-2 themeable-bg-canvas themeable-border-hairline">
-          <div className="flex items-center gap-3 p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-prisma-blue text-[13px] font-semibold text-white">{initials}</div>
-            <div className="min-w-0">
-              <p className="truncate text-[14px] font-semibold themeable-text-ink">{profile.name}</p>
-              <p className="truncate text-[12px] themeable-text-ink-muted-48">{profile.email}</p>
-            </div>
-          </div>
-          <div className="border-t py-2 themeable-border-hairline">
-            <button type="button" onClick={() => setLanguageOpen((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-[11px] px-3 text-left text-[14px] themeable-text-ink">
-              <Languages size={17} className="text-prisma-blue" />
-              <span className="flex-1">{t("language")}</span>
-              <ChevronDown size={15} className={languageOpen ? "rotate-180" : ""} />
-            </button>
-            {languageOpen && (
-              <div className="mt-1 rounded-[11px] themeable-bg-surface-pearl p-1">
-                {languages.map((item) => (
-                  <button key={item.code} type="button" onClick={() => { setLocale(item.code); setLanguageOpen(false); }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-[14px] themeable-text-ink hover:bg-prisma-blue/10">
-                    <LocaleFlag locale={item.code} className="h-6 w-6" /><span className="flex-1 text-left">{item.label}</span>{locale === item.code && <Check size={16} className="text-prisma-blue" />}
-                  </button>
-                ))}
-              </div>
-            )}
-            <Link href="/dashboard/settings" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><Settings size={17} /><span>{t("account")}</span></Link>
-            {isAdmin && <Link href="/admin" className="flex min-h-11 items-center gap-3 rounded-[11px] px-3 text-[14px] themeable-text-ink"><ShieldCheck size={17} className="text-prisma-blue" /><span>Administração</span></Link>}
-          </div>
-          <button type="button" onClick={logout} className="flex min-h-11 w-full items-center gap-3 border-t px-3 pt-2 text-[14px] text-red-500 themeable-border-hairline"><LogOut size={17} /><span>{t("logout")}</span></button>
-        </div>
-      )}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-[min(320px,calc(100vw-24px))] rounded-2xl p-2 shadow-xl"
+      >
+        <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2.5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+            {initials}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-foreground">
+              {profile.name}
+            </span>
+            <span className="block truncate text-xs font-normal text-muted-foreground">
+              {profile.email}
+            </span>
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="min-h-10 rounded-xl px-2.5">
+              <Languages className="text-primary" />
+              <span>{t("language")}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="min-w-52 rounded-xl p-1.5">
+              {languages.map((item) => (
+                <DropdownMenuItem
+                  key={item.code}
+                  className="min-h-10 rounded-lg px-2.5"
+                  onClick={() => setLocale(item.code)}
+                >
+                  <LocaleFlag locale={item.code} className="size-6" />
+                  <span className="flex-1">{item.label}</span>
+                  {locale === item.code && <Check className="text-primary" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuItem
+            className="min-h-10 rounded-xl px-2.5"
+            render={<Link href="/dashboard/settings" />}
+          >
+            <Settings />
+            <span>{t("account")}</span>
+          </DropdownMenuItem>
+          {isAdmin && (
+            <DropdownMenuItem
+              className="min-h-10 rounded-xl px-2.5"
+              render={<Link href="/admin" />}
+            >
+              <ShieldCheck className="text-primary" />
+              <span>{t("administration")}</span>
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          className="min-h-10 rounded-xl px-2.5"
+          onClick={() => void logout()}
+        >
+          <LogOut />
+          <span>{t("logout")}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,40 +1,42 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
+import { usePathname } from "next/navigation";
 import { AppBreadcrumbs } from "@/components/app-breadcrumbs";
-import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { navLinks } from "@/components/app-shared";
-import ThemeToggle from "@/components/ThemeToggle";
-import InboxButton from "@/features/inbox/components/InboxButton";
+import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import AccountMenu from "@/components/dashboard/AccountMenu";
-
-const activeItem = navLinks.find((item) => item.isActive);
+import ThemeToggle from "@/components/ThemeToggle";
+import { Separator } from "@/components/ui/separator";
+import InboxButton from "@/features/inbox/components/InboxButton";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function AppHeader() {
-	return (
-		<header
-			className={cn(
-				"sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4 md:px-6 bg-white dark:bg-[#1d1d1f] border-[#e0e0e0] dark:border-white/5"
-			)}
-		>
-			<div className="flex items-center gap-3">
-				<CustomSidebarTrigger />
-				<Separator
-					className="mr-2 h-4 data-[orientation=vertical]:self-center bg-black/10 dark:bg-white/10"
-					orientation="vertical"
-				/>
-				<AppBreadcrumbs page={activeItem} />
-			</div>
-			<div className="flex items-center gap-3">
-				<ThemeToggle />
-				<InboxButton />
-				<Separator
-					className="h-4 data-[orientation=vertical]:self-center bg-black/10 dark:bg-white/10"
-					orientation="vertical"
-				/>
-				<AccountMenu />
-			</div>
-		</header>
-	);
+  const pathname = usePathname();
+  const { t } = useI18n();
+  const activeItem = [...navLinks]
+    .filter((item) => item.path && pathname.startsWith(item.path))
+    .sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0))[0];
+
+  const page = activeItem
+    ? {
+        title: activeItem.messageKey ? t(activeItem.messageKey) : activeItem.title,
+        icon: activeItem.icon,
+      }
+    : null;
+
+  return (
+    <header data-i18n-managed className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/72 sm:px-5">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <CustomSidebarTrigger />
+        <Separator orientation="vertical" className="hidden h-5 sm:block" />
+        <AppBreadcrumbs page={page} />
+      </div>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <ThemeToggle />
+        <InboxButton />
+        <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
+        <AccountMenu />
+      </div>
+    </header>
+  );
 }

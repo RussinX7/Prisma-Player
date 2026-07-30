@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Geist } from "next/font/google";
+import { Geist } from "next/font/google";
 import ThemeScript from "@/components/ThemeScript";
-import { I18nProvider } from "@/i18n/I18nProvider";
+import { AppProviders } from "@/providers/AppProviders";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +91,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col"><I18nProvider>{children}</I18nProvider></body>
+      <body className="flex min-h-full flex-col"><AppProviders>{children}</AppProviders></body>
     </html>
   );
 }

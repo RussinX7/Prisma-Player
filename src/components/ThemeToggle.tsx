@@ -1,6 +1,9 @@
 "use client";
 
+import { Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
   onDarkSurface?: boolean;
@@ -26,32 +29,18 @@ export default function ThemeToggle({ onDarkSurface = false }: ThemeToggleProps)
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
       onClick={toggle}
       aria-label={dark ? "Ativar modo claro" : "Ativar modo escuro"}
-      className={`flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95 ${
-        onDarkSurface
-          ? "text-white/70 hover:bg-white/10 hover:text-white"
-          : "themeable-bg-surface-pearl themeable-text-ink-muted-48"
-      }`}
-    >
-      {dark ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2" />
-          <path d="M12 20v2" />
-          <path d="M4.93 4.93l1.41 1.41" />
-          <path d="M17.66 17.66l1.41 1.41" />
-          <path d="M2 12h2" />
-          <path d="M20 12h2" />
-          <path d="M6.34 17.66l-1.41 1.41" />
-          <path d="M19.07 4.93l-1.41 1.41" />
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-        </svg>
+      className={cn(
+        "size-10 rounded-full text-muted-foreground hover:text-foreground",
+        onDarkSurface && "text-white/70 hover:bg-white/10 hover:text-white",
       )}
-    </button>
+    >
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
   );
 }

@@ -1,23 +1,52 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+
 import { ArrowRight, LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { accessService } from "@/services/access/client";
 
 export default function WelcomeActions() {
   const router = useRouter();
   const [loading, setLoading] = useState<"activate" | "later" | null>(null);
   const [error, setError] = useState("");
+
   async function submit(action: "activate" | "later") {
-    setLoading(action); setError("");
-    const response = await fetch("/api/account/trial", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) });
-    if (!response.ok) { setError("Nao foi possivel concluir agora. Tente novamente."); setLoading(null); return; }
-    if (action === "activate") posthog.capture("trial_activated");
-    router.replace(action === "activate" ? "/dashboard/videos" : "/dashboard/billing"); router.refresh();
+    setLoading(action);
+    setError("");
+    try {
+      await accessService.setTrialAction(action);
+      if (action === "activate") posthog.capture("trial_activated");
+      router.replace(action === "activate" ? "/dashboard/videos" : "/dashboard/billing");
+      router.refresh();
+    } catch {
+      setError("Não foi possível concluir agora. Tente novamente.");
+      setLoading(null);
+    }
   }
-  return <div className="mt-8 space-y-3">
-    <button onClick={() => submit("activate")} disabled={Boolean(loading)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-prisma-blue px-6 text-[14px] font-semibold text-white disabled:opacity-60">{loading === "activate" ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowRight size={18} />}Ativar meus 14 dias agora</button>
-    <button onClick={() => submit("later")} disabled={Boolean(loading)} className="min-h-12 w-full rounded-full border px-6 text-[14px] font-semibold themeable-border-hairline themeable-text-ink">Ativar depois pelo inbox</button>
-    {error && <p className="text-center text-[12px] text-red-500">{error}</p>}
-  </div>;
+
+  return (
+    <div className="mt-8 space-y-3">
+      <Button
+        size="lg"
+        onClick={() => void submit("activate")}
+        disabled={Boolean(loading)}
+        className="w-full rounded-full"
+      >
+        {loading === "activate" ? <LoaderCircle className="animate-spin" /> : <ArrowRight />}
+        Ativar meus 14 dias agora
+      </Button>
+      <Button
+        size="lg"
+        variant="outline"
+        onClick={() => void submit("later")}
+        disabled={Boolean(loading)}
+        className="w-full rounded-full"
+      >
+        Ativar depois pelo inbox
+      </Button>
+      {error && <p role="alert" className="text-center text-xs text-destructive">{error}</p>}
+    </div>
+  );
 }

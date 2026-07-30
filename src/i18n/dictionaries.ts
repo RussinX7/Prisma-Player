@@ -18,7 +18,7 @@ export const uiMessages = {
   },
 } as const;
 
-type UiKey = keyof typeof uiMessages["pt-BR"];
+export type UiKey = keyof typeof uiMessages["pt-BR"];
 export function message(locale: AppLocale, key: UiKey) { return uiMessages[locale][key]; }
 
 const en: Record<string, string> = {
