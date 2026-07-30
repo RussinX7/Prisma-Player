@@ -14,9 +14,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import type { StoredVideo, VideoFolder } from "@/features/videos/model/types";
+import { videosService } from "@/services/videos/client";
 
-interface StoredVideo { id: string; title: string; folder_id: string | null; mime_type: string; status: "draft" | "processing" | "ready" | "failed"; signed_url: string | null; created_at: string; plays: number; player_id: string | null; published: boolean }
-interface VideoFolder { id: string; name: string }
 const statusByTab: Record<string, StoredVideo["status"] | undefined> = { published: "ready", drafts: "draft", processing: "processing" };
 const PAGE_SIZE = 4;
 
@@ -57,10 +57,12 @@ export default function VideosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [videosResponse, foldersResponse] = await Promise.all([fetch("/api/videos", { cache: "no-store" }), fetch("/api/folders", { cache: "no-store" })]);
-    const [videosData, foldersData] = await Promise.all([videosResponse.json(), foldersResponse.json()]);
-    if (videosResponse.ok) setVideos(videosData.videos ?? []);
-    if (foldersResponse.ok) setFolders(foldersData.folders ?? []);
+    const [videosData, foldersData] = await Promise.all([
+      videosService.list(),
+      videosService.listFolders(),
+    ]);
+    setVideos(videosData.videos ?? []);
+    setFolders(foldersData.folders ?? []);
   }, []);
 
   useEffect(() => {
@@ -118,12 +120,14 @@ export default function VideosPage() {
 
   async function createFolder() {
     const name = folderName.trim(); if (!name) return;
-    const response = await fetch("/api/folders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
-    const data = await response.json();
-    if (response.ok) { setSelectedFolder(data.folder.id); setFolderName(""); setFolderOpen(false); await load(); }
+    const data = await videosService.createFolder(name);
+    setSelectedFolder(data.folder.id);
+    setFolderName("");
+    setFolderOpen(false);
+    await load();
   }
 
-  async function removeFolder(id: string) { if (!confirm("Excluir esta pasta? Os vídeos voltarão para Todos.")) return; await fetch(`/api/folders/${id}`, { method: "DELETE" }); if (selectedFolder === id) setSelectedFolder(null); await load(); }
+  async function removeFolder(id: string) { if (!confirm("Excluir esta pasta? Os vídeos voltarão para Todos.")) return; await videosService.removeFolder(id); if (selectedFolder === id) setSelectedFolder(null); await load(); }
 
   function edit(video: StoredVideo) {
     if (!video.signed_url) return;
@@ -133,9 +137,15 @@ export default function VideosPage() {
 
   async function removeVideo(video: StoredVideo) {
     setDeleting(true);
-    const response = await fetch(`/api/videos/${video.id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (response.ok) { setPendingDelete(null); setFeedback("VSL excluída definitivamente"); window.setTimeout(() => setFeedback(""), 2400); await load(); }
+    try {
+      await videosService.remove(video.id);
+      setPendingDelete(null);
+      setFeedback("VSL excluída definitivamente");
+      window.setTimeout(() => setFeedback(""), 2400);
+      await load();
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function notify(message: string) { setFeedback(message); window.setTimeout(() => setFeedback(""), 2400); }
@@ -143,11 +153,14 @@ export default function VideosPage() {
   async function ensurePlayer(video: StoredVideo) {
     if (video.player_id && video.published) return video.player_id;
     notify("Publicando player…");
-    const response = await fetch("/api/player-configs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ videoId: video.id }) });
-    const payload = await response.json().catch(() => null) as { playerConfig?: { id?: string } } | null;
-    if (!response.ok || !payload?.playerConfig?.id) { notify("Não foi possível publicar o player"); return null; }
-    setVideos((items) => items.map((item) => item.id === video.id ? { ...item, player_id: payload.playerConfig!.id!, published: true } : item));
-    return payload.playerConfig.id;
+    try {
+      const payload = await videosService.publishPlayer(video.id);
+      setVideos((items) => items.map((item) => item.id === video.id ? { ...item, player_id: payload.playerConfig.id, published: true } : item));
+      return payload.playerConfig.id;
+    } catch {
+      notify("Não foi possível publicar o player");
+      return null;
+    }
   }
 
   async function copyEmbed(video: StoredVideo) {
@@ -173,13 +186,21 @@ export default function VideosPage() {
     if (!manageVideo) return;
     const body = manageMode === "rename" ? { title: manageTitle.trim() } : { folderId: manageFolder || null };
     if (manageMode === "rename" && !manageTitle.trim()) return;
-    const response = await fetch(`/api/videos/${manageVideo.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    if (response.ok) { notify(manageMode === "rename" ? "Nome da VSL atualizado" : "VSL movida para a pasta escolhida"); setManageVideo(null); await load(); }
+    await videosService.update(manageVideo.id, body);
+    notify(manageMode === "rename" ? "Nome da VSL atualizado" : "VSL movida para a pasta escolhida");
+    setManageVideo(null);
+    await load();
   }
 
   async function duplicateVideo(video: StoredVideo) {
-    notify("Duplicando VSL…"); const response = await fetch(`/api/videos/${video.id}/duplicate`, { method: "POST" });
-    if (response.ok) { notify("VSL duplicada"); await load(); } else notify("Não foi possível duplicar a VSL");
+    notify("Duplicando VSL…");
+    try {
+      await videosService.duplicate(video.id);
+      notify("VSL duplicada");
+      await load();
+    } catch {
+      notify("Não foi possível duplicar a VSL");
+    }
   }
 
   const actions = [{ label: "Upload", icon: <Upload size={16} />, primary: false, onClick: () => setImportOpen(true) }, { label: "Nova pasta", icon: <FolderPlus size={16} />, primary: false, onClick: () => setFolderOpen(true) }, { label: "Adicionar vídeo", icon: <Plus size={16} />, primary: true, onClick: () => setImportOpen(true) }];
