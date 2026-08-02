@@ -237,7 +237,7 @@
   --sidebar-accent-foreground: #B9FF66;
   --sidebar-border: rgba(255, 255, 255, 0.15);
   --sidebar-ring: #B9FF66;
-}
+
   --chart-background: oklch(0.145 0 0);
   --chart-foreground: oklch(0.45 0 0);
   --chart-foreground-muted: oklch(0.65 0.01 260);
