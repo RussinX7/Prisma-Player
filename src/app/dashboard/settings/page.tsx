@@ -101,14 +101,14 @@ export default function SettingsPage() {
                   setActiveTab(tab.id as TabType);
                   setNotice("");
                 }}
-                className={`relative inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-black transition-all cursor-pointer ${
+                className={`relative inline-flex items-center gap-2.5 rounded-full px-4 py-2.5 text-xs font-black transition-all cursor-pointer border-2 border-[#191A23] ${
                   isActive
-                    ? "bg-[#191A23] text-[#B9FF66] shadow-[2px_2px_0px_#B9FF66]"
-                    : "text-[#191A23] hover:bg-[#B9FF66]/20"
+                    ? "bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]"
+                    : "bg-white text-[#191A23] hover:bg-[#B9FF66]/20 shadow-[1px_1px_0px_#191A23]"
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{tab.label}</span>
+                <Icon className="h-4 w-4 shrink-0 text-[#191A23]" />
+                <span className="text-[#191A23] font-black">{tab.label}</span>
               </button>
             );
           })}

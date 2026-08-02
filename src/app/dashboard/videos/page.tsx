@@ -219,16 +219,73 @@ export default function VideosPage() {
       </div>
       <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => setSelectedFolder(null)} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] themeable-border-hairline ${!selectedFolder ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><Folder size={15} />Todos</button>
-          {folders.map((folder) => <div key={folder.id} className={`flex min-h-11 shrink-0 items-center rounded-full border themeable-border-hairline ${selectedFolder === folder.id ? "bg-prisma-blue text-white" : "themeable-bg-canvas themeable-text-ink"}`}><button type="button" onClick={() => setSelectedFolder(folder.id)} className="flex h-full items-center gap-2 pl-4 pr-2"><Folder size={15} />{folder.name}</button><button type="button" onClick={() => void removeFolder(folder.id)} aria-label={`Excluir ${folder.name}`} className="flex h-10 w-10 items-center justify-center"><Trash2 size={14} /></button></div>)}
+          <button
+            type="button"
+            onClick={() => setSelectedFolder(null)}
+            className={`flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-black border-2 border-[#191A23] transition-all cursor-pointer ${
+              !selectedFolder
+                ? "bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]"
+                : "bg-white text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20"
+            }`}
+          >
+            <Folder size={15} />Todos
+          </button>
+          {folders.map((folder) => (
+            <div
+              key={folder.id}
+              className={`flex min-h-10 shrink-0 items-center rounded-full border-2 border-[#191A23] transition-all ${
+                selectedFolder === folder.id
+                  ? "bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]"
+                  : "bg-white text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedFolder(folder.id)}
+                className="flex h-full items-center gap-2 pl-4 pr-2 text-xs font-black text-[#191A23]"
+              >
+                <Folder size={15} />{folder.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => void removeFolder(folder.id)}
+                aria-label={`Excluir ${folder.name}`}
+                className="flex h-9 w-9 items-center justify-center text-[#191A23] hover:text-red-600"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
         </div>
-        <label className="relative block w-full lg:w-[300px]"><Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 themeable-text-ink-muted-48" /><span className="sr-only">Buscar vídeo</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome da VSL" className="h-11 w-full rounded-full border bg-transparent pl-11 pr-4 text-[13px] outline-none transition focus:border-prisma-blue themeable-border-hairline themeable-text-ink" /></label>
+        <label className="relative block w-full lg:w-[300px]">
+          <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#191A23]/60" />
+          <span className="sr-only">Buscar vídeo</span>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nome da VSL"
+            className="h-10 w-full rounded-full border-2 border-[#191A23] bg-white pl-11 pr-4 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23] outline-none transition focus:bg-[#B9FF66]/20"
+          />
+        </label>
       </div>
-      {/* shrink-0 é obrigatório: este card é filho flex de uma section com altura
-          limitada pelo shell, e flex-shrink padrão 1 comprimia o card até o piso
-          de min-h enquanto as linhas continuavam renderizando fora da borda. */}
-      <div className="mt-4 min-h-[360px] shrink-0 rounded-[20px] border themeable-bg-canvas themeable-border-hairline">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 themeable-border-hairline"><div><h2 className="text-[15px] font-semibold themeable-text-ink">{selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name : "Todos os vídeos"}</h2><p className="mt-0.5 text-[12px] themeable-text-ink-muted-48">{visibleVideos.length} resultado{visibleVideos.length === 1 ? "" : "s"}</p></div><button type="button" onClick={() => setImportOpen(true)} className="flex min-h-10 items-center gap-2 rounded-full bg-prisma-blue px-4 text-[12px] font-semibold text-white"><Plus size={15} />Nova VSL</button></div>
+      <div className="mt-4 min-h-[360px] shrink-0 rounded-[30px] border-2 border-[#191A23] bg-white p-2 shadow-[4px_4px_0px_#191A23]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#191A23]/10 px-5 py-4">
+          <div>
+            <h2 className="text-base font-black text-[#191A23]">
+              {selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name : "Todos os vídeos"}
+            </h2>
+            <p className="mt-0.5 text-xs font-medium text-[#191A23]/70">
+              {visibleVideos.length} resultado{visibleVideos.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex min-h-10 items-center gap-2 rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-4 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/90 transition-all cursor-pointer"
+          >
+            <Plus size={15} />Nova VSL
+          </button>
+        </div>
         <div className="p-4 sm:p-5">
         {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b px-3 pb-3 text-[12px] font-medium uppercase tracking-wide themeable-border-hairline themeable-text-ink-muted-48 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{pagedVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b py-5 last:border-b-0 themeable-border-hairline md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-black text-white md:h-12 md:w-20 md:rounded-[9px]"><Play size={18} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-prisma-blue transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-[14px] themeable-text-ink">{item.title}</strong><small className="mt-1 block themeable-text-ink-muted-48">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-[14px] bg-black/[0.025] p-3 dark:bg-white/[0.04] md:contents"><span className="text-[12px] themeable-text-ink-muted-48"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-[14px] font-semibold themeable-text-ink"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide themeable-text-ink-muted-48 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t pt-3 themeable-border-hairline md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><BarChart3 size={17} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-10 w-10 place-items-center rounded-full hover:bg-prisma-blue/10 disabled:opacity-30 themeable-text-ink"><Code2 size={17} /></button>
         
