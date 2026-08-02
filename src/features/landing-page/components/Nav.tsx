@@ -21,86 +21,85 @@ export default function Nav({ account }: NavProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-[#F3F3F3]/95 backdrop-blur-md border-b-2 border-[#191A23]/10 transition-all">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#191A23] text-[#B9FF66] shadow-[2px_2px_0px_#191A23] group-hover:scale-105 transition-transform">
-              <Play className="h-5 w-5 fill-[#B9FF66] ml-0.5" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-extrabold tracking-tight text-[#191A23] font-sans">
-                Prisma<span className="text-[#191A23] font-light">Player</span>
-              </span>
-              <span className="text-[10px] font-semibold tracking-widest text-[#191A23]/60 uppercase -mt-1">
-                VSL Tech
-              </span>
-            </div>
-          </Link>
-
-          {/* Desktop Links */}
-          <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="text-base font-medium text-[#191A23] hover:text-[#191A23] hover:bg-[#B9FF66] px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-[#191A23]"
-              >
-                {link.name}
-              </a>
-            ))}
-          </nav>
-
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-3">
-            {account ? (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-xl border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2.5 text-sm font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#191A23] transition-all"
-              >
-                Olá, {account.firstName} (Painel)
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center justify-center rounded-xl border-2 border-[#191A23] bg-white px-4 py-2 text-sm font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#191A23] transition-all"
-                >
-                  Entrar
-                </Link>
-                <Link
-                  href="/signup"
-                  className="inline-flex items-center justify-center rounded-xl border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2.5 text-sm font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#191A23] transition-all"
-                >
-                  Testar 14 Dias Grátis
-                </Link>
-              </>
-            )}
+    <header className="sticky top-4 z-50 mx-auto max-w-7xl px-4 sm:px-6 transition-all">
+      {/* Floating Pill Container */}
+      <div className="rounded-full border-2 border-[#191A23] bg-white/95 backdrop-blur-md px-4 sm:px-6 py-2.5 shadow-[4px_4px_0px_#191A23] flex items-center justify-between">
+        
+        {/* Brand Logo */}
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#191A23] text-[#B9FF66] shadow-[2px_2px_0px_#191A23] group-hover:scale-105 transition-transform">
+            <Play className="h-4 w-4 fill-[#B9FF66] ml-0.5" />
           </div>
+          <span className="text-lg font-black tracking-tight text-[#191A23]">
+            Prisma<span className="font-light">Player</span>
+          </span>
+        </Link>
 
-          {/* Mobile Menu Button */}
-          <div className="flex md:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center rounded-xl border-2 border-[#191A23] bg-white p-2 text-[#191A23] shadow-[2px_2px_0px_#191A23]"
-              aria-label="Abrir menu"
+        {/* Center Desktop Links */}
+        <nav className="hidden lg:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.href}
+              className="text-xs sm:text-sm font-bold text-[#191A23]/80 hover:text-[#191A23] hover:bg-[#B9FF66] px-3 py-1.5 rounded-full transition-colors"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
+              {link.name}
+            </a>
+          ))}
+        </nav>
+
+        {/* Right Action CTAs */}
+        <div className="hidden md:flex items-center gap-3">
+          {account ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            >
+              Painel ({account.firstName})
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+              >
+                Testar Grátis
+              </Link>
+
+              <span className="text-[#191A23]/30 font-light">|</span>
+
+              <Link
+                href="/login"
+                className="text-xs font-bold text-[#191A23] hover:underline underline-offset-4 px-2"
+              >
+                Entrar
+              </Link>
+            </>
+          )}
         </div>
+
+        {/* Mobile Toggle Button */}
+        <div className="flex lg:hidden">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="inline-flex items-center justify-center rounded-full border-2 border-[#191A23] bg-white p-2 text-[#191A23] shadow-[2px_2px_0px_#191A23]"
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b-2 border-[#191A23] bg-[#F3F3F3] px-4 pt-4 pb-6 space-y-3">
+        <div className="mt-3 lg:hidden rounded-3xl border-2 border-[#191A23] bg-white p-5 shadow-[6px_6px_0px_#191A23] space-y-2">
           {navLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-xl border border-[#191A23]/20 bg-white px-4 py-3 text-base font-bold text-[#191A23]"
+              className="block rounded-2xl border border-[#191A23]/10 bg-[#F3F3F3] px-4 py-2.5 text-sm font-bold text-[#191A23]"
             >
               {link.name}
             </a>
@@ -110,25 +109,25 @@ export default function Nav({ account }: NavProps) {
               <Link
                 href="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex w-full items-center justify-center rounded-xl border-2 border-[#191A23] bg-[#B9FF66] py-3 text-base font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23]"
+                className="flex w-full items-center justify-center rounded-full border-2 border-[#191A23] bg-[#B9FF66] py-3 text-sm font-black text-[#191A23] shadow-[3px_3px_0px_#191A23]"
               >
                 Acessar Painel ({account.firstName})
               </Link>
             ) : (
               <>
                 <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex w-full items-center justify-center rounded-xl border-2 border-[#191A23] bg-white py-3 text-base font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23]"
-                >
-                  Fazer Login
-                </Link>
-                <Link
                   href="/signup"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex w-full items-center justify-center rounded-xl border-2 border-[#191A23] bg-[#B9FF66] py-3 text-base font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23]"
+                  className="flex w-full items-center justify-center rounded-full border-2 border-[#191A23] bg-[#B9FF66] py-3 text-sm font-black text-[#191A23] shadow-[3px_3px_0px_#191A23]"
                 >
                   Testar 14 Dias Grátis
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex w-full items-center justify-center rounded-full border-2 border-[#191A23] bg-white py-2.5 text-sm font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23]"
+                >
+                  Fazer Login
                 </Link>
               </>
             )}

@@ -1,49 +1,37 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import {
   CircleUserRound,
-  Lock,
-  Shield,
   User,
+  Lock,
   Users,
+  CreditCard,
+  Sliders,
+  Shield,
+  Sparkles,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
 import { OverviewPanel } from "@/features/account/components/OverviewPanel";
-import { PasswordPanel } from "@/features/account/components/PasswordPanel";
 import { ProfilePanel } from "@/features/account/components/ProfilePanel";
-import { SecurityPanel } from "@/features/account/components/SecurityPanel";
-import { SettingsSkeleton } from "@/features/account/components/SettingsUi";
+import { PasswordPanel } from "@/features/account/components/PasswordPanel";
 import { TeamPanel } from "@/features/account/components/TeamPanel";
-import type {
-  AccountOverview,
-  AccountProfile,
-  SettingsSection,
-} from "@/features/account/model/types";
-import { cn } from "@/lib/utils";
+import { SecurityPanel } from "@/features/account/components/SecurityPanel";
+import { BillingSettingsTab } from "@/features/account/components/BillingSettingsTab";
+import { PreferencesSettingsTab } from "@/features/account/components/PreferencesSettingsTab";
+import { SettingsSkeleton } from "@/features/account/components/SettingsUi";
+import type { AccountOverview, AccountProfile } from "@/features/account/model/types";
 import { accountSettingsService } from "@/services/account/settings";
 
-const sections = [
-  { id: "overview", label: "Visão geral", icon: CircleUserRound },
-  { id: "profile", label: "Perfil", icon: User },
-  { id: "team", label: "Equipe", icon: Users },
-  { id: "password", label: "Senha", icon: Lock },
-  { id: "security", label: "Segurança", icon: Shield },
-] satisfies Array<{ id: SettingsSection; label: string; icon: typeof User }>;
-
-function initialSection(): SettingsSection {
-  if (typeof window === "undefined") return "overview";
-  return new URLSearchParams(window.location.search).get("section") === "security"
-    ? "security"
-    : "overview";
-}
+type TabType = "overview" | "profile" | "password" | "team" | "billing" | "preferences" | "security";
 
 export default function SettingsPage() {
-  const [section, setSection] = useState<SettingsSection>(initialSection);
+  const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [overview, setOverview] = useState<AccountOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+
   const adminMfaRequired =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("adminMfa") === "required";
@@ -65,93 +53,109 @@ export default function SettingsPage() {
 
   const notify = useCallback((message: string) => setNotice(message), []);
 
-  return (
-    <div className="mx-auto w-full max-w-6xl">
-      <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">
-          Conta Prisma
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-          Configurações
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Gerencie sua operação, equipe, preferências e segurança em um só lugar.
-        </p>
-      </header>
+  const tabs = [
+    { id: "overview", label: "Visão Geral", icon: CircleUserRound },
+    { id: "profile", label: "Perfil", icon: User },
+    { id: "password", label: "Senha", icon: Lock },
+    { id: "team", label: "Equipe", icon: Users },
+    { id: "billing", label: "Faturamento & Planos", icon: CreditCard },
+    { id: "preferences", label: "Preferências & Notificações", icon: Sliders },
+    { id: "security", label: "Segurança", icon: Shield },
+  ];
 
-      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-8">
+      
+      {/* Header Positivus Style */}
+      <div className="rounded-[35px] border-2 border-[#191A23] bg-white p-6 sm:p-10 shadow-[6px_6px_0px_#191A23]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-xl border-2 border-[#191A23] bg-[#B9FF66] px-3.5 py-1 text-xs font-black uppercase text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+              <Sparkles className="h-4 w-4" />
+              Configurações SaaS
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black text-[#191A23] tracking-tight">
+              Configurações do Sistema
+            </h1>
+            <p className="text-sm font-medium text-[#191A23]/70">
+              Gerencie seus dados de conta, equipe, cartões de crédito, recibos e preferências.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Horizontal Tabs Bar (Matching Screenshot 1) */}
+      <div className="overflow-x-auto pb-2">
         <nav
-          aria-label="Seções das configurações"
-          className="flex gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 lg:sticky lg:top-20 lg:h-fit lg:flex-col lg:overflow-visible"
+          aria-label="Abas de configurações"
+          className="flex gap-2 min-w-max rounded-2xl border-2 border-[#191A23] bg-white p-2 shadow-[4px_4px_0px_#191A23]"
         >
-          {sections.map((item) => {
-            const Icon = item.icon;
-            const active = section === item.id;
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={item.id}
+                key={tab.id}
                 type="button"
                 onClick={() => {
-                  setSection(item.id);
+                  setActiveTab(tab.id as TabType);
                   setNotice("");
                 }}
-                className={cn(
-                  "relative flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors lg:w-full",
-                  active
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
+                className={`relative inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-black transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-[#191A23] text-[#B9FF66] shadow-[2px_2px_0px_#B9FF66]"
+                    : "text-[#191A23] hover:bg-[#B9FF66]/20"
+                }`}
               >
-                {active && (
-                  <motion.span
-                    layoutId="settings-active-section"
-                    className="absolute inset-0 -z-0 rounded-xl bg-primary shadow-sm"
-                    transition={{ type: "spring", stiffness: 430, damping: 35 }}
-                  />
-                )}
-                <Icon className="relative z-10 size-4" />
-                <span className="relative z-10">{item.label}</span>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
-
-        <section className="min-w-0">
-          {notice && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              role="status"
-              className="mb-4 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-primary"
-            >
-              {notice}
-            </motion.div>
-          )}
-          {loading ? (
-            <SettingsSkeleton />
-          ) : (
-            <motion.div
-              key={section}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {section === "overview" && <OverviewPanel overview={overview} profile={profile} />}
-              {section === "profile" &&
-                (profile ? (
-                  <ProfilePanel profile={profile} onUpdated={setProfile} notify={notify} />
-                ) : (
-                  <SettingsSkeleton />
-                ))}
-              {section === "team" && <TeamPanel notify={notify} />}
-              {section === "password" && <PasswordPanel notify={notify} />}
-              {section === "security" && (
-                <SecurityPanel notify={notify} adminMfaRequired={adminMfaRequired} />
-              )}
-            </motion.div>
-          )}
-        </section>
       </div>
+
+      {/* Notice Banner */}
+      {notice && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          role="status"
+          className="rounded-2xl border-2 border-[#191A23] bg-[#B9FF66] p-4 text-xs font-bold text-[#191A23] shadow-[3px_3px_0px_#191A23]"
+        >
+          {notice}
+        </motion.div>
+      )}
+
+      {/* Tab Content Section */}
+      <main className="min-w-0">
+        {loading ? (
+          <SettingsSkeleton />
+        ) : (
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeTab === "overview" && <OverviewPanel overview={overview} profile={profile} />}
+            {activeTab === "profile" &&
+              (profile ? (
+                <ProfilePanel profile={profile} onUpdated={setProfile} notify={notify} />
+              ) : (
+                <SettingsSkeleton />
+              ))}
+            {activeTab === "password" && <PasswordPanel notify={notify} />}
+            {activeTab === "team" && <TeamPanel notify={notify} />}
+            {activeTab === "billing" && <BillingSettingsTab />}
+            {activeTab === "preferences" && <PreferencesSettingsTab />}
+            {activeTab === "security" && (
+              <SecurityPanel notify={notify} adminMfaRequired={adminMfaRequired} />
+            )}
+          </motion.div>
+        )}
+      </main>
+
     </div>
   );
 }

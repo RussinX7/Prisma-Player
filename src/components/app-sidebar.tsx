@@ -22,7 +22,7 @@ export function AppSidebar() {
     <Sidebar
       data-i18n-managed
       collapsible="icon"
-      variant="inset"
+      variant="sidebar"
       className="border-r border-border/70 bg-background"
     >
       <SidebarHeader className="h-16 justify-center border-b border-border/60 px-4">

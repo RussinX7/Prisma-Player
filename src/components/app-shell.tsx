@@ -5,8 +5,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-svh max-h-svh flex-col overflow-hidden bg-muted/25">
-      <SidebarProvider className="relative min-h-0 flex-1 overflow-hidden">
+    <div className="flex h-svh max-h-svh flex-col overflow-hidden bg-background">
+      <SidebarProvider className="relative min-h-0 flex-1 overflow-hidden bg-background">
         <AppSidebar />
         <SidebarInset className="flex h-full min-w-0 flex-col overflow-hidden bg-background">
           <AppHeader />
