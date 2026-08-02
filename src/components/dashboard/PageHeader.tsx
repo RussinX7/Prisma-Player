@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Plus, Upload, FolderPlus, Download } from "lucide-react";
 
 interface Action {
   label: string;
@@ -17,37 +16,10 @@ interface PageHeaderProps {
   children?: ReactNode;
 }
 
-const defaultActions = [
-  {
-    label: "Upload",
-    icon: <Upload size={16} />,
-    primary: false,
-    onClick: () => {},
-  },
-  {
-    label: "Criar",
-    icon: <Plus size={16} />,
-    primary: true,
-    onClick: () => {},
-  },
-  {
-    label: "Nova Pasta",
-    icon: <FolderPlus size={16} />,
-    primary: false,
-    onClick: () => {},
-  },
-  {
-    label: "Exportar",
-    icon: <Download size={16} />,
-    primary: false,
-    onClick: () => {},
-  },
-];
-
 export default function PageHeader({
   icon,
   title,
-  actions = defaultActions,
+  actions = [],
   children,
 }: PageHeaderProps) {
   return (
