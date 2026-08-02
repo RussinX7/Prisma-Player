@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AuthDivider } from "@/features/auth/components/AuthDivider";
 import { AuthField } from "@/features/auth/components/AuthField";
 import { AuthLayout } from "@/features/auth/components/AuthLayout";
 import { AuthNotice } from "@/features/auth/components/AuthNotice";
-import { SocialAuthButtons } from "@/features/auth/components/SocialAuthButtons";
-import type { AuthNoticeState, AuthProvider } from "@/features/auth/model/types";
+import type { AuthNoticeState } from "@/features/auth/model/types";
 import { clientRateMessage, consumeClientAttempt } from "@/lib/security/client-rate-limit";
 import { authService, safeAuthRedirect } from "@/services/auth/client";
 
@@ -50,18 +48,6 @@ export default function LoginPage() {
     }
   }
 
-  async function signInWith(provider: AuthProvider) {
-    setNotice(null);
-    try {
-      await authService.continueWithProvider(provider, "/dashboard/videos", "login");
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "Não foi possível continuar.",
-      });
-    }
-  }
-
   async function recoverPassword() {
     if (!email.trim()) {
       setNotice({ tone: "info", message: "Informe seu e-mail para recuperar a senha." });
@@ -92,10 +78,10 @@ export default function LoginPage() {
     <AuthLayout
       eyebrow="Bem-vindo de volta"
       title="Entre na sua operação"
-      description="Acompanhe suas VSLs, encontre oportunidades e continue de onde parou."
-      footer={<>Ainda não tem conta? <Link href="/signup" className="font-medium text-prisma-blue hover:underline">Criar conta</Link></>}
+      description="Acompanhe suas VSLs, analise retenção e continue de onde parou."
+      footer={<>Ainda não tem conta? <Link href="/signup" className="font-bold text-[#191A23] underline underline-offset-4 decoration-2">Criar conta grátis</Link></>}
     >
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <AuthField
           id="email"
           type="email"
@@ -115,21 +101,18 @@ export default function LoginPage() {
           placeholder="Sua senha"
           autoComplete="current-password"
           required
-          trailing={<button type="button" onClick={recoverPassword} className="text-xs font-medium text-prisma-blue hover:underline">Esqueci a senha</button>}
+          trailing={<button type="button" onClick={recoverPassword} className="text-xs font-bold text-[#191A23] underline underline-offset-2">Esqueci a senha</button>}
         />
         <AuthNotice notice={notice} />
-        <Button type="submit" size="lg" disabled={loading} className="h-12 w-full rounded-xl bg-prisma-blue text-white hover:bg-prisma-blue/90">
-          {loading ? <><LoaderCircle className="animate-spin" /> Entrando</> : "Entrar"}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading}
+          className="h-13 w-full rounded-2xl border-2 border-[#191A23] bg-[#191A23] text-[#B9FF66] font-black text-base shadow-[4px_4px_0px_#B9FF66] hover:bg-[#191A23]/90 hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer"
+        >
+          {loading ? <><LoaderCircle className="animate-spin h-5 w-5 mr-2 text-[#B9FF66]" /> Entrando...</> : "Entrar no Painel"}
         </Button>
       </form>
-      <AuthDivider />
-      <SocialAuthButtons
-        disabled={{
-          google: !authService.isProviderEnabled("google"),
-          apple: !authService.isProviderEnabled("apple"),
-        }}
-        onSelect={(provider) => void signInWith(provider)}
-      />
     </AuthLayout>
   );
 }

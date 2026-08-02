@@ -6,9 +6,9 @@ import type { AuthNoticeState } from "@/features/auth/model/types";
 import { cn } from "@/lib/utils";
 
 const toneStyles = {
-  error: "border-red-500/20 bg-red-500/8 text-red-700 dark:text-red-300",
-  success: "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
-  info: "border-prisma-blue/20 bg-prisma-blue/8 text-prisma-blue dark:text-blue-300",
+  error: "border-2 border-[#191A23] bg-red-100 text-red-900 shadow-[2px_2px_0px_#191A23]",
+  success: "border-2 border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]",
+  info: "border-2 border-[#191A23] bg-white text-[#191A23] shadow-[2px_2px_0px_#191A23]",
 };
 
 const toneIcons = {
@@ -28,11 +28,11 @@ export function AuthNotice({ notice }: { notice: AuthNoticeState | null }) {
           exit={{ opacity: 0, y: -4, height: 0 }}
           role={notice.tone === "error" ? "alert" : "status"}
           aria-live="polite"
-          className={cn("flex items-start gap-2.5 overflow-hidden rounded-xl border px-3.5 py-3 text-sm leading-5", toneStyles[notice.tone])}
+          className={cn("flex items-start gap-3 overflow-hidden rounded-2xl p-4 text-xs font-bold leading-relaxed", toneStyles[notice.tone])}
         >
           {(() => {
             const Icon = toneIcons[notice.tone];
-            return <Icon size={17} className="mt-0.5 shrink-0" aria-hidden />;
+            return <Icon className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />;
           })()}
           <span>{notice.message}</span>
         </motion.div>

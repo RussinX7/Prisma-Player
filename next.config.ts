@@ -23,7 +23,7 @@ function contentSecurityPolicy(frameAncestors: string) {
     "media-src 'self' blob: https:",
     "font-src 'self' data:",
     "worker-src 'self' blob:",
-    "connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com https://*.i.posthog.com https://*.posthog.com",
+    "connect-src 'self' blob: https://*.r2.cloudflarestorage.com https://*.i.posthog.com https://*.posthog.com",
   ].join("; ");
 }
 
@@ -55,7 +55,10 @@ const nextConfig: NextConfig = {
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         { key: "Content-Security-Policy", value: contentSecurityPolicy("*") },
-        { key: "CDN-Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=600" },
+        // O HTML carrega um token vinculado ao Origin/Referer. Ele nunca pode
+        // ser reutilizado pelo CDN entre sites diferentes.
+        { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        { key: "CDN-Cache-Control", value: "private, no-store" },
       ],
     }, {
       source: "/:path((?!embed(?:/|$)).*)",

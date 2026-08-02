@@ -1,4 +1,5 @@
 import { lookup } from "node:dns/promises";
+import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 
 export interface WebhookEvent {
@@ -21,6 +22,47 @@ export async function validateWebhookUrl(value: string) {
   const addresses = isIP(url.hostname) ? [{ address: url.hostname }] : await lookup(url.hostname, { all: true, verbatim: true });
   if (!addresses.length || addresses.some(({ address }) => blockedIp(address))) throw new Error("private_webhook_target");
   return url;
+}
+
+async function resolveSafeTarget(value: string) {
+  const url = await validateWebhookUrl(value);
+  const addresses = isIP(url.hostname)
+    ? [{ address: url.hostname, family: isIP(url.hostname) }]
+    : await lookup(url.hostname, { all: true, verbatim: true });
+  const target = addresses[0];
+  if (!target || blockedIp(target.address)) throw new Error("private_webhook_target");
+  return { url, address: target.address, family: target.family as 4 | 6 };
+}
+
+/**
+ * Envia para o mesmo IP que acabou de ser validado. `fetch()` resolveria o DNS
+ * novamente e abriria uma janela para DNS rebinding contra a rede privada.
+ */
+function postPinnedJson(target: Awaited<ReturnType<typeof resolveSafeTarget>>, body: string) {
+  return new Promise<number>((resolve, reject) => {
+    const request = httpsRequest({
+      protocol: "https:",
+      hostname: target.url.hostname,
+      servername: target.url.hostname,
+      port: 443,
+      path: `${target.url.pathname}${target.url.search}`,
+      method: "POST",
+      headers: {
+        host: target.url.host,
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+        "user-agent": "Prisma-Player-Webhooks/2.0",
+      },
+      lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
+      timeout: 8000,
+    }, (response) => {
+      response.resume();
+      response.once("end", () => resolve(response.statusCode ?? 0));
+    });
+    request.once("timeout", () => request.destroy(new Error("webhook_timeout")));
+    request.once("error", reject);
+    request.end(body);
+  });
 }
 
 const eventLabels: Record<string, { title: string; description: string; color: number }> = {
@@ -85,15 +127,10 @@ function discordPayload(event: WebhookEvent) {
 }
 
 export async function deliverWebhook(value: string, event: WebhookEvent) {
-  const url = await validateWebhookUrl(value);
+  const target = await resolveSafeTarget(value);
+  const { url } = target;
   const isDiscord = /(^|\.)discord(app)?\.com$/i.test(url.hostname) && url.pathname.includes("/api/webhooks/");
-  const response = await fetch(url, {
-    method: "POST",
-    redirect: "error",
-    headers: { "content-type": "application/json", "user-agent": "Prisma-Player-Webhooks/2.0" },
-    body: JSON.stringify(isDiscord ? discordPayload(event) : event),
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!response.ok) throw new Error(`webhook_http_${response.status}`);
-  return { status: response.status, provider: isDiscord ? "discord" : "generic" };
+  const status = await postPinnedJson(target, JSON.stringify(isDiscord ? discordPayload(event) : event));
+  if (status < 200 || status >= 300) throw new Error(`webhook_http_${status}`);
+  return { status, provider: isDiscord ? "discord" : "generic" };
 }

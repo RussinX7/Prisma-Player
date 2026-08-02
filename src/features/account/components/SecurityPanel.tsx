@@ -6,8 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MfaFactor } from "@/features/account/model/types";
-import { createClient } from "@/lib/supabase/client";
+import { apiRequest, ApiError } from "@/services/http/client";
 import { InfoRow, SettingsCard } from "./SettingsUi";
+
+interface SecurityState {
+  factors: MfaFactor[];
+  events: { id: string; event_type: string; metadata: unknown; created_at: string }[];
+}
 
 export function SecurityPanel({
   notify,
@@ -24,41 +29,37 @@ export function SecurityPanel({
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const result = await createClient().auth.mfa.listFactors();
-    if (!result.error) setFactors(result.data.all ?? []);
-    return result;
+    try {
+      const data = await apiRequest<SecurityState>("/api/account/security", { cache: "no-store" });
+      const current = data.factors.filter((factor) => factor.status === "verified");
+      const stale = data.factors.filter((factor) => factor.status === "unverified" && factor.friendly_name === "Prisma Player");
+      const verified = current.length > 0 ? current : (stale.length > 0 ? [] : data.factors);
+      setFactors(verified.length > 0 ? verified : data.factors);
+    } catch {
+    }
+    return null;
   }, []);
 
   useEffect(() => {
-    void createClient()
-      .auth.mfa.listFactors()
-      .then((result) => {
-        if (!result.error) setFactors(result.data.all ?? []);
-      });
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
+  }, [refresh]);
 
   async function enroll() {
     if (busy) return;
     setBusy(true);
-    const supabase = createClient();
     try {
-      const listed = await supabase.auth.mfa.listFactors();
-      if (listed.error) throw listed.error;
-      if (listed.data.all.some((factor) => factor.status === "verified")) {
-        setFactors(listed.data.all);
-        notify("O MFA já está ativo nesta conta.");
-        return;
-      }
-      const stale = listed.data.all.filter((factor) => factor.status === "unverified" && factor.friendly_name === "Prisma Player");
-      await Promise.all(stale.map((factor) => supabase.auth.mfa.unenroll({ factorId: factor.id })));
-      const result = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Prisma Player" });
-      if (result.error) throw result.error;
-      setFactorId(result.data.id);
-      setQr(result.data.totp.qr_code);
-      setSecret(result.data.totp.secret);
+      const data = await apiRequest<{ factorId: string; qr: string; secret: string }>("/api/account/security", {
+        method: "POST",
+        body: { action: "enroll" },
+      });
+      setFactorId(data.factorId);
+      setQr(data.qr);
+      setSecret(data.secret);
       notify("Escaneie o QR Code e informe o código de seis dígitos.");
-    } catch {
-      notify("Não foi possível iniciar o MFA. Entre novamente e tente outra vez.");
+    } catch (error) {
+      const msg = error instanceof ApiError && error.code === "mfa_already_active" ? "O MFA já está ativo nesta conta." : "Não foi possível iniciar o MFA. Entre novamente e tente outra vez.";
+      notify(msg);
     } finally {
       setBusy(false);
     }
@@ -67,27 +68,26 @@ export function SecurityPanel({
   async function verify() {
     if (busy || code.length !== 6 || !factorId) return;
     setBusy(true);
-    const supabase = createClient();
-    const challenge = await supabase.auth.mfa.challenge({ factorId });
-    if (challenge.error) {
-      notify("O desafio expirou. Gere um novo QR Code.");
+    try {
+      const challengeResp = await apiRequest<{ challengeId: string }>("/api/account/security", {
+        method: "POST",
+        body: { action: "challenge", factorId },
+      });
+      await apiRequest("/api/account/security", {
+        method: "POST",
+        body: { action: "verify", factorId, challengeId: challengeResp.challengeId, code },
+      });
+      setQr("");
+      setSecret("");
+      setCode("");
+      setFactorId("");
+      await refresh();
+      notify("Autenticação em dois fatores ativada.");
+    } catch {
+      notify("Código inválido, desafio expirado ou verificação falhou. Aguarde o próximo código.");
+    } finally {
       setBusy(false);
-      return;
     }
-    const result = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.data.id, code });
-    if (result.error) {
-      notify("Código inválido ou expirado. Aguarde o próximo código.");
-      setBusy(false);
-      return;
-    }
-    await supabase.auth.refreshSession();
-    setQr("");
-    setSecret("");
-    setCode("");
-    setFactorId("");
-    await refresh();
-    notify("Autenticação em dois fatores ativada.");
-    setBusy(false);
   }
 
   async function disableMfa() {
@@ -98,23 +98,21 @@ export function SecurityPanel({
     const factor = factors.find((item) => item.status === "verified");
     if (!factor || busy || !window.confirm("Desativar a autenticação em dois fatores?")) return;
     setBusy(true);
-    const supabase = createClient();
-    const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (assurance.error || assurance.data.currentLevel !== "aal2") {
-      notify("Confirme o segundo fator nesta sessão antes de desativar o MFA.");
+    try {
+      await apiRequest("/api/account/security", {
+        method: "POST",
+        body: { action: "unenroll", factorId: factor.id },
+      });
+      await refresh();
+      notify("Autenticação em dois fatores desativada.");
+    } catch (error) {
+      const msg = error instanceof ApiError && error.code === "aal2_required"
+        ? "Confirme o segundo fator nesta sessão antes de desativar o MFA."
+        : "Não foi possível desativar o MFA.";
+      notify(msg);
+    } finally {
       setBusy(false);
-      return;
     }
-    const result = await supabase.auth.mfa.unenroll({ factorId: factor.id });
-    if (result.error) {
-      notify("Não foi possível desativar o MFA.");
-      setBusy(false);
-      return;
-    }
-    await supabase.auth.refreshSession();
-    await refresh();
-    notify("Autenticação em dois fatores desativada.");
-    setBusy(false);
   }
 
   const verified = factors.some((factor) => factor.status === "verified");

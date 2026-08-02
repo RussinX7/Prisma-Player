@@ -17,9 +17,16 @@ create policy account_security_own_all on public.account_security_settings
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
--- 2. Revogar EXECUTE da funcao SECURITY DEFINER exposta
---    (rls_auto_enable e SECURITY DEFINER e nao contem verificacao de auth.uid())
-revoke execute on function public.rls_auto_enable from public, anon, authenticated;
+-- 2. Versoes antigas nunca chegaram a criar esta funcao. O bloco condicional
+-- mantem a migration executavel tanto num banco limpo quanto num banco que a
+-- possua por legado.
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated';
+  end if;
+end;
+$$;
 
 -- 3. Observacao sobre "leaked password protection disabled" apontado pelo
 --    supabase db advisors: esta configuracao fica no dashboard do Supabase em

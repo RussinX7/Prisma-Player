@@ -12,18 +12,20 @@ export function AuthField({ label, hint, trailing, className, id, ...props }: Au
   return (
     <div className="space-y-2">
       <div className="flex min-h-5 items-center justify-between gap-4">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">{label}</label>
+        <label htmlFor={id} className="text-xs font-bold uppercase tracking-wider text-[#191A23]">
+          {label}
+        </label>
         {trailing}
       </div>
       <Input
         id={id}
         className={cn(
-          "h-12 rounded-xl border-border bg-background px-3.5 text-[15px] shadow-none transition focus-visible:border-prisma-blue focus-visible:ring-2 focus-visible:ring-prisma-blue/18",
+          "h-12 rounded-2xl border-2 border-[#191A23] bg-white px-4 text-sm font-medium text-[#191A23] shadow-[3px_3px_0px_#191A23] transition-all focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-[#B9FF66]/20 placeholder:text-[#191A23]/50",
           className,
         )}
         {...props}
       />
-      {hint && <p className="text-xs leading-5 text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs font-medium text-[#191A23]/70">{hint}</p>}
     </div>
   );
 }

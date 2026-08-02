@@ -8,7 +8,7 @@
 
 drop policy if exists account_security_own_all on public.account_security_settings;
 create policy account_security_own_manage on public.account_security_settings
-  for select, insert, update to authenticated
+  for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 

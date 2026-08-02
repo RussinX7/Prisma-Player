@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SECURITY } from "@/lib/constants";
 
@@ -70,7 +71,12 @@ function limitedResponse(max: number, retryAfterSeconds: number, resetEpochSecon
   );
 }
 
-export type RateLimitOptions = { max: number; windowMs: number; failClosed?: boolean };
+export type RateLimitOptions = { max: number; windowMs: number; failClosed?: boolean; identifier?: string };
+
+/** Evita persistir e-mail, IP alternativo ou outro identificador sensivel. */
+export function hashRateLimitIdentifier(value: string): string {
+  return createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
+}
 
 export type RateLimitResult =
   | { limited: true; response: NextResponse }
@@ -88,7 +94,7 @@ export async function consumeRateLimit(request: Request, scope: string, options:
   // A janela chegava como NaN quando a variável de ambiente usava "60_000";
   // o valor virava `null` no RPC e a janela caía para 1 segundo.
   const windowMs = Number.isFinite(options.windowMs) && options.windowMs > 0 ? Math.round(options.windowMs) : 60_000;
-  const key = `${scope}:${clientIp(request)}`;
+  const key = `${scope}:${options.identifier ?? clientIp(request)}`;
 
   try {
     const admin = createAdminClient();

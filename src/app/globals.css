@@ -5,19 +5,22 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-prisma-blue: #0066cc;
-  --color-prisma-blue-focus: #0071e3;
-  --color-prisma-blue-on-dark: #2997ff;
-  --color-ink: #1d1d1f;
-  --color-body: #1d1d1f;
+  --color-prisma-blue: #191A23;
+  --color-prisma-blue-focus: #292A32;
+  --color-prisma-blue-on-dark: #B9FF66;
+  --color-positivus-green: #B9FF66;
+  --color-positivus-dark: #191A23;
+  --color-positivus-bg: #F3F3F3;
+  --color-ink: #191A23;
+  --color-body: #191A23;
   --color-body-on-dark: #ffffff;
-  --color-body-muted: #cccccc;
-  --color-ink-muted-80: #333333;
+  --color-body-muted: #7a7a7a;
+  --color-ink-muted-80: #292A32;
   --color-ink-muted-48: #7a7a7a;
-  --color-divider-soft: #f0f0f0;
-  --color-hairline: #e0e0e0;
+  --color-divider-soft: #191A23/10;
+  --color-hairline: #191A23/20;
   --color-canvas: #ffffff;
-  --color-canvas-parchment: #f5f5f7;
+  --color-canvas-parchment: #F3F3F3;
   --color-surface-pearl: #fafafc;
   --color-surface-tile-1: #272729;
   --color-surface-tile-2: #2a2a2c;

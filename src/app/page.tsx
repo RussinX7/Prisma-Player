@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import MarketingLanding from "@/features/marketing/components/MarketingLanding";
+import PositivusLanding from "@/features/landing-page/components/PositivusLanding";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,5 +11,6 @@ export default async function Home() {
     ? (await createAdminClient().from("profiles").select("full_name").eq("id", userId).maybeSingle()).data
     : null;
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || "Dashboard";
-  return <MarketingLanding account={userId ? { firstName } : null} />;
+  return <PositivusLanding account={userId ? { firstName } : null} />;
 }
+

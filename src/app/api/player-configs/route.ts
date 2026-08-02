@@ -4,6 +4,7 @@ import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ownedAssetPaths } from "@/lib/player/assets";
 import { purgeEmbedManifest } from "@/lib/cache/embed-purge";
+import { normalizePixelConfig, pixelConfigErrors } from "@/lib/player/pixels";
 
 const MAX_CONFIG_BYTES = 100_000;
 
@@ -44,7 +45,9 @@ export async function PUT(request: Request) {
   if (!ownedVideo) return NextResponse.json({ error: "video_not_found" }, { status: 404 });
 
   const domains = Array.isArray(body.domains) ? body.domains.filter((item): item is string => typeof item === "string").slice(0, 100) : [];
-  const config = { ...(body.config as Record<string, unknown>) };
+  const pixelErrors = pixelConfigErrors(body.config as Record<string, unknown>);
+  if (pixelErrors.length > 0) return NextResponse.json({ error: "invalid_pixel_config", fields: pixelErrors }, { status: 400 });
+  const config = normalizePixelConfig({ ...(body.config as Record<string, unknown>) });
   config.radius = Math.max(0, Math.min(28, Number(config.radius) || 0));
   config.progressHeight = Math.max(4, Math.min(12, Number(config.progressHeight) || 6));
   config.playbackRate = Math.max(0.75, Math.min(2, Number(config.playbackRate) || 1));

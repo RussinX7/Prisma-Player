@@ -1,17 +1,16 @@
 "use client";
 
 import posthog from "posthog-js";
-import { createClient } from "@/lib/supabase/client";
-import {
-  getAuthErrorMessage,
-  oauthEnabled,
-  withAuthTimeout,
-} from "@/lib/supabase/auth-errors";
-import type { AuthProvider } from "@/features/auth/model/types";
+import { apiRequest, ApiError } from "@/services/http/client";
 
 export class AuthServiceError extends Error {
   constructor(error: unknown, fallback: string) {
-    super(getAuthErrorMessage(error, fallback));
+    const message = error instanceof ApiError && error.payload?.message
+      ? String(error.payload.message)
+      : error instanceof Error
+        ? error.message
+        : fallback;
+    super(message);
     this.name = "AuthServiceError";
   }
 }
@@ -22,18 +21,12 @@ export function safeAuthRedirect(value: string | null, fallback = "/dashboard/vi
 }
 
 export const authService = {
-  isProviderEnabled(provider: AuthProvider) {
-    return oauthEnabled(provider);
-  },
-
   async signInWithEmail(email: string, password: string) {
     try {
-      const supabase = createClient();
-      const result = await withAuthTimeout(
-        supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
-      );
-      if (result.error) throw result.error;
-      const { data } = await supabase.auth.getUser();
+      const data = await apiRequest<{ user: { id: string; email?: string } | null }>("/api/auth/login", {
+        method: "POST",
+        body: { email: email.trim().toLowerCase(), password },
+      });
       if (data.user) {
         posthog.identify(data.user.id, { email: data.user.email });
         posthog.capture("user_logged_in", { method: "email" });
@@ -46,65 +39,46 @@ export const authService = {
 
   async signUpWithEmail(input: { name: string; email: string; password: string }) {
     try {
-      const supabase = createClient();
-      const result = await withAuthTimeout(supabase.auth.signUp({
-        email: input.email.trim().toLowerCase(),
-        password: input.password,
-        options: {
-          data: { full_name: input.name.trim() },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/welcome`,
-        },
-      }));
-      if (result.error) throw result.error;
-      if (result.data.user) {
-        posthog.identify(result.data.user.id, { email: result.data.user.email });
+      const data = await apiRequest<{ data: { user: { id: string; email?: string } | null }; hasSession?: boolean }>("/api/auth/signup", {
+        method: "POST",
+        body: { name: input.name, email: input.email, password: input.password },
+      });
+      if (data.data?.user) {
+        posthog.identify(data.data.user.id, { email: data.data.user.email });
         posthog.capture("user_signed_up", { method: "email" });
       }
-      return result.data;
+      return { session: data.hasSession ? "present" : null } as { session: string | null };
     } catch (error) {
       throw new AuthServiceError(error, "Não foi possível criar a conta. Tente novamente.");
     }
   },
 
-  async continueWithProvider(provider: AuthProvider, next: string, event: "login" | "signup") {
-    if (!oauthEnabled(provider)) {
-      throw new AuthServiceError(
-        null,
-        `${provider === "google" ? "Google" : "Apple"} ainda não foi ativado.`,
-      );
-    }
-    try {
-      posthog.capture(event === "login" ? "user_logged_in" : "user_signed_up", { method: provider });
-      const { error } = await createClient().auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      throw new AuthServiceError(error, "Não foi possível abrir o provedor de acesso.");
-    }
-  },
-
   async requestPasswordReset(email: string) {
     try {
-      const result = await withAuthTimeout(createClient().auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        { redirectTo: `${window.location.origin}/auth/callback?next=/reset-password` },
-      ));
-      if (result.error) throw result.error;
+      await apiRequest("/api/auth/reset", {
+        method: "POST",
+        body: { email: email.trim().toLowerCase() },
+      });
     } catch (error) {
       throw new AuthServiceError(error, "Não foi possível enviar o e-mail.");
     }
   },
 
   async updatePassword(password: string) {
-    const { error } = await createClient().auth.updateUser({ password });
-    if (error) throw new AuthServiceError(error, "O link expirou ou a senha não foi aceita.");
+    try {
+      await apiRequest("/api/auth/update-password", {
+        method: "POST",
+        body: { password },
+      });
+    } catch (error) {
+      throw new AuthServiceError(error, "O link expirou ou a senha não foi aceita.");
+    }
   },
 
   async signOut() {
-    await createClient().auth.signOut({ scope: "local" });
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+    } catch {
+    }
   },
 };

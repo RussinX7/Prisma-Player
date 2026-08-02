@@ -1,10 +1,12 @@
+import "server-only";
+
 export function getAuthErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   const code = typeof error === "object" && error !== null && "code" in error ? String(error.code).toLowerCase() : "";
   if (message.includes("already registered") || message.includes("already been registered")) return "Este e-mail já possui uma conta. Faça login.";
   if (code === "user_already_exists" || code === "email_exists") return "Este e-mail já possui uma conta. Faça login.";
   if (message.includes("invalid login credentials")) return "E-mail ou senha inválidos.";
-  if (code === "over_email_send_rate_limit") return "O limite temporário de e-mails de confirmação foi atingido. Aguarde cerca de uma hora ou continue com Google.";
+  if (code === "over_email_send_rate_limit") return "O limite temporário de e-mails de confirmação foi atingido. Aguarde cerca de uma hora e tente novamente.";
   if (message.includes("email rate limit") || code.includes("rate_limit")) return "Muitos cadastros foram solicitados. Aguarde alguns minutos e tente novamente.";
   if (message.includes("error sending confirmation email") || message.includes("error sending confirmation mail")) return "Não foi possível enviar o e-mail de confirmação. Verifique o SMTP da Prisma ou tente novamente em alguns minutos.";
   if (message.includes("signup is disabled") || code === "signup_disabled") return "Novos cadastros estão temporariamente pausados.";
@@ -30,8 +32,3 @@ export async function withAuthTimeout<T>(operation: PromiseLike<T>, timeoutMs = 
   }
 }
 
-export function oauthEnabled(provider: "google" | "apple") {
-  return provider === "google"
-    ? process.env.NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED === "true"
-    : process.env.NEXT_PUBLIC_SUPABASE_APPLE_ENABLED === "true";
-}

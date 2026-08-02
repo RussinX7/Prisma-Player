@@ -3,7 +3,7 @@ import { guard } from "@/lib/api/guard";
 import { readJsonBody } from "@/lib/api/request";
 import { getStorageUsedBytes } from "@/lib/access/service";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isR2Configured, r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r2";
+import { r2MaxUploadBytes, signR2ReadUrl } from "@/lib/storage/r2";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { VIDEO } from "@/lib/constants";
@@ -88,9 +88,9 @@ export async function POST(request: Request) {
   if (!body) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   const supabase = createAdminClient();
   const sizeBytes = Number(body.sizeBytes);
-  const storageProvider = isR2Configured() ? "r2" : "supabase";
-  const objectPath = buildObjectPath(body.fileName ?? body.title, storageProvider === "r2" ? account.accountOwnerId : userId);
-  const maxBytes = storageProvider === "r2" ? r2MaxUploadBytes() : 5 * 1024 ** 3;
+  const storageProvider = "r2";
+  const objectPath = buildObjectPath(body.fileName ?? body.title, account.accountOwnerId);
+  const maxBytes = r2MaxUploadBytes();
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes) return NextResponse.json({ error: "invalid_file_size", maxBytes }, { status: 422 });
 
   // Quota do plano. Sem isto o armazenamento — e o custo de R2 — não tinha teto.

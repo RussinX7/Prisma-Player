@@ -81,9 +81,9 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
                   render={<Link href={item.path ?? "#"} />}
                   className={cn(
                     "min-h-10 rounded-xl px-3 font-medium text-muted-foreground transition-colors",
-                    "hover:bg-accent hover:text-foreground",
+                    "hover:bg-[#B9FF66]/20 hover:text-[#191A23]",
                     isItemActive &&
-                      "bg-primary text-primary-foreground shadow-sm hover:bg-primary/92 hover:text-primary-foreground",
+                      "bg-[#191A23] text-[#B9FF66] font-extrabold border-2 border-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#191A23] hover:text-[#B9FF66]",
                   )}
                 >
                   {item.icon}

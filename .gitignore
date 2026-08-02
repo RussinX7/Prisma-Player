@@ -60,3 +60,9 @@ cloudflare/**/dist/
 
 # OS
 Thumbs.db
+
+# Temp & Secrets
+workspace/
+VERCEL_ENVS.txt
+.mantis_snapshot_id
+

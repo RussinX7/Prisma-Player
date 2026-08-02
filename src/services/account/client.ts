@@ -1,7 +1,6 @@
 "use client";
 
 import { apiRequest } from "@/services/http/client";
-import { createClient } from "@/lib/supabase/client";
 
 export interface AccountIdentity {
   name: string;
@@ -10,11 +9,13 @@ export interface AccountIdentity {
 
 export const accountService = {
   async getIdentity(): Promise<AccountIdentity> {
-    const { data } = await createClient().auth.getUser();
-    const user = data.user;
+    const data = await apiRequest<{ profile: { full_name: string | null; email: string | null } | null }>("/api/account/profile", {
+      cache: "no-store",
+    });
+    const profile = data.profile;
     return {
-      name: String(user?.user_metadata.full_name ?? user?.email ?? "Conta Prisma"),
-      email: user?.email ?? "",
+      name: String(profile?.full_name ?? profile?.email ?? "Conta Prisma"),
+      email: profile?.email ?? "",
     };
   },
 

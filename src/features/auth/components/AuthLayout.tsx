@@ -2,9 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
-import { BarChart3, ShieldCheck, Sparkles } from "lucide-react";
-import BrandLogo from "@/components/BrandLogo";
+import { Play, BarChart3, ShieldCheck, Sparkles } from "lucide-react";
 
 interface AuthLayoutProps {
   eyebrow: string;
@@ -15,63 +13,83 @@ interface AuthLayoutProps {
 }
 
 const highlights = [
-  { icon: BarChart3, text: "Veja exatamente onde sua VSL ganha ou perde atenção." },
-  { icon: Sparkles, text: "Transforme métricas em próximos testes objetivos." },
-  { icon: ShieldCheck, text: "Proteja seu conteúdo e mantenha a operação sob controle." },
+  { icon: BarChart3, text: "Veja exatamente onde sua VSL ganha ou perde atenção em tempo real." },
+  { icon: Sparkles, text: "Transforme métricas de retenção em testes A/B altamente lucrativos." },
+  { icon: ShieldCheck, text: "Proteja seu vídeo contra pirataria e downloads indevidos com DRM." },
 ];
 
 export function AuthLayout({ eyebrow, title, description, children, footer }: AuthLayoutProps) {
   return (
-    <main className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)]">
-      <section className="flex min-h-dvh items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-          className="w-full max-w-[440px]"
-        >
-          <Link href="/" aria-label="Voltar para a página inicial" className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <BrandLogo className="h-9 w-[184px]" priority />
-          </Link>
-          <div className="mb-8 mt-10">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-prisma-blue">{eyebrow}</p>
-            <h1 className="text-balance text-[clamp(2rem,5vw,2.7rem)] font-semibold leading-[1.05] tracking-[-0.045em] text-foreground">
-              {title}
-            </h1>
-            <p className="mt-3 max-w-md text-[15px] leading-6 text-muted-foreground">{description}</p>
-          </div>
-          {children}
-          <div className="mt-8 text-center text-sm text-muted-foreground">{footer}</div>
-        </motion.div>
-      </section>
-
-      <aside className="relative hidden overflow-hidden border-l border-border bg-[#101319] p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <div aria-hidden className="absolute inset-0 opacity-90 [background:radial-gradient(circle_at_18%_18%,rgba(0,113,227,.3),transparent_34%),radial-gradient(circle_at_80%_75%,rgba(41,151,255,.18),transparent_35%)]" />
-        <div className="relative">
-          <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 backdrop-blur">
-            Operação de VSL em um só lugar
-          </span>
-          <h2 className="mt-8 max-w-lg text-[clamp(2.35rem,4vw,4.6rem)] font-semibold leading-[0.98] tracking-[-0.06em]">
-            Sua VSL fala. A Prisma mostra o que ela está dizendo.
-          </h2>
-        </div>
-        <div className="relative grid gap-3">
-          {highlights.map(({ icon: Icon, text }, index) => (
-            <motion.div
-              key={text}
-              initial={{ opacity: 0, x: 12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.12 + index * 0.07, duration: 0.3 }}
-              className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl"
-            >
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-prisma-blue text-white">
-                <Icon size={17} aria-hidden />
+    <main className="min-h-screen bg-[#F3F3F3] text-[#191A23] font-sans antialiased flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        
+        {/* Form Card (Left) */}
+        <div className="lg:col-span-6 rounded-[40px] border-2 border-[#191A23] bg-white p-8 sm:p-12 shadow-[8px_8px_0px_#191A23] flex flex-col justify-between">
+          <div>
+            {/* Logo Positivus */}
+            <Link href="/" className="inline-flex items-center gap-3 group">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#191A23] text-[#B9FF66] shadow-[2px_2px_0px_#191A23] group-hover:scale-105 transition-transform">
+                <Play className="h-5 w-5 fill-[#B9FF66] ml-0.5" />
+              </div>
+              <span className="text-xl font-extrabold tracking-tight text-[#191A23]">
+                Prisma<span className="font-light">Player</span>
               </span>
-              <p className="pt-1 text-sm leading-5 text-white/78">{text}</p>
-            </motion.div>
-          ))}
+            </Link>
+
+            <div className="mt-8 mb-6 space-y-3">
+              <span className="inline-block rounded-xl border-2 border-[#191A23] bg-[#B9FF66] px-3.5 py-1 text-xs font-black uppercase text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+                {eyebrow}
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[#191A23] leading-tight">
+                {title}
+              </h1>
+              <p className="text-sm font-medium text-[#191A23]/80 leading-relaxed">
+                {description}
+              </p>
+            </div>
+
+            {children}
+          </div>
+
+          <div className="mt-8 pt-6 border-t-2 border-[#191A23]/10 text-center text-sm font-bold text-[#191A23]">
+            {footer}
+          </div>
         </div>
-      </aside>
+
+        {/* Info Aside Card (Right) */}
+        <div className="lg:col-span-6 rounded-[40px] border-2 border-[#191A23] bg-[#191A23] p-8 sm:p-12 text-white shadow-[8px_8px_0px_#B9FF66] hidden lg:flex lg:flex-col lg:justify-between">
+          <div className="space-y-6">
+            <span className="inline-block rounded-xl border-2 border-[#B9FF66] bg-[#B9FF66] px-3.5 py-1 text-xs font-black uppercase text-[#191A23] shadow-[2px_2px_0px_white]">
+              Operação VSL de Alta Retenção
+            </span>
+
+            <h2 className="text-3xl lg:text-4xl font-black text-[#B9FF66] tracking-tight leading-tight">
+              Sua VSL fala. O Prisma mostra o que ela está vendendo.
+            </h2>
+
+            <p className="text-sm font-medium text-white/80 leading-relaxed">
+              Infraestrutura Turbo CDN de baixa latência, pitch delay ao segundo exato e análises detalhadas para multiplicar seu ROI.
+            </p>
+          </div>
+
+          <div className="mt-10 space-y-4">
+            {highlights.map(({ icon: Icon, text }, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-4 rounded-2xl border-2 border-white/20 bg-white/5 p-4 backdrop-blur-md shadow-[3px_3px_0px_#191A23]"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_white]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="pt-1 text-xs font-semibold text-white/90 leading-snug">
+                  {text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
     </main>
   );
 }

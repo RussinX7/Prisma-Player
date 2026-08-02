@@ -4,12 +4,10 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Check, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AuthDivider } from "@/features/auth/components/AuthDivider";
 import { AuthField } from "@/features/auth/components/AuthField";
 import { AuthLayout } from "@/features/auth/components/AuthLayout";
 import { AuthNotice } from "@/features/auth/components/AuthNotice";
-import { SocialAuthButtons } from "@/features/auth/components/SocialAuthButtons";
-import type { AuthNoticeState, AuthProvider } from "@/features/auth/model/types";
+import type { AuthNoticeState } from "@/features/auth/model/types";
 import { authService } from "@/services/auth/client";
 
 export default function SignupPage() {
@@ -49,24 +47,12 @@ export default function SignupPage() {
     }
   }
 
-  async function signUpWith(provider: AuthProvider) {
-    setNotice(null);
-    try {
-      await authService.continueWithProvider(provider, "/welcome", "signup");
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "Não foi possível continuar.",
-      });
-    }
-  }
-
   return (
     <AuthLayout
-      eyebrow="14 dias grátis"
-      title="Crie sua conta Prisma"
+      eyebrow="14 dias grátis sem cartão"
+      title="Crie sua conta no Prisma"
       description="Teste a operação completa, sem cartão e sem cobrança automática."
-      footer={<>Já possui uma conta? <Link href="/login" className="font-medium text-prisma-blue hover:underline">Fazer login</Link></>}
+      footer={<>Já possui uma conta? <Link href="/login" className="font-bold text-[#191A23] underline underline-offset-4 decoration-2">Fazer login</Link></>}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthField
@@ -102,36 +88,33 @@ export default function SignupPage() {
           hint="Use pelo menos 8 caracteres."
         />
 
-        <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-transparent p-1 text-sm leading-5 text-muted-foreground focus-within:border-prisma-blue/30">
+        <label className="group flex cursor-pointer items-start gap-3 rounded-2xl border-2 border-[#191A23] bg-white p-3 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23]">
           <span className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
             <input
               type="checkbox"
               checked={agreed}
               onChange={(event) => setAgreed(event.target.checked)}
               required
-              className="peer size-5 appearance-none rounded-md border border-input bg-background outline-none transition checked:border-prisma-blue checked:bg-prisma-blue focus-visible:ring-2 focus-visible:ring-prisma-blue/25"
+              className="peer size-5 appearance-none rounded-lg border-2 border-[#191A23] bg-white outline-none transition checked:border-[#191A23] checked:bg-[#B9FF66]"
             />
-            <Check aria-hidden size={14} className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100" />
+            <Check aria-hidden size={14} className="pointer-events-none absolute text-[#191A23] opacity-0 peer-checked:opacity-100 font-extrabold" />
           </span>
           <span>
-            Concordo com os <Link href="/terms" target="_blank" className="font-medium text-prisma-blue hover:underline">Termos de Uso</Link> e a{" "}
-            <Link href="/privacy" target="_blank" className="font-medium text-prisma-blue hover:underline">Política de Privacidade</Link>.
+            Concordo com os <Link href="/terms" target="_blank" className="font-bold text-[#191A23] underline underline-offset-2">Termos de Uso</Link> e a{" "}
+            <Link href="/privacy" target="_blank" className="font-bold text-[#191A23] underline underline-offset-2">Política de Privacidade</Link>.
           </span>
         </label>
 
         <AuthNotice notice={notice} />
-        <Button type="submit" size="lg" disabled={loading || !agreed} className="h-12 w-full rounded-xl bg-prisma-blue text-white hover:bg-prisma-blue/90">
-          {loading ? <><LoaderCircle className="animate-spin" /> Criando conta</> : "Começar meus 14 dias"}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading || !agreed}
+          className="h-13 w-full rounded-2xl border-2 border-[#191A23] bg-[#191A23] text-[#B9FF66] font-black text-base shadow-[4px_4px_0px_#B9FF66] hover:bg-[#191A23]/90 hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+        >
+          {loading ? <><LoaderCircle className="animate-spin h-5 w-5 mr-2 text-[#B9FF66]" /> Criando conta...</> : "Começar meus 14 dias grátis"}
         </Button>
       </form>
-      <AuthDivider />
-      <SocialAuthButtons
-        disabled={{
-          google: !authService.isProviderEnabled("google"),
-          apple: !authService.isProviderEnabled("apple"),
-        }}
-        onSelect={(provider) => void signUpWith(provider)}
-      />
     </AuthLayout>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import VideoPlayer from "./VideoPlayer";
+import { pixelIntegrations } from "@/lib/player/pixels";
 
 interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown>; eventToken?: string }
 
@@ -49,8 +50,10 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   const trackingVariantId = tracking?.variantId;
   const trackingSessionId = tracking?.sessionId;
 
-  const publishPixelEvent = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click", progressPercent = 0) => {
-    if (!payload?.videoId || !Boolean(payload.config.pixelsEnabled)) return;
+  const publishPixelEvent = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click" | "conversion", progressPercent = 0, commerce?: { value: number; currency: string; transactionId: string; advertisingConsent?: boolean }) => {
+    if (!payload?.videoId) return;
+    const integrations = pixelIntegrations(payload.config);
+    if (integrations.length === 0) return;
     const targetOrigin = (() => { try { return new URL(document.referrer).origin; } catch { return ""; } })();
     if (!targetOrigin || window.parent === window) return;
     window.parent.postMessage({
@@ -59,9 +62,20 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
       videoId: payload.videoId,
       eventType,
       progressPercent,
-      provider: String(payload.config.pixelProvider ?? "Personalizado"),
-      pixelId: String(payload.config.pixelId ?? ""),
       pixelName: String(payload.config.pixelName ?? ""),
+      integrations,
+      value: commerce?.value,
+      currency: commerce?.currency,
+      transactionId: commerce?.transactionId,
+      consent: {
+        mode: payload.config.pixelConsentMode === "external" ? "external" : "banner",
+        title: String(payload.config.pixelConsentTitle ?? ""),
+        description: String(payload.config.pixelConsentDescription ?? ""),
+        acceptLabel: String(payload.config.pixelConsentAcceptLabel ?? ""),
+        rejectLabel: String(payload.config.pixelConsentRejectLabel ?? ""),
+        privacyUrl: String(payload.config.pixelPrivacyUrl ?? ""),
+      },
+      analyticsContext: { videoId: payload.videoId, sessionId: sessionId.current, eventToken: payload.eventToken },
     }, targetOrigin);
   };
 
@@ -73,13 +87,13 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     void fetch("/api/ab-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...tracking, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken }) });
   };
 
-  const trackAnalytics = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click", progressPercent = 0, watchedSeconds = 0) => {
+  const trackAnalytics = (eventType: "impression" | "play" | "progress" | "complete" | "cta_click" | "conversion", progressPercent = 0, watchedSeconds = 0, commerce?: { value: number; currency: string; transactionId: string; advertisingConsent?: boolean }) => {
     if (!payload?.videoId || !sessionId.current) return;
     const key = `${eventType}:${progressPercent}`;
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
-    publishPixelEvent(eventType, progressPercent);
-    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href };
+    publishPixelEvent(eventType, progressPercent, commerce);
+    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href, transactionId: commerce?.transactionId, value: commerce?.value, currency: commerce?.currency, advertisingConsent: commerce?.advertisingConsent === true };
     void (async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -143,6 +157,24 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   // trackAnalytics intentionally follows payload availability once per embed session.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload]);
+
+  useEffect(() => {
+    if (!payload || window.parent === window) return;
+    const parentOrigin = (() => { try { return new URL(document.referrer).origin; } catch { return ""; } })();
+    if (!parentOrigin) return;
+    const handleConversion = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.origin !== parentOrigin || event.data?.type !== "prisma-player:track-conversion" || event.data?.playerId !== playerId) return;
+      const value = Number(event.data.value);
+      const currency = String(event.data.currency || "").toUpperCase();
+      const transactionId = String(event.data.transactionId || "").trim().slice(0, 120);
+      if (!Number.isFinite(value) || value < 0 || !/^[A-Z]{3}$/.test(currency) || !transactionId) return;
+      trackAnalytics("conversion", 0, liveProgress.current.watchedSeconds, { value, currency, transactionId, advertisingConsent: event.data.advertisingConsent === true });
+    };
+    window.addEventListener("message", handleConversion);
+    return () => window.removeEventListener("message", handleConversion);
+  // Conversion messages are intentionally bound to the active player payload.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, playerId]);
 
   useEffect(() => {
     if (!payload?.videoId || !payload.eventToken || !sessionId.current) return;
