@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BrainCircuit, Target, Zap } from "lucide-react";
-import Header from "@/components/dashboard/Header";
+import PageHeader from "@/components/dashboard/PageHeader";
 import IntelligenceControls from "@/features/intelligence/components/IntelligenceControls";
 import { requireUser } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -53,19 +53,168 @@ export default async function IntelligencePage() {
     global: (globalBenchmark.data ?? { qualified: false, sampleVideos: 0, samplePlays: 0, playRate: 0, completion: 0, conversion: 0 }) as { qualified: boolean; sampleVideos: number; samplePlays: number; playRate: number; completion: number; conversion: number },
   };
 
-  return <><main className="dashboard-content pb-16">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[12px] font-semibold uppercase tracking-[.16em] text-prisma-blue">Prisma Intelligence</p><h1 className="mt-2 text-[30px] font-semibold tracking-[-.045em] themeable-text-ink">Seu centro de decisões</h1><p className="mt-1 max-w-2xl text-[14px] themeable-text-ink-muted-48">Sinais da operação transformados em prioridades, experimentos e próximos passos.</p></div><div className="flex gap-2"><span className="rounded-full border px-4 py-2 text-[12px] themeable-border-hairline themeable-text-ink">{wallet.data?.balance ?? 0} créditos IA</span><span className="rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white">{plan?.name ?? "Sem plano"}</span></div></div>
+  return (
+    <main className="dashboard-content pb-16 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <PageHeader
+          icon={<BrainCircuit size={20} />}
+          title="Prisma Intelligence & Diagnósticos"
+        />
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border-2 border-[#191A23] bg-white px-4 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+            {wallet.data?.balance ?? 0} Créditos IA
+          </span>
+          <span className="rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-4 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+            {plan?.name ?? "Plano Pro Scale"}
+          </span>
+        </div>
+      </div>
 
-    <section className="mt-7 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
-      <article className="rounded-[18px] border bg-white p-6 themeable-border-hairline dark:bg-[#1d1d1f] sm:p-8"><div className="flex items-center justify-between gap-4"><span className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#0066cc]"><BrainCircuit size={17} /> Saúde da operação</span><span className="text-[12px] themeable-text-ink-muted-48">30 dias</span></div><div className="mt-10 grid gap-7 sm:grid-cols-[120px_1fr]"><div><strong className="text-[56px] font-semibold leading-none tracking-[-.06em] themeable-text-ink">{score}</strong><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]"><span className="block h-full rounded-full bg-[#0066cc]" style={{ width: `${score}%` }} /></div><span className="mt-2 block text-[11px] themeable-text-ink-muted-48">de 100 pontos</span></div><div><h2 className="text-[28px] font-semibold leading-tight tracking-[-.035em] themeable-text-ink">{score >= 70 ? "Pronta para escalar" : score >= 40 ? "Bom sinal. Há espaço para evoluir." : "Primeiro, construa uma base confiável."}</h2><p className="mt-3 max-w-xl text-[14px] leading-6 themeable-text-ink-muted-48">Uma leitura direta de play rate, chegada ao pitch, retenção final e conversões.</p></div></div><div className="mt-9 grid grid-cols-3 gap-px overflow-hidden rounded-[11px] bg-[#e0e0e0]"><Mini label="Visualizações" value={totals.impressions} /><Mini label="Plays" value={totals.plays} /><Mini label="Conversões" value={totals.conversions} /></div></article>
-      <article className="rounded-[28px] border p-6 themeable-bg-canvas themeable-border-hairline"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-prisma-blue/10 text-prisma-blue"><Target size={21} /></span><div><h2 className="font-semibold themeable-text-ink">Foco recomendado</h2><p className="text-[12px] themeable-text-ink-muted-48">O que merece atenção agora</p></div></div><div className="mt-6 space-y-3">{actions.map((action) => <Link href={action.href} key={action.title} className="group block rounded-[20px] border p-4 transition hover:-translate-y-0.5 hover:border-prisma-blue themeable-border-hairline"><div className="flex gap-3"><span className={`mt-1 size-2 shrink-0 rounded-full ${action.tone === "amber" ? "bg-amber-500" : action.tone === "green" ? "bg-emerald-500" : "bg-prisma-blue"}`} /><div><h3 className="font-semibold themeable-text-ink">{action.title}</h3><p className="mt-1 text-[12px] leading-5 themeable-text-ink-muted-48">{action.detail}</p><span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-prisma-blue">Abrir análise <ArrowRight size={13} className="transition group-hover:translate-x-1" /></span></div></div></Link>)}</div></article>
-    </section>
+      <section className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
+        <article className="rounded-[35px] border-2 border-[#191A23] bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#191A23]">
+          <div className="flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-[#191A23]">
+              <BrainCircuit size={17} /> Saúde da Operação
+            </span>
+            <span className="text-xs font-bold text-[#191A23]/60">Últimos 30 dias</span>
+          </div>
 
-    <section id="portfolio" className="mt-5 overflow-hidden rounded-[18px] border themeable-bg-canvas themeable-border-hairline"><div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 themeable-border-hairline"><div><h2 className="text-[19px] font-semibold themeable-text-ink">Radar do portfólio</h2><p className="text-[12px] themeable-text-ink-muted-48">Compare alcance, retenção e resultado sem abrir relatório por relatório.</p></div><Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-full bg-prisma-blue px-4 py-2 text-[12px] font-semibold text-white"><Zap size={15} /> Criar experimento</Link></div><div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-[12px]"><thead className="bg-black/[.025] themeable-text-ink-muted-48"><tr><th className="px-5 py-3">Posição / VSL</th><th>Play rate</th><th>Chegada ao pitch</th><th>Retenção final</th><th>Conversão</th><th /></tr></thead><tbody>{performance.map((video, index) => <tr key={video.id} className="border-t themeable-border-hairline"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className={`grid size-8 place-items-center rounded-full text-[11px] font-bold ${index === 0 ? "bg-prisma-blue text-white" : "bg-black/5 themeable-text-ink"}`}>{index + 1}</span><div><strong className="block max-w-[260px] truncate themeable-text-ink">{video.title}</strong><span className="themeable-text-ink-muted-48">{video.impressions} visualizações</span></div></div></td><Metric value={video.playRate} /><Metric value={video.pitch} /><Metric value={video.completion} /><Metric value={video.conversion} strong /><td className="pr-5 text-right"><Link href={`/dashboard/analytics/${video.id}`} className="font-semibold text-prisma-blue">Detalhes</Link></td></tr>)}{!performance.length && <tr><td colSpan={6} className="px-5 py-16 text-center themeable-text-ink-muted-48">Suas VSLs aparecerão aqui assim que forem publicadas.</td></tr>}</tbody></table></div></section>
+          <div className="mt-8 grid gap-6 sm:grid-cols-[130px_1fr] items-center">
+            <div className="rounded-2xl border-2 border-[#191A23] bg-[#B9FF66] p-4 text-center shadow-[3px_3px_0px_#191A23]">
+              <strong className="text-5xl font-black text-[#191A23] leading-none">{score}</strong>
+              <span className="mt-2 block text-[10px] font-extrabold uppercase text-[#191A23]/80">de 100 pontos</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-[#191A23] tracking-tight leading-tight">
+                {score >= 70 ? "Operação pronta para escalar tráfego pago" : score >= 40 ? "Bom sinal. Há espaço para evoluir." : "Primeiro, construa uma base confiável."}
+              </h2>
+              <p className="mt-2 text-xs font-medium text-[#191A23]/70 leading-relaxed">
+                Leitura inteligente de play rate, retenção até o pitch delay e conversões confirmadas.
+              </p>
+            </div>
+          </div>
 
-    <IntelligenceControls capabilities={capabilities} videoCount={performance.length} benchmarkData={benchmarkData} videos={performance.filter((video) => video.status === "ready").map(({ id, title }) => ({ id, title }))} />
-  </main></>;
+          <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border-2 border-[#191A23] bg-[#191A23]">
+            <Mini label="Visualizações" value={totals.impressions} />
+            <Mini label="Plays Únicos" value={totals.plays} />
+            <Mini label="Conversões" value={totals.conversions} />
+          </div>
+        </article>
+
+        <article className="rounded-[35px] border-2 border-[#191A23] bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#191A23]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+              <Target size={21} />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-[#191A23]">Foco Recomendado</h2>
+              <p className="text-xs font-medium text-[#191A23]/70">Onde agir para multiplicar vendas</p>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {actions.map((action) => (
+              <Link
+                href={action.href}
+                key={action.title}
+                className="group block rounded-2xl border-2 border-[#191A23] bg-white p-4 transition-all hover:bg-[#F3F3F3] shadow-[3px_3px_0px_#191A23]"
+              >
+                <div className="flex gap-3">
+                  <span className={`mt-1 h-3 w-3 shrink-0 rounded-full border border-[#191A23] ${action.tone === "amber" ? "bg-amber-400" : action.tone === "green" ? "bg-[#B9FF66]" : "bg-[#191A23]"}`} />
+                  <div>
+                    <h3 className="text-sm font-black text-[#191A23]">{action.title}</h3>
+                    <p className="mt-1 text-xs font-medium text-[#191A23]/70 leading-relaxed">{action.detail}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#191A23] underline underline-offset-2">
+                      Abrir análise <ArrowRight size={13} className="transition group-hover:translate-x-1" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section id="portfolio" className="overflow-hidden rounded-[30px] border-2 border-[#191A23] bg-white p-2 shadow-[4px_4px_0px_#191A23]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#191A23]/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#191A23]">Radar do Portfólio de VSLs</h2>
+            <p className="text-xs font-medium text-[#191A23]/70">Compare alcance, retenção e resultado entre todas as suas páginas.</p>
+          </div>
+          <Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+            <Zap size={15} /> Criar experimento A/B
+          </Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-xs font-bold text-[#191A23]">
+            <thead className="bg-[#F3F3F3] text-xs font-black uppercase text-[#191A23] border-b-2 border-[#191A23]">
+              <tr>
+                <th className="px-6 py-4">Posição / VSL</th>
+                <th>Play rate</th>
+                <th>Chegada ao pitch</th>
+                <th>Retenção final</th>
+                <th>Conversão</th>
+                <th className="pr-6 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y border-[#191A23]/20">
+              {performance.map((video, index) => (
+                <tr key={video.id} className="hover:bg-[#F3F3F3]/50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className={`grid h-8 w-8 place-items-center rounded-full border border-[#191A23] text-xs font-black ${index === 0 ? "bg-[#B9FF66] text-[#191A23]" : "bg-white text-[#191A23]"}`}>
+                        {index + 1}
+                      </span>
+                      <div>
+                        <strong className="block max-w-[260px] truncate font-black text-sm text-[#191A23]">{video.title}</strong>
+                        <span className="text-xs font-semibold text-[#191A23]/60">{video.impressions} visualizações</span>
+                      </div>
+                    </div>
+                  </td>
+                  <Metric value={video.playRate} />
+                  <Metric value={video.pitch} />
+                  <Metric value={video.completion} />
+                  <Metric value={video.conversion} strong />
+                  <td className="pr-6 text-right">
+                    <Link href={`/dashboard/analytics/${video.id}`} className="inline-flex rounded-xl border border-[#191A23] bg-white px-3 py-1 text-xs font-bold text-[#191A23] shadow-[1px_1px_0px_#191A23] hover:bg-[#B9FF66]">
+                      Detalhes
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {!performance.length && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center text-xs font-bold text-[#191A23]/70">
+                    Suas VSLs aparecerão aqui assim que forem publicadas.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <IntelligenceControls capabilities={capabilities} videoCount={performance.length} benchmarkData={benchmarkData} videos={performance.filter((video) => video.status === "ready").map(({ id, title }) => ({ id, title }))} />
+    </main>
+  );
 }
 
-function Mini({ label, value }: { label: string; value: number }) { return <div className="bg-[#fafafc] px-4 py-3 dark:bg-white/[.04]"><span className="block text-[10px] uppercase tracking-[.08em] themeable-text-ink-muted-48">{label}</span><strong className="mt-1 block text-xl themeable-text-ink">{value.toLocaleString("pt-BR")}</strong></div>; }
-function Metric({ value, strong }: { value: number; strong?: boolean }) { return <td><span className={strong ? "font-bold text-prisma-blue" : "themeable-text-ink"}>{value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span><span className="ml-2 inline-block h-1.5 w-14 overflow-hidden rounded-full bg-black/5 align-middle"><span className="block h-full rounded-full bg-prisma-blue" style={{ width: `${Math.min(100, value)}%` }} /></span></td>; }
+function Mini({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white p-4 text-center">
+      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#191A23]/60">{label}</span>
+      <strong className="mt-1 block text-2xl font-black text-[#191A23]">{value.toLocaleString("pt-BR")}</strong>
+    </div>
+  );
+}
+
+function Metric({ value, strong }: { value: number; strong?: boolean }) {
+  return (
+    <td>
+      <span className={strong ? "font-black text-[#191A23]" : "font-bold text-[#191A23]"}>{value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+      <span className="ml-2 inline-block h-2 w-14 overflow-hidden rounded-full border border-[#191A23] bg-[#F3F3F3] align-middle">
+        <span className="block h-full rounded-full bg-[#B9FF66]" style={{ width: `${Math.min(100, value)}%` }} />
+      </span>
+    </td>
+  );
+}
