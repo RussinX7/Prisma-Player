@@ -10,9 +10,9 @@ interface AuthFieldProps extends ComponentProps<typeof Input> {
 
 export function AuthField({ label, hint, trailing, className, id, ...props }: AuthFieldProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex min-h-5 items-center justify-between gap-4">
-        <label htmlFor={id} className="text-xs font-bold uppercase tracking-wider text-[#191A23]">
+        <label htmlFor={id} className="text-xs font-semibold text-[#191A23]">
           {label}
         </label>
         {trailing}
@@ -20,12 +20,12 @@ export function AuthField({ label, hint, trailing, className, id, ...props }: Au
       <Input
         id={id}
         className={cn(
-          "h-12 rounded-2xl border-2 border-[#191A23] bg-white px-4 text-sm font-medium text-[#191A23] shadow-[3px_3px_0px_#191A23] transition-all focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-[#B9FF66]/20 placeholder:text-[#191A23]/50",
+          "h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-[#191A23] transition-all focus-visible:outline-none focus-visible:border-[#B9FF66] focus-visible:ring-2 focus-visible:ring-[#B9FF66]/50 placeholder:text-slate-400 shadow-none",
           className,
         )}
         {...props}
       />
-      {hint && <p className="text-xs font-medium text-[#191A23]/70">{hint}</p>}
+      {hint && <p className="text-xs font-medium text-slate-500">{hint}</p>}
     </div>
   );
 }

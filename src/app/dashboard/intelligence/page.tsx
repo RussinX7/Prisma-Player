@@ -54,77 +54,77 @@ export default async function IntelligencePage() {
   };
 
   return (
-    <main className="dashboard-content pb-16 space-y-6">
+    <main className="dashboard-content pb-16 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <PageHeader
           icon={<BrainCircuit size={20} />}
           title="Prisma Intelligence & Diagnósticos"
         />
         <div className="flex items-center gap-2">
-          <span className="rounded-full border-2 border-[#191A23] bg-white px-4 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+          <span className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
             {wallet.data?.balance ?? 0} Créditos IA
           </span>
-          <span className="rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-4 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
+          <span className="rounded-full bg-[#B9FF66] border border-black/5 px-3.5 py-1.5 text-xs font-bold text-[#191A23] shadow-xs">
             {plan?.name ?? "Plano Pro Scale"}
           </span>
         </div>
       </div>
 
       <section className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
-        <article className="rounded-[35px] border-2 border-[#191A23] bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#191A23]">
+        <article className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs">
           <div className="flex items-center justify-between gap-4">
-            <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-[#191A23]">
-              <BrainCircuit size={17} /> Saúde da Operação
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+              <BrainCircuit size={16} /> Saúde da Operação
             </span>
-            <span className="text-xs font-bold text-[#191A23]/60">Últimos 30 dias</span>
+            <span className="text-xs font-medium text-slate-400">Últimos 30 dias</span>
           </div>
 
-          <div className="mt-8 grid gap-6 sm:grid-cols-[130px_1fr] items-center">
-            <div className="rounded-2xl border-2 border-[#191A23] bg-[#B9FF66] p-4 text-center shadow-[3px_3px_0px_#191A23]">
-              <strong className="text-5xl font-black text-[#191A23] leading-none">{score}</strong>
-              <span className="mt-2 block text-[10px] font-extrabold uppercase text-[#191A23]/80">de 100 pontos</span>
+          <div className="mt-6 grid gap-6 sm:grid-cols-[120px_1fr] items-center">
+            <div className="rounded-xl border border-black/5 bg-[#B9FF66] p-4 text-center shadow-xs">
+              <strong className="text-4xl font-bold text-[#191A23] leading-none">{score}</strong>
+              <span className="mt-1 block text-[10px] font-bold uppercase text-[#191A23]/70">de 100 pontos</span>
             </div>
             <div>
-              <h2 className="text-2xl font-black text-[#191A23] tracking-tight leading-tight">
+              <h2 className="text-xl font-bold text-[#191A23] tracking-tight leading-snug">
                 {score >= 70 ? "Operação pronta para escalar tráfego pago" : score >= 40 ? "Bom sinal. Há espaço para evoluir." : "Primeiro, construa uma base confiável."}
               </h2>
-              <p className="mt-2 text-xs font-medium text-[#191A23]/70 leading-relaxed">
+              <p className="mt-1.5 text-xs font-medium text-slate-500 leading-relaxed">
                 Leitura inteligente de play rate, retenção até o pitch delay e conversões confirmadas.
               </p>
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border-2 border-[#191A23] bg-[#191A23]">
+          <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200">
             <Mini label="Visualizações" value={totals.impressions} />
             <Mini label="Plays Únicos" value={totals.plays} />
             <Mini label="Conversões" value={totals.conversions} />
           </div>
         </article>
 
-        <article className="rounded-[35px] border-2 border-[#191A23] bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#191A23]">
+        <article className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]">
-              <Target size={21} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#B9FF66] text-[#191A23] shadow-xs">
+              <Target size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#191A23]">Foco Recomendado</h2>
-              <p className="text-xs font-medium text-[#191A23]/70">Onde agir para multiplicar vendas</p>
+              <h2 className="text-base font-bold text-[#191A23]">Foco Recomendado</h2>
+              <p className="text-xs font-medium text-slate-500">Onde agir para multiplicar vendas</p>
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-5 space-y-2.5">
             {actions.map((action) => (
               <Link
                 href={action.href}
                 key={action.title}
-                className="group block rounded-2xl border-2 border-[#191A23] bg-white p-4 transition-all hover:bg-[#F3F3F3] shadow-[3px_3px_0px_#191A23]"
+                className="group block rounded-xl border border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/80 shadow-xs"
               >
                 <div className="flex gap-3">
-                  <span className={`mt-1 h-3 w-3 shrink-0 rounded-full border border-[#191A23] ${action.tone === "amber" ? "bg-amber-400" : action.tone === "green" ? "bg-[#B9FF66]" : "bg-[#191A23]"}`} />
+                  <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${action.tone === "amber" ? "bg-amber-400" : action.tone === "green" ? "bg-[#B9FF66]" : "bg-slate-900"}`} />
                   <div>
-                    <h3 className="text-sm font-black text-[#191A23]">{action.title}</h3>
-                    <p className="mt-1 text-xs font-medium text-[#191A23]/70 leading-relaxed">{action.detail}</p>
-                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#191A23] underline underline-offset-2">
+                    <h3 className="text-xs font-bold text-[#191A23]">{action.title}</h3>
+                    <p className="mt-0.5 text-xs font-medium text-slate-500 leading-relaxed">{action.detail}</p>
+                    <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#191A23] group-hover:underline">
                       Abrir análise <ArrowRight size={13} className="transition group-hover:translate-x-1" />
                     </span>
                   </div>
@@ -135,21 +135,21 @@ export default async function IntelligencePage() {
         </article>
       </section>
 
-      <section id="portfolio" className="overflow-hidden rounded-[30px] border-2 border-[#191A23] bg-white p-2 shadow-[4px_4px_0px_#191A23]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#191A23]/10 px-6 py-4">
+      <section id="portfolio" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-[#191A23]">Radar do Portfólio de VSLs</h2>
-            <p className="text-xs font-medium text-[#191A23]/70">Compare alcance, retenção e resultado entre todas as suas páginas.</p>
+            <h2 className="text-base font-bold text-[#191A23]">Radar do Portfólio de VSLs</h2>
+            <p className="text-xs font-medium text-slate-500">Compare alcance, retenção e resultado entre suas páginas.</p>
           </div>
-          <Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-5 py-2 text-xs font-black text-[#191A23] shadow-[2px_2px_0px_#191A23]">
-            <Zap size={15} /> Criar experimento A/B
+          <Link href="/dashboard/ab-tests" className="inline-flex items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] border border-black/5 px-4 py-2 text-xs font-bold text-[#191A23] shadow-xs">
+            <Zap size={14} /> Criar experimento A/B
           </Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-xs font-bold text-[#191A23]">
-            <thead className="bg-[#F3F3F3] text-xs font-black uppercase text-[#191A23] border-b-2 border-[#191A23]">
+          <table className="w-full min-w-[860px] text-left text-xs font-medium text-[#191A23]">
+            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4">Posição / VSL</th>
+                <th className="px-6 py-3.5">Posição / VSL</th>
                 <th>Play rate</th>
                 <th>Chegada ao pitch</th>
                 <th>Retenção final</th>
@@ -157,17 +157,17 @@ export default async function IntelligencePage() {
                 <th className="pr-6 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y border-[#191A23]/20">
+            <tbody className="divide-y divide-slate-100">
               {performance.map((video, index) => (
-                <tr key={video.id} className="hover:bg-[#F3F3F3]/50">
-                  <td className="px-6 py-4">
+                <tr key={video.id} className="hover:bg-slate-50/50">
+                  <td className="px-6 py-3.5">
                     <div className="flex items-center gap-3">
-                      <span className={`grid h-8 w-8 place-items-center rounded-full border border-[#191A23] text-xs font-black ${index === 0 ? "bg-[#B9FF66] text-[#191A23]" : "bg-white text-[#191A23]"}`}>
+                      <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${index === 0 ? "bg-[#B9FF66] text-[#191A23]" : "bg-slate-100 text-slate-700"}`}>
                         {index + 1}
                       </span>
                       <div>
-                        <strong className="block max-w-[260px] truncate font-black text-sm text-[#191A23]">{video.title}</strong>
-                        <span className="text-xs font-semibold text-[#191A23]/60">{video.impressions} visualizações</span>
+                        <strong className="block max-w-[260px] truncate font-bold text-xs text-[#191A23]">{video.title}</strong>
+                        <span className="text-[11px] text-slate-500">{video.impressions} visualizações</span>
                       </div>
                     </div>
                   </td>
@@ -176,7 +176,7 @@ export default async function IntelligencePage() {
                   <Metric value={video.completion} />
                   <Metric value={video.conversion} strong />
                   <td className="pr-6 text-right">
-                    <Link href={`/dashboard/analytics/${video.id}`} className="inline-flex rounded-xl border border-[#191A23] bg-white px-3 py-1 text-xs font-bold text-[#191A23] shadow-[1px_1px_0px_#191A23] hover:bg-[#B9FF66]">
+                    <Link href={`/dashboard/analytics/${video.id}`} className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs">
                       Detalhes
                     </Link>
                   </td>
@@ -184,7 +184,7 @@ export default async function IntelligencePage() {
               ))}
               {!performance.length && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center text-xs font-bold text-[#191A23]/70">
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs font-medium text-slate-500">
                     Suas VSLs aparecerão aqui assim que forem publicadas.
                   </td>
                 </tr>
@@ -201,9 +201,9 @@ export default async function IntelligencePage() {
 
 function Mini({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-white p-4 text-center">
-      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#191A23]/60">{label}</span>
-      <strong className="mt-1 block text-2xl font-black text-[#191A23]">{value.toLocaleString("pt-BR")}</strong>
+    <div className="bg-white p-3.5 text-center">
+      <span className="block text-[10px] font-semibold uppercase text-slate-400">{label}</span>
+      <strong className="mt-0.5 block text-xl font-bold text-[#191A23]">{value.toLocaleString("pt-BR")}</strong>
     </div>
   );
 }
@@ -211,8 +211,8 @@ function Mini({ label, value }: { label: string; value: number }) {
 function Metric({ value, strong }: { value: number; strong?: boolean }) {
   return (
     <td>
-      <span className={strong ? "font-black text-[#191A23]" : "font-bold text-[#191A23]"}>{value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
-      <span className="ml-2 inline-block h-2 w-14 overflow-hidden rounded-full border border-[#191A23] bg-[#F3F3F3] align-middle">
+      <span className={strong ? "font-bold text-[#191A23]" : "font-medium text-slate-700"}>{value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+      <span className="ml-2 inline-block h-1.5 w-12 overflow-hidden rounded-full bg-slate-100 align-middle">
         <span className="block h-full rounded-full bg-[#B9FF66]" style={{ width: `${Math.min(100, value)}%` }} />
       </span>
     </td>

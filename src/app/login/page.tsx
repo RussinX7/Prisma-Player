@@ -76,12 +76,12 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      eyebrow="Bem-vindo de volta"
-      title="Entre na sua operação"
-      description="Acompanhe suas VSLs, analise retenção e continue de onde parou."
-      footer={<>Ainda não tem conta? <Link href="/signup" className="font-bold text-[#191A23] underline underline-offset-4 decoration-2">Criar conta grátis</Link></>}
+      eyebrow="Acesso à plataforma"
+      title="Entrar na sua conta"
+      description="Gerencie suas VSLs, acompanhe a conversão e otimize seus resultados."
+      footer={<>Ainda não tem conta? <Link href="/signup" className="font-bold text-[#191A23] hover:underline">Criar conta grátis</Link></>}
     >
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <AuthField
           id="email"
           type="email"
@@ -101,16 +101,15 @@ export default function LoginPage() {
           placeholder="Sua senha"
           autoComplete="current-password"
           required
-          trailing={<button type="button" onClick={recoverPassword} className="text-xs font-bold text-[#191A23] underline underline-offset-2">Esqueci a senha</button>}
+          trailing={<button type="button" onClick={recoverPassword} className="text-xs font-semibold text-slate-500 hover:text-[#191A23]">Esqueci a senha</button>}
         />
         <AuthNotice notice={notice} />
         <Button
           type="submit"
-          size="lg"
           disabled={loading}
-          className="h-13 w-full rounded-2xl border-2 border-[#191A23] bg-[#191A23] text-[#B9FF66] font-black text-base shadow-[4px_4px_0px_#B9FF66] hover:bg-[#191A23]/90 hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer"
+          className="h-11 w-full rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] text-[#191A23] font-bold text-sm shadow-xs border border-black/5 transition-all cursor-pointer"
         >
-          {loading ? <><LoaderCircle className="animate-spin h-5 w-5 mr-2 text-[#B9FF66]" /> Entrando...</> : "Entrar no Painel"}
+          {loading ? <><LoaderCircle className="animate-spin h-4 w-4 mr-2 text-[#191A23]" /> Entrando...</> : "Entrar no Painel"}
         </Button>
       </form>
     </AuthLayout>

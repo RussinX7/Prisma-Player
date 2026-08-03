@@ -52,7 +52,7 @@ export default function SignupPage() {
       eyebrow="14 dias grátis sem cartão"
       title="Crie sua conta no Prisma"
       description="Teste a operação completa, sem cartão e sem cobrança automática."
-      footer={<>Já possui uma conta? <Link href="/login" className="font-bold text-[#191A23] underline underline-offset-4 decoration-2">Fazer login</Link></>}
+      footer={<>Já possui uma conta? <Link href="/login" className="font-bold text-[#191A23] hover:underline">Fazer login</Link></>}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthField
@@ -88,31 +88,30 @@ export default function SignupPage() {
           hint="Use pelo menos 8 caracteres."
         />
 
-        <label className="group flex cursor-pointer items-start gap-3 rounded-2xl border-2 border-[#191A23] bg-white p-3 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23]">
-          <span className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
+        <label className="group flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs font-medium text-slate-700">
+          <span className="relative mt-0.5 grid size-4 shrink-0 place-items-center">
             <input
               type="checkbox"
               checked={agreed}
               onChange={(event) => setAgreed(event.target.checked)}
               required
-              className="peer size-5 appearance-none rounded-lg border-2 border-[#191A23] bg-white outline-none transition checked:border-[#191A23] checked:bg-[#B9FF66]"
+              className="peer size-4 appearance-none rounded border border-slate-300 bg-white outline-none transition checked:border-[#191A23] checked:bg-[#B9FF66]"
             />
-            <Check aria-hidden size={14} className="pointer-events-none absolute text-[#191A23] opacity-0 peer-checked:opacity-100 font-extrabold" />
+            <Check aria-hidden size={12} className="pointer-events-none absolute text-[#191A23] opacity-0 peer-checked:opacity-100 font-bold" />
           </span>
           <span>
-            Concordo com os <Link href="/terms" target="_blank" className="font-bold text-[#191A23] underline underline-offset-2">Termos de Uso</Link> e a{" "}
-            <Link href="/privacy" target="_blank" className="font-bold text-[#191A23] underline underline-offset-2">Política de Privacidade</Link>.
+            Concordo com os <Link href="/terms" target="_blank" className="font-semibold text-[#191A23] underline">Termos de Uso</Link> e a{" "}
+            <Link href="/privacy" target="_blank" className="font-semibold text-[#191A23] underline">Política de Privacidade</Link>.
           </span>
         </label>
 
         <AuthNotice notice={notice} />
         <Button
           type="submit"
-          size="lg"
           disabled={loading || !agreed}
-          className="h-13 w-full rounded-2xl border-2 border-[#191A23] bg-[#191A23] text-[#B9FF66] font-black text-base shadow-[4px_4px_0px_#B9FF66] hover:bg-[#191A23]/90 hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+          className="h-11 w-full rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] text-[#191A23] font-bold text-sm shadow-xs border border-black/5 transition-all cursor-pointer disabled:opacity-50"
         >
-          {loading ? <><LoaderCircle className="animate-spin h-5 w-5 mr-2 text-[#B9FF66]" /> Criando conta...</> : "Começar meus 14 dias grátis"}
+          {loading ? <><LoaderCircle className="animate-spin h-4 w-4 mr-2 text-[#191A23]" /> Criando conta...</> : "Começar meus 14 dias grátis"}
         </Button>
       </form>
     </AuthLayout>

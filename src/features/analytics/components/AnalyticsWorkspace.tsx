@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import ClaudeChatInput from "@/components/ui/claude-style-chat-input";
 
-// Custom charts imports
 import {
   FunnelChart,
   RingChart,
@@ -149,49 +148,49 @@ function format(value: number, percent = false) {
 function DimensionTable({ title, rows, isCountry = false, onRowClick }: { title: string; rows: Dimension[]; isCountry?: boolean; onRowClick?: (row: Dimension) => void }) {
   const maxImpressions = useMemo(() => Math.max(...rows.map((r) => r.impressions), 1), [rows]);
   return (
-    <section className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23]">
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 className="text-base font-black text-[#191A23]">{title}</h3>
-        <span className="rounded-full border border-[#191A23] bg-[#B9FF66] px-3 py-0.5 text-xs font-black text-[#191A23] shadow-[1px_1px_0px_#191A23]">
+        <h3 className="text-base font-bold text-[#191A23]">{title}</h3>
+        <span className="rounded-full bg-[#B9FF66] border border-black/5 px-3 py-0.5 text-xs font-bold text-[#191A23]">
           {rows.length} segmentos
         </span>
       </div>
       {rows.length ? (
-        <div className="overflow-x-auto rounded-2xl border-2 border-[#191A23]">
-          <table className="w-full min-w-[500px] text-left text-xs font-bold text-[#191A23]">
-            <thead className="bg-[#F3F3F3] font-black uppercase text-[#191A23] border-b-2 border-[#191A23]">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full min-w-[500px] text-left text-xs font-medium text-[#191A23]">
+            <thead className="bg-slate-50 uppercase text-slate-500 border-b border-slate-100 font-semibold">
               <tr>
-                <th className="p-3.5 font-black">Segmento</th>
-                <th className="p-3.5 font-black text-right">Visualizações</th>
-                <th className="p-3.5 font-black text-right">Plays</th>
-                <th className="p-3.5 font-black text-right">Play rate</th>
-                <th className="p-3.5 font-black text-right">Retenção final</th>
+                <th className="p-3.5">Segmento</th>
+                <th className="p-3.5 text-right">Visualizações</th>
+                <th className="p-3.5 text-right">Plays</th>
+                <th className="p-3.5 text-right">Play rate</th>
+                <th className="p-3.5 text-right">Retenção final</th>
               </tr>
             </thead>
-            <tbody className="divide-y border-[#191A23]/20 font-medium">
+            <tbody className="divide-y divide-slate-100">
               {rows.map((row) => (
                 <tr 
                   key={row.name} 
                   onClick={() => onRowClick?.(row)}
-                  className={`group transition-colors duration-150 ${onRowClick ? "cursor-pointer hover:bg-[#F3F3F3]" : ""}`}
+                  className={`group transition-colors duration-150 ${onRowClick ? "cursor-pointer hover:bg-slate-50/50" : ""}`}
                 >
-                  <td className="p-3.5 font-bold text-[#191A23]">
+                  <td className="p-3.5 font-semibold text-[#191A23]">
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
                         {isCountry && (
                           <img
                             alt={`Bandeira de ${row.name}`}
-                            className="h-3.5 w-5 shrink-0 rounded object-cover border border-[#191A23]"
+                            className="h-3.5 w-5 shrink-0 rounded object-cover border border-slate-200"
                             height={14}
                             src={flagUrl(row.name)}
                             width={20}
                           />
                         )}
-                        <span className="truncate max-w-[200px] text-xs font-bold text-[#191A23]">
+                        <span className="truncate max-w-[200px] text-xs font-semibold text-[#191A23]">
                           {isCountry ? getCountryName(row.name) : row.name}
                         </span>
                       </div>
-                      <div className="h-1.5 w-24 overflow-hidden rounded-full border border-[#191A23] bg-[#F3F3F3]">
+                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
                         <div 
                           className="h-full rounded-full bg-[#B9FF66] transition-all duration-300"
                           style={{ width: `${(row.impressions / maxImpressions) * 100}%` }}
@@ -199,17 +198,17 @@ function DimensionTable({ title, rows, isCountry = false, onRowClick }: { title:
                       </div>
                     </div>
                   </td>
-                  <td className="p-3.5 text-right font-semibold text-[#191A23]">{format(row.impressions)}</td>
-                  <td className="p-3.5 text-right font-semibold text-[#191A23]">{format(row.plays)}</td>
-                  <td className="p-3.5 text-right font-black text-[#191A23]">{format(row.playRate, true)}</td>
-                  <td className="p-3.5 text-right font-black text-[#191A23]">{format(row.completionRate, true)}</td>
+                  <td className="p-3.5 text-right font-medium text-slate-600">{format(row.impressions)}</td>
+                  <td className="p-3.5 text-right font-medium text-slate-600">{format(row.plays)}</td>
+                  <td className="p-3.5 text-right font-bold text-[#191A23]">{format(row.playRate, true)}</td>
+                  <td className="p-3.5 text-right font-bold text-[#191A23]">{format(row.completionRate, true)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <div className="py-8 text-center text-xs font-bold text-[#191A23]/60">Nenhum segmento detectado neste período.</div>
+        <div className="py-8 text-center text-xs font-medium text-slate-500">Nenhum segmento detectado neste período.</div>
       )}
     </section>
   );
@@ -451,26 +450,26 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
   }
 
   return (
-    <div className={`w-full flex-1 flex flex-col min-w-0 bg-transparent text-[#191A23] relative ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""} transition-all duration-300 space-y-6`}>
+    <div className={`w-full flex-1 flex flex-col min-w-0 bg-transparent text-[#191A23] relative ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""} transition-all duration-300 space-y-5`}>
       
-      {/* Top Header Positivus Style */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[35px] border-2 border-[#191A23] bg-white p-6 shadow-[6px_6px_0px_#191A23]">
+      {/* Top Header SaaS Style */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
         <div className="flex min-w-0 flex-row items-center gap-3">
-          <Link href="/dashboard/videos" className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-[#191A23] bg-white px-4 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20 transition-all cursor-pointer shrink-0">
+          <Link href="/dashboard/videos" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shrink-0">
             <ArrowLeft size={15} />
             <span>Voltar</span>
           </Link>
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="rounded-full border border-[#191A23] bg-[#B9FF66] px-3 py-0.5 text-[10px] font-black uppercase text-[#191A23] shadow-[1px_1px_0px_#191A23]">
+              <span className="rounded-full bg-[#B9FF66] border border-black/5 px-2.5 py-0.5 text-[10px] font-bold text-[#191A23]">
                 VSL Desempenho
               </span>
-              <span className="text-[10px] font-extrabold text-[#191A23] flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-[#191A23] animate-pulse" />
+              <span className="text-[10px] font-semibold text-slate-500 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Tempo Real
               </span>
             </div>
-            <h1 className="truncate text-2xl sm:text-3xl font-black text-[#191A23] tracking-tight">
+            <h1 className="truncate text-xl sm:text-2xl font-bold text-[#191A23] tracking-tight">
               {data?.video.title ?? "Carregando VSL..."}
             </h1>
           </div>
@@ -481,7 +480,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             value={days} 
             onChange={(event) => setDays(Number(event.target.value))} 
             aria-label="Período das métricas" 
-            className="h-10 rounded-full border-2 border-[#191A23] bg-white px-4 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23] outline-none cursor-pointer"
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
           >
             <option value={7}>Últimos 7 dias</option>
             <option value={30}>Últimos 30 dias</option>
@@ -491,15 +490,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
           <button 
             onClick={() => void load()} 
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-[#191A23] bg-white text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20 cursor-pointer" 
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer" 
             aria-label="Atualizar"
           >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
 
           <button 
             onClick={exportCsv} 
-            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border-2 border-[#191A23] bg-white px-4 text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20 cursor-pointer" 
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer" 
             aria-label="Exportar métricas em CSV"
           >
             <Download size={14} />
@@ -508,7 +507,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
           <button 
             onClick={() => setAiOpen(true)} 
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-[#191A23] bg-[#B9FF66] px-5 text-xs font-black text-[#191A23] shadow-[3px_3px_0px_#191A23] hover:bg-[#B9FF66]/90 cursor-pointer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] border border-black/5 px-4 text-xs font-bold text-[#191A23] shadow-xs cursor-pointer"
           >
             <Sparkles size={14} /> 
             <span>Ask IA</span>
@@ -516,9 +515,9 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
         </div>
       </div>
 
-      {/* Navigation Tabs Bar Positivus Style */}
+      {/* Navigation Tabs Bar */}
       <div className="overflow-x-auto pb-1">
-        <nav className="flex gap-2 min-w-max rounded-2xl border-2 border-[#191A23] bg-white p-2 shadow-[4px_4px_0px_#191A23]">
+        <nav className="flex gap-1.5 min-w-max rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-xs">
           {tabs.map((item) => {
             const Icon = item.icon;
             const active = tab === item.id;
@@ -526,14 +525,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
               <button
                 key={item.id}
                 onClick={() => setTab(item.id)}
-                className={`flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-xs font-black transition-all cursor-pointer border-2 border-[#191A23] ${
+                className={`flex h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-all cursor-pointer border ${
                   active 
-                    ? "bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]" 
-                    : "bg-white text-[#191A23] hover:bg-[#B9FF66]/20 shadow-[1px_1px_0px_#191A23]"
+                    ? "bg-[#B9FF66] text-[#191A23] font-bold border-black/5 shadow-xs" 
+                    : "bg-white text-slate-600 border-transparent hover:bg-slate-50 hover:text-[#191A23]"
                 }`}
               >
-                <Icon size={15} className="text-[#191A23]" /> 
-                <span className="text-[#191A23] font-black">{item.label}</span>
+                <Icon size={14} className="text-[#191A23]" /> 
+                <span>{item.label}</span>
               </button>
             );
           })}
@@ -543,15 +542,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       {/* Main Tab Content */}
       <section className="min-w-0 flex-1">
         {loading && !data ? (
-          <div className="grid min-h-[400px] place-items-center rounded-[30px] border-2 border-[#191A23] bg-white shadow-[4px_4px_0px_#191A23]">
-            <RefreshCw className="animate-spin text-[#191A23]" size={28} />
+          <div className="grid min-h-[400px] place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+            <RefreshCw className="animate-spin text-slate-600" size={24} />
           </div>
         ) : !data ? (
-          <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-10 text-center font-bold text-xs text-[#191A23]/70 shadow-[4px_4px_0px_#191A23]">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-10 text-center font-medium text-xs text-slate-500 shadow-xs">
             Não foi possível carregar os dados. Confira se a VSL possui eventos gravados.
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             
             {/* TAB 1: VISÃO GERAL */}
             {tab === "overview" && (
@@ -592,20 +591,20 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   />
                 </section>
 
-                <section className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23]">
+                <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
-                      <h2 className="text-lg font-black text-[#191A23]">Tráfego e Reprodução Diária</h2>
-                      <p className="mt-0.5 text-xs font-medium text-[#191A23]/70">Visualizações e acessos registrados dia a dia.</p>
+                      <h2 className="text-base font-bold text-[#191A23]">Tráfego e Reprodução Diária</h2>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500">Visualizações e acessos registrados dia a dia.</p>
                     </div>
                     <div className="flex gap-6 text-right text-xs">
                       <span>
-                        <b className="block text-xl font-black text-[#191A23]">{format(data.summary.reached75)}</b>
-                        <i className="not-italic font-bold text-[#191A23]/70">chegaram à oferta</i>
+                        <b className="block text-lg font-bold text-[#191A23]">{format(data.summary.reached75)}</b>
+                        <i className="not-italic font-medium text-slate-500">chegaram à oferta</i>
                       </span>
                       <span>
-                        <b className="block text-xl font-black text-[#191A23]">{format(data.summary.conversions)}</b>
-                        <i className="not-italic font-bold text-[#191A23]/70">conversões</i>
+                        <b className="block text-lg font-bold text-[#191A23]">{format(data.summary.conversions)}</b>
+                        <i className="not-italic font-medium text-slate-500">conversões</i>
                       </span>
                     </div>
                   </div>
@@ -616,9 +615,9 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       <Area
                         dataKey="visitors"
                         fill="#B9FF66"
-                        fillOpacity={0.5}
+                        fillOpacity={0.4}
                         showMarkers
-                        markers={{ radius: 5, ringGap: 2, strokeWidth: 2 }}
+                        markers={{ radius: 4, ringGap: 2, strokeWidth: 2 }}
                       />
                       <AreaXAxis tickMode="data" />
                       <AreaChartTooltip />
@@ -626,14 +625,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   </div>
                 </section>
 
-                <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                  <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between">
+                <section className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between">
                     <div className="flex items-center justify-between gap-3 mb-6">
                       <div>
-                        <h2 className="text-lg font-black text-[#191A23]">Curva de Retenção por Marco</h2>
-                        <p className="text-xs font-medium text-[#191A23]/70">Preservação de audiência ao longo da VSL.</p>
+                        <h2 className="text-base font-bold text-[#191A23]">Curva de Retenção por Marco</h2>
+                        <p className="text-xs font-medium text-slate-500">Preservação de audiência ao longo da VSL.</p>
                       </div>
-                      <TrendingUp className="text-[#191A23]" size={22} />
+                      <TrendingUp className="text-[#191A23]" size={20} />
                     </div>
 
                     <div className="w-full font-sans">
@@ -642,42 +641,42 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         <Area
                           dataKey="visitors"
                           fill="#B9FF66"
-                          fillOpacity={0.5}
+                          fillOpacity={0.4}
                           showMarkers
-                          markers={{ radius: 5, ringGap: 2, strokeWidth: 2 }}
+                          markers={{ radius: 4, ringGap: 2, strokeWidth: 2 }}
                         />
                         <AreaXAxis tickMode="data" />
                         <AreaChartTooltip />
                       </AreaChart>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-3 gap-3 text-xs font-bold text-center border-t-2 border-[#191A23]/10 pt-4">
-                      <span className="text-[#191A23]/70">Início <b className="block text-base font-black text-[#191A23] mt-0.5">{format(data.retention[0]?.rate ?? 0, true)}</b></span>
-                      <span className="text-[#191A23]/70">Pitch <b className="block text-base font-black text-[#191A23] mt-0.5">{format(pitchRetention, true)}</b></span>
-                      <span className="text-[#191A23]/70">Final <b className="block text-base font-black text-[#191A23] mt-0.5">{format(data.summary.completionRate, true)}</b></span>
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-xs font-semibold text-center border-t border-slate-100 pt-3">
+                      <span className="text-slate-500">Início <b className="block text-sm font-bold text-[#191A23] mt-0.5">{format(data.retention[0]?.rate ?? 0, true)}</b></span>
+                      <span className="text-slate-500">Pitch <b className="block text-sm font-bold text-[#191A23] mt-0.5">{format(pitchRetention, true)}</b></span>
+                      <span className="text-slate-500">Final <b className="block text-sm font-bold text-[#191A23] mt-0.5">{format(data.summary.completionRate, true)}</b></span>
                     </div>
                   </div>
 
-                  <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between">
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2.5 mb-5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]">
-                          <Lightbulb size={18} />
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#B9FF66] text-[#191A23] shadow-xs">
+                          <Lightbulb size={16} />
                         </div>
-                        <h2 className="text-lg font-black text-[#191A23]">Diagnóstico Inteligente</h2>
+                        <h2 className="text-base font-bold text-[#191A23]">Diagnóstico Inteligente</h2>
                       </div>
-                      <div className="grid gap-3">
+                      <div className="grid gap-2.5">
                         {(data.insights.length ? data.insights : [{ tone: "success", title: "Operação estável", detail: "Nenhuma anomalia relevante foi detectada neste período." }]).map((insight) => (
                           <article 
                             key={insight.title} 
                             onClick={() => setActivePanel({ type: "insight", title: insight.title, data: insight })}
-                            className="rounded-2xl border-2 border-[#191A23] bg-[#F3F3F3] p-4 cursor-pointer hover:bg-white shadow-[2px_2px_0px_#191A23] transition-all"
+                            className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 cursor-pointer hover:bg-white transition-all shadow-xs"
                           >
                             <div className="flex items-center gap-2">
                               <span className="h-2 w-2 rounded-full bg-[#191A23]" />
-                              <strong className="font-black text-[#191A23] text-xs">{insight.title}</strong>
+                              <strong className="font-bold text-[#191A23] text-xs">{insight.title}</strong>
                             </div>
-                            <p className="mt-1 text-xs font-medium text-[#191A23]/80 leading-relaxed">{insight.detail}</p>
+                            <p className="mt-1 text-xs font-medium text-slate-600 leading-relaxed">{insight.detail}</p>
                           </article>
                         ))}
                       </div>
@@ -689,20 +688,20 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 2: RETENÇÃO */}
             {tab === "retention" && (
-              <div className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <article className="lg:col-span-2 rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between">
+              <div className="space-y-5">
+                <div className="grid gap-5 lg:grid-cols-3">
+                  <article className="lg:col-span-2 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between">
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                       <div>
-                        <h2 className="text-lg font-black text-[#191A23]">Curva de Retenção Interativa</h2>
-                        <p className="text-xs font-medium text-[#191A23]/70">Passe o cursor sobre a curva para inspecionar a retenção em cada marco temporal.</p>
+                        <h2 className="text-base font-bold text-[#191A23]">Curva de Retenção Interativa</h2>
+                        <p className="text-xs font-medium text-slate-500">Passe o cursor sobre a curva para inspecionar a retenção em cada marco temporal.</p>
                       </div>
-                      <span className="rounded-full border border-[#191A23] bg-[#B9FF66] px-3.5 py-1 text-xs font-black text-[#191A23] shadow-[1px_1px_0px_#191A23]">
+                      <span className="rounded-full bg-[#B9FF66] border border-black/5 px-3 py-0.5 text-xs font-bold text-[#191A23]">
                         {data.retention.length} marcos
                       </span>
                     </div>
 
-                    <div className="relative h-[340px] overflow-hidden rounded-2xl border-2 border-[#191A23] bg-[#F3F3F3] p-3">
+                    <div className="relative h-[340px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                       <LineChart
                         data={retentionLineData}
                         xDataKey="date"
@@ -710,7 +709,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         className="h-full w-full"
                       >
                         <LineGrid horizontal />
-                        <Line dataKey="rate" stroke="#191A23" strokeWidth={3} />
+                        <Line dataKey="rate" stroke="#191A23" strokeWidth={2.5} />
                         <LineXAxis formatTick={(_date, index) => `${retentionLineData[index]?.point ?? 0}%`} />
                         <LineChartTooltip
                           showDatePill={false}
@@ -726,24 +725,24 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
                     <article 
                       onClick={() => setActivePanel({ type: "retention-pitch", title: "Retenção Inicial (10%)", data: { pitch: data.retention.find(p => p.point === 10)?.rate ?? 0 } })}
-                      className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[3px_3px_0px_#191A23] cursor-pointer hover:bg-[#B9FF66]/20 transition-all flex flex-col justify-between"
+                      className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs cursor-pointer hover:bg-slate-50 transition-all flex flex-col justify-between"
                     >
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#191A23]/70">Retenção Inicial (10%)</p>
-                        <strong className="mt-2 block text-3xl font-black text-[#191A23]">{format(data.retention.find(p => p.point === 10)?.rate ?? 0, true)}</strong>
+                        <p className="text-xs font-semibold uppercase text-slate-400">Retenção Inicial (10%)</p>
+                        <strong className="mt-1 block text-2xl font-bold text-[#191A23]">{format(data.retention.find(p => p.point === 10)?.rate ?? 0, true)}</strong>
                       </div>
-                      <p className="mt-3 text-xs font-medium text-[#191A23]/70 border-t border-[#191A23]/10 pt-2">Espectadores nos segundos iniciais</p>
+                      <p className="mt-3 text-xs font-medium text-slate-500 border-t border-slate-100 pt-2">Espectadores nos segundos iniciais</p>
                     </article>
 
                     <article 
                       onClick={() => setActivePanel({ type: "retention-pitch", title: "Retenção no Pitch (75%)", data: { pitch: pitchRetention } })}
-                      className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[3px_3px_0px_#191A23] cursor-pointer hover:bg-[#B9FF66]/20 transition-all flex flex-col justify-between"
+                      className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs cursor-pointer hover:bg-slate-50 transition-all flex flex-col justify-between"
                     >
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#191A23]/70">Retenção no Pitch (75%)</p>
-                        <strong className="mt-2 block text-3xl font-black text-[#191A23]">{format(pitchRetention, true)}</strong>
+                        <p className="text-xs font-semibold uppercase text-slate-400">Retenção no Pitch (75%)</p>
+                        <strong className="mt-1 block text-2xl font-bold text-[#191A23]">{format(pitchRetention, true)}</strong>
                       </div>
-                      <p className="mt-3 text-xs font-medium text-[#191A23]/70 border-t border-[#191A23]/10 pt-2">Pessoas ativas na hora da oferta</p>
+                      <p className="mt-3 text-xs font-medium text-slate-500 border-t border-slate-100 pt-2">Pessoas ativas na hora da oferta</p>
                     </article>
                   </div>
                 </div>
@@ -752,10 +751,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 3: FUNIL */}
             {tab === "funnel" && (
-              <section className="w-full max-w-[880px] rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23]">
+              <section className="w-full max-w-[880px] rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
                 <div className="mb-6">
-                  <h2 className="text-lg font-black text-[#191A23]">Funil de Conversão da VSL</h2>
-                  <p className="text-xs font-medium text-[#191A23]/70">Perda de público e taxas de conversão relativas a cada etapa.</p>
+                  <h2 className="text-base font-bold text-[#191A23]">Funil de Conversão da VSL</h2>
+                  <p className="text-xs font-medium text-slate-500">Perda de público e taxas de conversão relativas a cada etapa.</p>
                 </div>
 
                 <div className="w-full py-2">
@@ -766,19 +765,19 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 4: MAPA DE CALOR */}
             {tab === "heatmap" && (
-              <section className="w-full max-w-[760px] rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23]">
+              <section className="w-full max-w-[760px] rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-black text-[#191A23]">Mapa de Calor da VSL</h2>
-                    <p className="text-xs font-medium text-[#191A23]/70">Intensidade por dia da semana.</p>
+                    <h2 className="text-base font-bold text-[#191A23]">Mapa de Calor da VSL</h2>
+                    <p className="text-xs font-medium text-slate-500">Intensidade por dia da semana.</p>
                   </div>
-                  <div className="flex gap-1.5 rounded-full border-2 border-[#191A23] bg-white p-1">
+                  <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
                     {( [["plays", "Plays"], ["impressions", "Impressões"], ["conversions", "Conversões"]] as const).map(([id, label]) => (
                       <button
                         key={id}
                         type="button"
                         onClick={() => setHeatmapMetric(id)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-bold transition cursor-pointer ${heatmapMetric === id ? "bg-[#B9FF66] text-[#191A23] border border-[#191A23]" : "text-[#191A23]"}`}
+                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition cursor-pointer ${heatmapMetric === id ? "bg-[#B9FF66] text-[#191A23] font-bold" : "text-slate-600 hover:text-[#191A23]"}`}
                       >
                         {label}
                       </button>
@@ -818,14 +817,14 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                     </HeatmapInteractionBoundary>
                   </HeatmapInteractionProvider>
                 ) : (
-                  <p className="py-16 text-center text-xs font-bold text-[#191A23]/60">Ainda não há dados suficientes no período selecionado.</p>
+                  <p className="py-16 text-center text-xs font-medium text-slate-500">Ainda não há dados suficientes no período selecionado.</p>
                 )}
               </section>
             )}
 
             {/* TAB 5: PÚBLICO */}
             {tab === "audience" && (
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 <DimensionTable title="Países de Origem" rows={data.dimensions.countries} isCountry={true} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Países", data: row })} />
                 <DimensionTable title="Fontes de Tráfego" rows={data.dimensions.traffic} onRowClick={(row) => setActivePanel({ type: "segment", title: row.name, subtitle: "Fontes de Tráfego", data: row })} />
               </div>
@@ -833,11 +832,11 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 6: TECNOLOGIA */}
             {tab === "technology" && (
-              <div className="grid gap-6 md:grid-cols-3">
-                <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between min-h-[360px]">
+              <div className="grid gap-5 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between min-h-[360px]">
                   <div className="mb-4">
-                    <h3 className="text-sm font-black uppercase text-[#191A23]">Dispositivos</h3>
-                    <p className="text-xs font-medium text-[#191A23]/70 mt-0.5">Visitas segmentadas por hardware</p>
+                    <h3 className="text-xs font-bold uppercase text-[#191A23]">Dispositivos</h3>
+                    <p className="text-xs font-medium text-slate-500 mt-0.5">Visitas por hardware</p>
                   </div>
                   <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
                     <RingChart 
@@ -855,15 +854,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       data={devicesRingData}
                       hoveredIndex={hoveredDevicesIndex}
                       onHoverChange={setHoveredDevicesIndex}
-                      className="w-full xl:w-auto text-xs font-bold text-[#191A23]"
+                      className="w-full xl:w-auto text-xs font-semibold text-[#191A23]"
                     />
                   </div>
                 </div>
 
-                <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between min-h-[360px]">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between min-h-[360px]">
                   <div className="mb-4">
-                    <h3 className="text-sm font-black uppercase text-[#191A23]">Navegadores</h3>
-                    <p className="text-xs font-medium text-[#191A23]/70 mt-0.5">Uso relativo de browsers</p>
+                    <h3 className="text-xs font-bold uppercase text-[#191A23]">Navegadores</h3>
+                    <p className="text-xs font-medium text-slate-500 mt-0.5">Uso relativo de browsers</p>
                   </div>
                   <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
                     <RingChart 
@@ -881,15 +880,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       data={browsersRingData}
                       hoveredIndex={hoveredBrowsersIndex}
                       onHoverChange={setHoveredBrowsersIndex}
-                      className="w-full xl:w-auto text-xs font-bold text-[#191A23]"
+                      className="w-full xl:w-auto text-xs font-semibold text-[#191A23]"
                     />
                   </div>
                 </div>
 
-                <div className="rounded-[30px] border-2 border-[#191A23] bg-white p-6 shadow-[4px_4px_0px_#191A23] flex flex-col justify-between min-h-[360px]">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between min-h-[360px]">
                   <div className="mb-4">
-                    <h3 className="text-sm font-black uppercase text-[#191A23]">Sistemas Operacionais</h3>
-                    <p className="text-xs font-medium text-[#191A23]/70 mt-0.5">Sistemas dos visitantes</p>
+                    <h3 className="text-xs font-bold uppercase text-[#191A23]">Sistemas Operacionais</h3>
+                    <p className="text-xs font-medium text-slate-500 mt-0.5">Sistemas dos visitantes</p>
                   </div>
                   <div className="flex flex-col items-center gap-6 xl:flex-row xl:justify-center">
                     <RingChart 
@@ -907,7 +906,7 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                       data={osRingData}
                       hoveredIndex={hoveredOSIndex}
                       onHoverChange={setHoveredOSIndex}
-                      className="w-full xl:w-auto text-xs font-bold text-[#191A23]"
+                      className="w-full xl:w-auto text-xs font-semibold text-[#191A23]"
                     />
                   </div>
                 </div>
@@ -916,20 +915,20 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
             {/* TAB 7: AO VIVO */}
             {tab === "live" && (
-              <section className="overflow-hidden rounded-[30px] border-2 border-[#191A23] bg-white shadow-[4px_4px_0px_#191A23]">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#191A23]/10 p-6 bg-[#F3F3F3]">
+              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-6 bg-slate-50/50">
                   <div>
-                    <h2 className="text-lg font-black text-[#191A23]">Tráfego ao Vivo</h2>
-                    <p className="text-xs font-medium text-[#191A23]/70">Conexões em tempo real assistindo sua VSL neste instante.</p>
+                    <h2 className="text-base font-bold text-[#191A23]">Tráfego ao Vivo</h2>
+                    <p className="text-xs font-medium text-slate-500">Conexões em tempo real assistindo sua VSL neste instante.</p>
                   </div>
-                  <div className="flex items-center gap-2 rounded-full border border-[#191A23] bg-[#B9FF66] px-3.5 py-1 text-xs font-black text-[#191A23] shadow-[1px_1px_0px_#191A23]">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-[#191A23]" />
+                  <div className="flex items-center gap-2 rounded-full bg-[#B9FF66] border border-black/5 px-3 py-1 text-xs font-bold text-[#191A23]">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-600" />
                     <span>{data.live} assistindo agora</span>
                   </div>
                 </div>
                 
                 <div className="grid min-w-0 lg:grid-cols-[1.3fr_0.7fr]">
-                  <div className="p-6 flex items-center justify-center border-b-2 lg:border-b-0 lg:border-r-2 border-[#191A23]/10 bg-white">
+                  <div className="p-6 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-100 bg-white">
                     <StatCardChoropleth 
                       title="Geolocalização do Tráfego Real"
                       liveCountries={activeCountryRows} 
@@ -937,10 +936,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                     />
                   </div>
                   
-                  <div className="max-h-[500px] min-w-0 overflow-y-auto p-6 divide-y border-[#191A23]/10 space-y-4">
-                    <div className="pb-3 flex items-center justify-between border-b-2 border-[#191A23]/10">
-                      <h3 className="font-black text-xs uppercase tracking-wider text-[#191A23]">Cidades/Países Ativos</h3>
-                      <span className="text-[10px] font-bold text-[#191A23]/60">Últimos minutos</span>
+                  <div className="max-h-[500px] min-w-0 overflow-y-auto p-6 divide-y divide-slate-100 space-y-4">
+                    <div className="pb-3 flex items-center justify-between border-b border-slate-100">
+                      <h3 className="font-semibold text-xs uppercase text-slate-500">Cidades/Países Ativos</h3>
+                      <span className="text-[10px] font-medium text-slate-400">Últimos minutos</span>
                     </div>
                     
                     <div className="space-y-3 pt-3">
@@ -948,15 +947,15 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                         <div 
                           key={row.name} 
                           onClick={() => row.impressions > 0 && setActivePanel({ type: "live-session", title: row.name, data: row })}
-                          className={`grid grid-cols-[1fr_96px_60px] items-center gap-3 text-xs font-bold ${
+                          className={`grid grid-cols-[1fr_96px_60px] items-center gap-3 text-xs font-semibold ${
                             row.impressions > 0 ? "cursor-pointer hover:text-[#191A23]" : ""
                           }`}
                         >
-                          <span className="truncate font-bold text-[#191A23] flex items-center gap-2">
+                          <span className="truncate font-semibold text-[#191A23] flex items-center gap-2">
                             {row.impressions > 0 && row.name !== "Sem sessões ativas" && (
                               <img
                                 alt=""
-                                className="h-3 w-4 shrink-0 rounded object-cover border border-[#191A23]"
+                                className="h-3 w-4 shrink-0 rounded object-cover border border-slate-200"
                                 height={12}
                                 src={flagUrl(row.name)}
                                 width={16}
@@ -964,10 +963,10 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
                             )}
                             {row.impressions > 0 && row.name !== "Sem sessões ativas" ? getCountryName(row.name) : row.name}
                           </span>
-                          <span className="h-1.5 overflow-hidden rounded-full border border-[#191A23] bg-[#F3F3F3]">
+                          <span className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                             <span className="block h-full rounded-full bg-[#B9FF66]" style={{ width: `${Math.max(row.impressions ? 4 : 0, (row.impressions / maxRealValue) * 100)}%` }} />
                           </span>
-                          <strong className="text-right font-black text-[#191A23]">{format(row.impressions)}</strong>
+                          <strong className="text-right font-bold text-[#191A23]">{format(row.impressions)}</strong>
                         </div>
                       ))}
                     </div>
@@ -980,44 +979,44 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
       </section>
 
       {/* Ask IA Drawer */}
-      <div className={`fixed inset-0 z-40 bg-[#191A23]/30 backdrop-blur-sm transition-opacity duration-300 ${aiOpen ? "pointer-events-auto opacity-100 xl:pointer-events-none xl:opacity-0" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
+      <div className={`fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300 ${aiOpen ? "pointer-events-auto opacity-100 xl:pointer-events-none xl:opacity-0" : "pointer-events-none opacity-0"}`} onClick={() => setAiOpen(false)} />
       
-      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l-2 border-[#191A23] bg-white transition-[transform,max-width] duration-300 shadow-2xl ${aiFullscreen ? "max-w-none" : "max-w-[480px]"} ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="flex min-h-16 items-center justify-between border-b-2 border-[#191A23] px-6 bg-[#F3F3F3]">
+      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l border-slate-200 bg-white transition-[transform,max-width] duration-300 shadow-xl ${aiFullscreen ? "max-w-none" : "max-w-[480px]"} ${aiOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex min-h-16 items-center justify-between border-b border-slate-100 px-6 bg-slate-50/50">
           <div>
-            <span className="rounded-full border border-[#191A23] bg-[#B9FF66] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#191A23]">Prisma IA</span>
-            <h2 className="text-base font-black text-[#191A23]">Análise Inteligente</h2>
+            <span className="rounded-full bg-[#B9FF66] border border-black/5 px-2.5 py-0.5 text-[10px] font-bold text-[#191A23]">Prisma IA</span>
+            <h2 className="text-base font-bold text-[#191A23]">Análise Inteligente</h2>
           </div>
-          <div className="relative flex items-center gap-2">
-            <button onClick={() => setAiHistoryOpen((value) => !value)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#191A23] bg-white text-[#191A23] hover:bg-[#B9FF66]/20 cursor-pointer" aria-label="Histórico">
-              <History size={16} />
+          <div className="relative flex items-center gap-1.5">
+            <button onClick={() => setAiHistoryOpen((value) => !value)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer" aria-label="Histórico">
+              <History size={15} />
             </button>
-            <button onClick={() => setAiFullscreen((value) => !value)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#191A23] bg-white text-[#191A23] hover:bg-[#B9FF66]/20 cursor-pointer" aria-label="Tela cheia">
-              {aiFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <button onClick={() => setAiFullscreen((value) => !value)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer" aria-label="Tela cheia">
+              {aiFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button onClick={() => setAiOpen(false)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#191A23] bg-white text-[#191A23] hover:bg-red-100 hover:text-red-600 cursor-pointer" aria-label="Fechar">
-              <X size={16} />
+            <button onClick={() => setAiOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer" aria-label="Fechar">
+              <X size={15} />
             </button>
 
             {aiHistoryOpen && (
-              <div className="absolute right-0 top-12 z-20 w-[min(340px,calc(100vw-32px))] overflow-hidden rounded-2xl border-2 border-[#191A23] bg-white p-3 shadow-[4px_4px_0px_#191A23]">
-                <div className="flex items-center justify-between px-3 py-2 border-b-2 border-[#191A23]/10 mb-2">
-                  <strong className="text-xs font-black text-[#191A23]">Histórico de Análises</strong>
-                  <span className="text-[10px] font-bold text-[#191A23]/70">{aiConversations.length} conversas</span>
+              <div className="absolute right-0 top-11 z-20 w-[min(340px,calc(100vw-32px))] overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-lg">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 mb-1">
+                  <strong className="text-xs font-bold text-[#191A23]">Histórico de Análises</strong>
+                  <span className="text-[10px] font-semibold text-slate-400">{aiConversations.length} conversas</span>
                 </div>
                 <div className="max-h-[50dvh] space-y-1 overflow-y-auto">
                   {aiConversations.length === 0 ? (
-                    <p className="px-3 py-6 text-center text-xs font-bold text-[#191A23]/60">Suas análises aparecerão aqui.</p>
+                    <p className="px-3 py-6 text-center text-xs font-medium text-slate-400">Suas análises aparecerão aqui.</p>
                   ) : (
                     aiConversations.map((conversation) => (
                       <button 
                         key={conversation.id} 
                         type="button" 
                         onClick={() => { setAiQuestion(conversation.question); setAiResult(conversation.result); setAiHistoryOpen(false); }} 
-                        className="block w-full rounded-xl p-2.5 text-left hover:bg-[#B9FF66]/20 cursor-pointer transition-colors border border-transparent hover:border-[#191A23]"
+                        className="block w-full rounded-lg p-2 text-left hover:bg-slate-50 transition-colors"
                       >
-                        <span className="block truncate text-xs font-black text-[#191A23]">{conversation.title}</span>
-                        <span className="mt-0.5 block truncate text-[10px] font-medium text-[#191A23]/70">{conversation.question}</span>
+                        <span className="block truncate text-xs font-bold text-[#191A23]">{conversation.title}</span>
+                        <span className="mt-0.5 block truncate text-[10px] text-slate-400">{conversation.question}</span>
                       </button>
                     ))
                   )}
@@ -1027,23 +1026,23 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-[#F3F3F3] p-5 space-y-4">
-          <div className="rounded-2xl border-2 border-[#191A23] bg-white p-5 shadow-[3px_3px_0px_#191A23] space-y-4">
+        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-5 space-y-4">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#191A23] bg-[#B9FF66] text-[#191A23] shadow-[2px_2px_0px_#191A23]">
-                <Sparkles size={18} />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#B9FF66] text-[#191A23] shadow-xs">
+                <Sparkles size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-[#191A23]">Como posso otimizar sua VSL?</h3>
-                <p className="text-xs font-medium text-[#191A23]/70">Consulte recomendações baseadas no tráfego real.</p>
+                <h3 className="text-xs font-bold text-[#191A23]">Como posso otimizar sua VSL?</h3>
+                <p className="text-[11px] font-medium text-slate-500">Consulte recomendações baseadas no tráfego real.</p>
               </div>
             </div>
-            <div className="grid gap-2 pt-1">
+            <div className="grid gap-1.5 pt-1">
               {suggestionPrompts.map((prompt) => (
                 <button 
                   key={prompt} 
                   onClick={() => void askAi(prompt)} 
-                  className="rounded-xl border-2 border-[#191A23] bg-white px-3.5 py-2.5 text-left text-xs font-bold text-[#191A23] shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66]/20 transition-all cursor-pointer"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
                 >
                   {prompt}
                 </button>
@@ -1051,39 +1050,39 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
             </div>
           </div>
 
-          {aiError && <p className="rounded-2xl border-2 border-[#191A23] bg-red-100 p-4 text-xs font-bold text-red-900 shadow-[2px_2px_0px_#191A23]">{aiError}</p>}
+          {aiError && <p className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">{aiError}</p>}
 
           {aiResult && (
-            <div className="space-y-4 font-sans">
-              <article className="rounded-2xl border-2 border-[#191A23] bg-white p-5 shadow-[3px_3px_0px_#191A23]">
-                <h3 className="text-sm font-black text-[#191A23] flex items-center gap-2">
-                  <Sparkles size={16} /> {aiResult.headline}
+            <div className="space-y-3 font-sans">
+              <article className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
+                <h3 className="text-xs font-bold text-[#191A23] flex items-center gap-1.5">
+                  <Sparkles size={15} /> {aiResult.headline}
                 </h3>
-                <p className="mt-2 text-xs font-medium text-[#191A23]/80 leading-relaxed">{aiResult.executiveSummary}</p>
+                <p className="mt-1.5 text-xs font-medium text-slate-600 leading-relaxed">{aiResult.executiveSummary}</p>
               </article>
 
               {aiResult.warnings.length > 0 && (
-                <div className="rounded-2xl border-2 border-[#191A23] bg-amber-100 p-5 shadow-[3px_3px_0px_#191A23]">
-                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Pontos de Atenção</h4>
-                  <ul className="list-disc pl-4 text-xs font-bold text-amber-900 space-y-1">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">Pontos de Atenção</h4>
+                  <ul className="list-disc pl-4 text-xs font-medium text-amber-700 space-y-1">
                     {aiResult.warnings.map((w, idx) => <li key={idx}>{w}</li>)}
                   </ul>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-[#191A23] uppercase tracking-wider">Oportunidades Recomendadas</h4>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-slate-400">Oportunidades Recomendadas</h4>
                 {aiResult.opportunities.map((op, index) => (
-                  <article key={index} className="rounded-2xl border-2 border-[#191A23] bg-white p-5 shadow-[3px_3px_0px_#191A23] space-y-2">
+                  <article key={index} className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-1.5">
                     <div className="flex items-center justify-between gap-3">
-                      <strong className="text-xs font-black text-[#191A23]">{op.title}</strong>
-                      <span className="rounded-full border border-[#191A23] bg-[#B9FF66] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#191A23]">
+                      <strong className="text-xs font-bold text-[#191A23]">{op.title}</strong>
+                      <span className="rounded-full bg-[#B9FF66] border border-black/5 px-2 py-0.5 text-[10px] font-bold text-[#191A23]">
                         {op.priority}
                       </span>
                     </div>
-                    <div className="text-xs font-medium text-[#191A23]/80 space-y-2">
+                    <div className="text-xs font-medium text-slate-600 space-y-1">
                       <p><b>Evidência:</b> {op.evidence}</p>
-                      <p className="border-t border-[#191A23]/10 pt-2 font-bold text-[#191A23]"><b>Ação sugerida:</b> {op.action}</p>
+                      <p className="border-t border-slate-100 pt-1 text-slate-800 font-semibold"><b>Ação sugerida:</b> {op.action}</p>
                     </div>
                   </article>
                 ))}
@@ -1093,12 +1092,12 @@ export default function AnalyticsWorkspace({ videoId }: { videoId: string }) {
 
           {aiLoading && (
             <div className="flex items-center justify-center py-10">
-              <RefreshCw className="animate-spin text-[#191A23]" size={24} />
+              <RefreshCw className="animate-spin text-slate-600" size={20} />
             </div>
           )}
         </div>
 
-        <div className="border-t-2 border-[#191A23] bg-white p-4">
+        <div className="border-t border-slate-100 bg-white p-4">
           <ClaudeChatInput
             onSendMessage={(data) => void askAi(data.message)}
             isLoading={aiLoading}

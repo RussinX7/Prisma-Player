@@ -33,13 +33,13 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
     item.messageKey ? t(item.messageKey) : item.title;
 
   return (
-    <SidebarGroup className="px-2 py-2">
+    <SidebarGroup className="px-1 py-2">
       {label && (
-        <SidebarGroupLabel className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#191A23]/60">
+        <SidebarGroupLabel className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           {label}
         </SidebarGroupLabel>
       )}
-      <SidebarMenu className="gap-1.5">
+      <SidebarMenu className="gap-1">
         {items.map((item) => {
           const isItemActive = isPathActive(pathname, item.path);
           const hasActiveSubItem = item.subItems?.some((sub) =>
@@ -58,10 +58,10 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
                   <CollapsibleTrigger
                     render={<SidebarMenuButton isActive={isItemActive} />}
                     className={cn(
-                      "min-h-11 rounded-2xl border-2 px-3 text-xs font-bold transition-all cursor-pointer",
+                      "min-h-10 rounded-xl px-3 text-xs font-semibold transition-all cursor-pointer border",
                       isItemActive
-                        ? "border-[#191A23] bg-[#B9FF66] text-[#191A23] font-black shadow-[2px_2px_0px_#191A23]"
-                        : "border-transparent text-[#191A23] hover:border-[#191A23] hover:bg-[#B9FF66]/20"
+                        ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
+                        : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-[#B9FF66]/15 hover:text-[#191A23]"
                     )}
                   >
                     {item.icon}
@@ -69,7 +69,7 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
                     <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarMenuSub className="border-l-2 border-[#191A23] pl-2 my-1 space-y-1">
+                    <SidebarMenuSub className="border-l border-slate-200 pl-2 my-1 space-y-1">
                       {item.subItems.map((subItem) => {
                         const isSubActive = isPathActive(pathname, subItem.path);
                         return (
@@ -78,10 +78,10 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
                               isActive={isSubActive}
                               render={<Link href={subItem.path ?? "#"} />}
                               className={cn(
-                                "min-h-9 rounded-xl border-2 px-3 text-xs transition-all cursor-pointer",
+                                "min-h-9 rounded-lg border px-3 text-xs transition-all cursor-pointer",
                                 isSubActive
-                                  ? "border-[#191A23] bg-[#B9FF66] text-[#191A23] font-black shadow-[1px_1px_0px_#191A23]"
-                                  : "border-transparent text-[#191A23] font-bold hover:border-[#191A23] hover:bg-[#B9FF66]/20"
+                                  ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
+                                  : "border-transparent text-slate-600 font-medium hover:bg-[#B9FF66]/15 hover:text-[#191A23]"
                               )}
                             >
                               {subItem.icon}
@@ -99,14 +99,14 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
                   tooltip={titleFor(item)}
                   render={<Link href={item.path ?? "#"} />}
                   className={cn(
-                    "min-h-11 rounded-2xl border-2 px-3 text-xs transition-all cursor-pointer",
+                    "min-h-10 rounded-xl px-3 text-xs transition-all cursor-pointer border",
                     isItemActive
-                      ? "border-[#191A23] bg-[#B9FF66] text-[#191A23] font-black shadow-[2px_2px_0px_#191A23] hover:bg-[#B9FF66] hover:text-[#191A23]"
-                      : "border-transparent text-[#191A23] font-bold hover:border-[#191A23] hover:bg-[#B9FF66]/20 hover:text-[#191A23]",
+                      ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs hover:bg-[#a6ee50]"
+                      : "border-transparent text-slate-600 font-semibold hover:border-slate-200 hover:bg-[#B9FF66]/15 hover:text-[#191A23]",
                   )}
                 >
                   {item.icon}
-                  <span className="font-bold">{titleFor(item)}</span>
+                  <span>{titleFor(item)}</span>
                 </SidebarMenuButton>
               )}
             </Collapsible>
