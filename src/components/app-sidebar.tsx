@@ -23,27 +23,27 @@ export function AppSidebar() {
       data-i18n-managed
       collapsible="icon"
       variant="sidebar"
-      className="border-r border-border/70 bg-background"
+      className="border-r-2 border-[#191A23] bg-white text-[#191A23]"
     >
-      <SidebarHeader className="h-16 justify-center border-b border-border/60 px-4">
+      <SidebarHeader className="h-16 justify-center border-b-2 border-[#191A23] px-4 bg-white">
         <Logo />
       </SidebarHeader>
-      <SidebarContent className="py-2">
+      <SidebarContent className="py-3 px-1 bg-white">
         {navGroups.map((group, index) => (
           <NavGroup key={`sidebar-group-${index}`} {...group} />
         ))}
       </SidebarContent>
-      <SidebarFooter className="border-t border-border/60 p-3">
-        <SidebarMenu>
+      <SidebarFooter className="border-t-2 border-[#191A23] p-3 bg-white">
+        <SidebarMenu className="gap-1">
           {footerNavLinks.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 tooltip={item.messageKey ? t(item.messageKey) : item.title}
-                className="min-h-10 rounded-xl px-3 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="min-h-11 rounded-2xl border-2 border-transparent px-3 text-xs font-bold text-[#191A23] hover:border-[#191A23] hover:bg-[#B9FF66]/20 transition-all cursor-pointer"
                 render={<Link href={item.path ?? "#"} />}
               >
                 {item.icon}
-                <span>{item.messageKey ? t(item.messageKey) : item.title}</span>
+                <span className="font-bold text-[#191A23]">{item.messageKey ? t(item.messageKey) : item.title}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

@@ -79,19 +79,21 @@ export default function AccountMenu() {
         sideOffset={8}
         className="w-[min(320px,calc(100vw-24px))] rounded-2xl p-2 shadow-xl"
       >
-        <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2.5">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-            {initials}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-foreground">
-              {profile.name}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2.5">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+              {initials}
             </span>
-            <span className="block truncate text-xs font-normal text-muted-foreground">
-              {profile.email}
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {profile.name}
+              </span>
+              <span className="block truncate text-xs font-normal text-muted-foreground">
+                {profile.email}
+              </span>
             </span>
-          </span>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuSub>
