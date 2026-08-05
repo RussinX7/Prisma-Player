@@ -63,7 +63,7 @@ interface StudioConfig extends PixelTrackingFields {
   accent: string; background: string; gradientEnd: string; colorStyle: "solid" | "gradient"; radius: number; bigPlay: boolean; playPause: boolean; disablePause: boolean; progressBar: boolean; time: boolean; seekBackward: boolean; seekForward: boolean; volume: boolean; fullscreen: boolean; pictureInPicture: boolean; speedControl: boolean;
   smartProgress: boolean; progressColor: string; progressHeight: number;
   smartAutoplay: boolean; autoplayMessage: string; autoplayTextColor: string; autoplayBackground: string; autoplayRadius: number;
-  autoplayCoverType: "standard" | "gif" | "image"; autoplayGifUrl: string; autoplayImageUrl: string; autoplayTagBadge: string; autoplayAnimation: "pulse" | "sound_bars" | "cursor_click" | "play_glow";
+  autoplayCoverType: "standard" | "gif" | "image"; autoplayGifUrl: string; autoplayImageUrl: string; autoplayTagBadge: string; autoplayAnimation: "pulse" | "sound_bars" | "cursor_click" | "play_glow"; autoplayOverlayOpacity: number;
   turboEnabled: boolean; turboMode: "automatic" | "manual"; turboMin: number; turboMax: number; playbackRate: number;
   headlineEnabled: boolean; headline: string; headlineVariants: string[]; headlineFormat: "text" | "image"; headlineDesktopName: string; headlineMobileName: string; headlineColor: string; headlineBackground: string; headlineSize: number; headlineAlign: "left" | "center" | "right"; headlineTagBadge: string;
   trafficEnabled: boolean; domains: string[]; browserLanguage: string; allowedCountries: string; allowedDevices: string[]; blockVpn: boolean; urlKeyEnabled: boolean; accessToken: boolean;
@@ -135,12 +135,13 @@ const defaultAutoplayPresetCards: PresetCardItem[] = [
       autoplayBackground: "#0066cc",
       autoplayRadius: 16,
       autoplayAnimation: "pulse",
+      autoplayOverlayOpacity: 85,
     },
   },
   {
     id: "auto-2",
     name: "Smart Autoplay 2",
-    color: "#4b5563",
+    color: "#374151",
     data: {
       autoplayCoverType: "standard",
       autoplayMessage: "CLIQUE PARA OUVIR O ÁUDIO",
@@ -149,6 +150,7 @@ const defaultAutoplayPresetCards: PresetCardItem[] = [
       autoplayBackground: "#374151",
       autoplayRadius: 12,
       autoplayAnimation: "cursor_click",
+      autoplayOverlayOpacity: 90,
     },
   },
   {
@@ -164,6 +166,7 @@ const defaultAutoplayPresetCards: PresetCardItem[] = [
       autoplayBackground: "#B9FF66",
       autoplayRadius: 16,
       autoplayAnimation: "pulse",
+      autoplayOverlayOpacity: 95,
     },
   },
 ];
@@ -171,14 +174,17 @@ const defaultAutoplayPresetCards: PresetCardItem[] = [
 const defaultHeadlinePresetCards: PresetCardItem[] = [
   { id: "head-1", name: "Headline 1", color: "#0066cc", badge: "Ativo", data: { headline: "Descubra a maneira mais simples de transformar atenção em vendas", headlineTagBadge: "🔥 EXCLUSIVO", headlineColor: "#1d1d1f", headlineBackground: "#ffffff", headlineSize: 28, headlineAlign: "center" } },
   { id: "head-2", name: "Headline 2", color: "#B9FF66", data: { headline: "⚠️ ATENÇÃO: Esta apresentação sairá do ar em poucas horas", headlineTagBadge: "⚠️ URGENTE", headlineColor: "#191A23", headlineBackground: "#B9FF66", headlineSize: 30, headlineAlign: "center" } },
-  { id: "head-3", name: "Headline 3", color: "#191A23", data: { headline: "Você já tentou de tudo para escalar suas vendas e continua travado?", headlineTagBadge: "❓ PERGUNTA", headlineColor: "#ffffff", headlineBackground: "#191A23", headlineSize: 26, headlineAlign: "center" } },
+];
+
+const defaultCtaPresetCards: PresetCardItem[] = [
+  { id: "cta-1", name: "Botão 1", color: "#B9FF66", badge: "Ativo", data: { ctaText: "QUERO GARANTIR MINHA VAGA AGORA", ctaSubtitle: "🔒 Compra 100% Segura • Acesso Imediato", ctaBadges: "7 Dias de Garantia • Pix em 12x", ctaBackground: "#B9FF66", ctaTextColor: "#191A23", ctaHoverBackground: "#a6ee50", ctaPulse: true } },
 ];
 
 const initialConfig: StudioConfig = {
   accent: "#0066cc", background: "#000000", gradientEnd: "#2997ff", colorStyle: "solid", radius: 0, bigPlay: true, playPause: true, disablePause: false, progressBar: true, time: true, seekBackward: false, seekForward: false, volume: true, fullscreen: true, pictureInPicture: true, speedControl: true,
   smartProgress: true, progressColor: "#0066cc", progressHeight: 6,
   smartAutoplay: true, autoplayMessage: "Seu vídeo já começou. Clique para ouvir.", autoplayTextColor: "#191A23", autoplayBackground: "#B9FF66", autoplayRadius: 16,
-  autoplayCoverType: "standard", autoplayGifUrl: "", autoplayImageUrl: "", autoplayTagBadge: "🔴 AULÃO AO VIVO", autoplayAnimation: "pulse",
+  autoplayCoverType: "standard", autoplayGifUrl: "", autoplayImageUrl: "", autoplayTagBadge: "🔴 AULÃO AO VIVO", autoplayAnimation: "pulse", autoplayOverlayOpacity: 90,
   turboEnabled: true, turboMode: "manual", turboMin: 1, turboMax: 1.2, playbackRate: 1,
   headlineEnabled: true, headline: "Descubra a maneira mais simples de transformar atenção em vendas", headlineVariants: [], headlineFormat: "text", headlineDesktopName: "", headlineMobileName: "", headlineColor: "#1d1d1f", headlineBackground: "#ffffff", headlineSize: 30, headlineAlign: "center", headlineTagBadge: "🔥 EXCLUSIVO",
   trafficEnabled: false, domains: [], browserLanguage: "Todos", allowedCountries: "Todos", allowedDevices: ["desktop", "mobile", "tablet"], blockVpn: true, urlKeyEnabled: false, accessToken: false,
@@ -237,6 +243,9 @@ export default function VslStudio() {
   const [headlinePresets, setHeadlinePresets] = useState<PresetCardItem[]>(defaultHeadlinePresetCards);
   const [activeHeadlineIndex, setActiveHeadlineIndex] = useState(0);
 
+  const [ctaPresets, setCtaPresets] = useState<PresetCardItem[]>(defaultCtaPresetCards);
+  const [activeCtaIndex, setActiveCtaIndex] = useState(0);
+
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [videoSize, setVideoSize] = useState({ width: 16, height: 9 });
@@ -248,7 +257,6 @@ export default function VslStudio() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [playerId, setPlayerId] = useState<string>();
-  const [saveError, setSaveError] = useState("");
   const [posterUrl, setPosterUrl] = useState<string>();
   const [pausePosterUrl, setPausePosterUrl] = useState<string>();
   const [endPosterUrl, setEndPosterUrl] = useState<string>();
@@ -263,7 +271,16 @@ export default function VslStudio() {
 
   const update = <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => {
     dirtyConfigKeys.current.add(key);
-    setConfig((current) => ({ ...current, [key]: value }));
+    setConfig((current) => {
+      const next = { ...current, [key]: value };
+      // Update active preset card color if autoplay background changes
+      if (key === "autoplayBackground" && active === "autoplay") {
+        setAutoplayPresets((prev) =>
+          prev.map((item, idx) => (idx === activeAutoplayIndex ? { ...item, color: String(value) } : item))
+        );
+      }
+      return next;
+    });
   };
 
   const applyPresetData = (data: Record<string, unknown>) => {
@@ -285,7 +302,6 @@ export default function VslStudio() {
   }, []);
 
   const sources = useMemo(() => video ? [{ src: video.src, type: video.type }] : [], [video]);
-
   const playerStyle = useMemo(() => ({ borderRadius: `${config.radius}px` }), [config.radius]);
 
   const handleMetadata = (meta: { duration: number; width: number; height: number }) => {
@@ -316,13 +332,12 @@ export default function VslStudio() {
 
   const saveConfig = async () => {
     setSaving(true);
-    setSaveError("");
     try {
       localStorage.setItem("prisma-studio-config", JSON.stringify(config));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
-      setSaveError("Não foi possível salvar as configurações");
+      // ignore
     } finally {
       setSaving(false);
     }
@@ -362,7 +377,7 @@ export default function VslStudio() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-white text-[#1d1d1f] dark:bg-[#000000] dark:text-white">
-      {/* Top Header */}
+      {/* Top Header with New Official Logo */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-black/10 px-4 dark:border-white/10">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/videos" className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700">
@@ -560,7 +575,7 @@ export default function VslStudio() {
           </div>
         </main>
 
-        {/* RIGHT COLUMN: Customization Panel & Preset Manager Cards (Drawer) */}
+        {/* RIGHT COLUMN: Customization Panel & Preset Manager Cards WITH FULL EDITABLE CONTROLS BELOW */}
         {active && (
           <aside className="order-3 flex flex-col border-l border-black/10 bg-white dark:border-white/10 dark:bg-[#111113] overflow-y-auto">
             <div className="p-4 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
@@ -573,9 +588,9 @@ export default function VslStudio() {
             </div>
 
             <div className="p-4 space-y-5">
-              {/* SMART AUTOPLAY PRESET CARDS LIST (Matching User References) */}
+              {/* SMART AUTOPLAY PRESET CARDS LIST + FULL EDITABLE CONTROLS */}
               {active === "autoplay" && (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Play size={16} className="text-[#0066cc] dark:text-[#B9FF66]" />
@@ -590,8 +605,8 @@ export default function VslStudio() {
                     <Info size={13} /> Aprenda sobre Smart Autoplay™
                   </a>
 
-                  {/* Vertical Preset Cards */}
-                  <div className="space-y-3 pt-1">
+                  {/* Vertical Preset Cards List */}
+                  <div className="space-y-2.5 pt-1">
                     {autoplayPresets.map((preset, idx) => {
                       const isActive = idx === activeAutoplayIndex;
                       return (
@@ -610,7 +625,6 @@ export default function VslStudio() {
                               : "border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-300"
                           }`}
                         >
-                          {/* Active Blue Badge (Matching User Reference Image 2) */}
                           {isActive && (
                             <span className="absolute -top-2.5 right-3 rounded-md bg-sky-500 px-2 py-0.5 text-[9px] font-extrabold text-white uppercase shadow-xs">
                               Ativo
@@ -618,15 +632,11 @@ export default function VslStudio() {
                           )}
 
                           <div className="flex items-center gap-3">
-                            {/* Color Thumbnail Card (Matching User Reference Image 2) */}
                             <div
-                              className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl font-bold text-white shadow-xs"
+                              className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl font-bold text-white shadow-xs"
                               style={{ backgroundColor: preset.color }}
                             >
-                              <Play size={20} fill="currentColor" />
-                              <span className="text-[7px] tracking-tight opacity-90 uppercase mt-0.5">
-                                Clique para ouvir
-                              </span>
+                              <Play size={18} fill="currentColor" />
                             </div>
 
                             <div>
@@ -651,7 +661,7 @@ export default function VslStudio() {
                     })}
                   </div>
 
-                  {/* Add Another Autoplay Button (Matching User Reference Image 2) */}
+                  {/* Add Another Autoplay Button */}
                   <button
                     type="button"
                     onClick={() => setTemplateModalOpen(true)}
@@ -660,20 +670,77 @@ export default function VslStudio() {
                     + Adicionar outro Autoplay
                   </button>
 
-                  {/* Bottom Test CTA Button (Matching User Reference Image 2) */}
-                  <button
-                    type="button"
-                    onClick={() => void saveConfig()}
-                    className="flex w-full min-h-11 items-center justify-center rounded-xl bg-sky-500 hover:bg-sky-600 px-4 text-xs font-bold text-white shadow-xs cursor-pointer"
-                  >
-                    Iniciar novo teste
-                  </button>
+                  {/* FULL EDITABLE CONTROLS FOR THE ACTIVE PRESET */}
+                  <div className="border-t border-slate-200 dark:border-zinc-800 pt-4 space-y-4">
+                    <PanelTitle>Personalizar Preset Selecionado</PanelTitle>
+
+                    <TextInput
+                      label="Tag / Badge do Botão"
+                      value={config.autoplayTagBadge}
+                      placeholder="Ex: 🔴 AULÃO AO VIVO"
+                      onChange={(v) => update("autoplayTagBadge", v)}
+                    />
+
+                    <TextArea
+                      label="Mensagem de Ativação"
+                      value={config.autoplayMessage}
+                      onChange={(v) => update("autoplayMessage", v)}
+                    />
+
+                    <Segmented
+                      label="Tipo de Capa"
+                      value={config.autoplayCoverType}
+                      options={[
+                        { label: "Padrão", value: "standard" },
+                        { label: "GIF Animado", value: "gif" },
+                        { label: "Imagem Custom", value: "image" },
+                      ]}
+                      onChange={(v) => update("autoplayCoverType", v as StudioConfig["autoplayCoverType"])}
+                    />
+
+                    {config.autoplayCoverType === "gif" && (
+                      <TextInput
+                        label="URL do GIF Animado"
+                        value={config.autoplayGifUrl}
+                        placeholder="https://media.giphy.com/media/.../giphy.gif"
+                        onChange={(v) => update("autoplayGifUrl", v)}
+                      />
+                    )}
+
+                    <Select
+                      label="Estilo de Animação do Botão"
+                      value={config.autoplayAnimation}
+                      options={["pulse", "sound_bars", "cursor_click", "play_glow"]}
+                      onChange={(v) => update("autoplayAnimation", v as StudioConfig["autoplayAnimation"])}
+                    />
+
+                    <Color
+                      label="Cor do Texto"
+                      value={config.autoplayTextColor}
+                      onChange={(v) => update("autoplayTextColor", v)}
+                    />
+
+                    <Color
+                      label="Cor de Fundo do Botão"
+                      value={config.autoplayBackground}
+                      onChange={(v) => update("autoplayBackground", v)}
+                    />
+
+                    <Range
+                      label="Cantos Arredondados (Raio)"
+                      value={config.autoplayRadius}
+                      min={0}
+                      max={28}
+                      suffix="px"
+                      onChange={(v) => update("autoplayRadius", v)}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* HEADLINES PRESET CARDS LIST (Matching User Reference Image 1) */}
+              {/* HEADLINES PRESET CARDS LIST + FULL EDITABLE CONTROLS */}
               {active === "headlines" && (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Heading size={16} className="text-[#0066cc]" />
@@ -684,7 +751,7 @@ export default function VslStudio() {
                     <Switch checked={config.headlineEnabled} onChange={(v) => update("headlineEnabled", v)} />
                   </div>
 
-                  <div className="space-y-3 pt-1">
+                  <div className="space-y-2.5 pt-1">
                     {headlinePresets.map((preset, idx) => {
                       const isActive = idx === activeHeadlineIndex;
                       return (
@@ -726,10 +793,60 @@ export default function VslStudio() {
                       );
                     })}
                   </div>
+
+                  {/* FULL EDITABLE CONTROLS FOR THE ACTIVE HEADLINE PRESET */}
+                  <div className="border-t border-slate-200 dark:border-zinc-800 pt-4 space-y-4">
+                    <PanelTitle>Personalizar Headline Selecionada</PanelTitle>
+
+                    <TextInput
+                      label="Tag / Selo da Headline"
+                      value={config.headlineTagBadge}
+                      placeholder="Ex: 🔥 EXCLUSIVO"
+                      onChange={(v) => update("headlineTagBadge", v)}
+                    />
+
+                    <TextArea
+                      label="Headline Principal"
+                      value={config.headline}
+                      onChange={(v) => update("headline", v)}
+                    />
+
+                    <Segmented
+                      label="Alinhamento"
+                      value={config.headlineAlign}
+                      options={[
+                        { label: "Esquerda", value: "left" },
+                        { label: "Centro", value: "center" },
+                        { label: "Direita", value: "right" },
+                      ]}
+                      onChange={(v) => update("headlineAlign", v as StudioConfig["headlineAlign"])}
+                    />
+
+                    <Range
+                      label="Tamanho da Fonte"
+                      value={config.headlineSize}
+                      min={16}
+                      max={64}
+                      suffix="px"
+                      onChange={(v) => update("headlineSize", v)}
+                    />
+
+                    <Color
+                      label="Cor do Texto"
+                      value={config.headlineColor}
+                      onChange={(v) => update("headlineColor", v)}
+                    />
+
+                    <Color
+                      label="Cor de Fundo"
+                      value={config.headlineBackground}
+                      onChange={(v) => update("headlineBackground", v)}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* TURBO MODULE PANEL (Matching User Reference Image 4) */}
+              {/* TURBO MODULE PANEL */}
               {active === "turbo" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
@@ -805,7 +922,7 @@ export default function VslStudio() {
         )}
       </div>
 
-      {/* TEMPLATE SELECTION MODAL (Matching User Reference Image 3 & 5) */}
+      {/* TEMPLATE SELECTION MODAL */}
       <Dialog
         open={templateModalOpen}
         onClose={() => setTemplateModalOpen(false)}

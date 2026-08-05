@@ -7,26 +7,20 @@ interface BrandLogoProps {
 }
 
 export default function BrandLogo({
-  className = "h-8 w-[154px]",
+  className = "h-8 w-auto",
   priority = false,
-  darkSurface = false,
 }: BrandLogoProps) {
   return (
-    <span
-      className={`brand-logo-stack ${darkSurface ? "brand-logo-stack-dark" : ""} ${className}`}
-      role="img"
-      aria-label="Prisma Player"
-    >
-      <Image src="/assets/logo.png" alt="" fill sizes="246px" priority={priority} className="object-contain" />
+    <div className={`flex items-center gap-2 font-black tracking-tight text-[#191A23] dark:text-white ${className}`}>
       <Image
-        src="/assets/logo.png"
-        alt=""
-        fill
-        sizes="246px"
+        src="/faviconnovo.ico"
+        alt="Prisma Player Logo"
+        width={32}
+        height={32}
         priority={priority}
-        aria-hidden="true"
-        className="brand-logo-light-text object-contain"
+        className="h-8 w-8 object-contain rounded-lg"
       />
-    </span>
+      <span className="text-base font-extrabold tracking-tight">PRISMA</span>
+    </div>
   );
 }
