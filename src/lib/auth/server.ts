@@ -23,14 +23,21 @@ export async function getCurrentAdminUser() {
   return appRole === "admin" ? data.user : null;
 }
 
+export async function getAuthAssuranceLevel(): Promise<"aal1" | "aal2" | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims) return null;
+  const aal = data.claims.aal;
+  return aal === "aal1" || aal === "aal2" ? (aal as "aal1" | "aal2") : null;
+}
+
 export async function requireAdmin() {
   const userId = await getCurrentUserId();
   if (!userId) redirect(`/login?next=${encodeURIComponent("/admin")}`);
   const user = await getCurrentAdminUser();
   if (!user) redirect("/dashboard/videos");
-  const supabase = await createClient();
-  const { data: assurance, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error || assurance.currentLevel !== "aal2") {
+  const aal = await getAuthAssuranceLevel();
+  if (aal !== "aal2") {
     redirect("/dashboard/settings?section=security&adminMfa=required");
   }
   return user;

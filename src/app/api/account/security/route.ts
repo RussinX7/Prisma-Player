@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/auth/server";
+import { getCurrentUserId, getAuthAssuranceLevel } from "@/lib/auth/server";
 import { csrfGuard } from "@/lib/security/csrf";
 import { readJsonBody } from "@/lib/api/request";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -67,8 +67,8 @@ export async function POST(request: Request) {
   if (action === "unenroll") {
     const factorId = typeof body.factorId === "string" ? body.factorId : "";
     if (!factorId) return NextResponse.json({ error: "factor_id_required" }, { status: 400 });
-    const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (assurance.error || assurance.data.currentLevel !== "aal2") {
+    const aal = await getAuthAssuranceLevel();
+    if (aal !== "aal2") {
       return NextResponse.json({ error: "aal2_required" }, { status: 403 });
     }
     const result = await supabase.auth.mfa.unenroll({ factorId });
