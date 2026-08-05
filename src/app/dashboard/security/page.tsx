@@ -44,31 +44,31 @@ export default function SecurityPage() {
         title="Segurança & Proteção de Domínios"
       />
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-xs">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 sm:p-8 shadow-xs">
         <div className="max-w-3xl space-y-6">
           <div>
-            <h3 className="text-xl font-bold text-[#191A23]">Lista de Domínios Autorizados</h3>
-            <p className="mt-1 text-xs font-medium text-slate-500 leading-relaxed">
+            <h3 className="text-xl font-bold text-[#191A23] dark:text-white">Lista de Domínios Autorizados</h3>
+            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-zinc-400 leading-relaxed">
               Cadastre domínios sem protocolo (ex: <code className="rounded bg-[#B9FF66]/30 px-1.5 py-0.5 font-semibold text-[#191A23]">checkout.seudominio.com</code>).
-              Use <code className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">*.exemplo.com</code> para autorizar todos os subdomínios.
+              Use <code className="rounded bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 font-semibold text-slate-700 dark:text-zinc-300">*.exemplo.com</code> para autorizar todos os subdomínios.
             </p>
           </div>
 
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <label className="relative flex min-h-10 flex-1 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 shadow-none">
-              <Globe2 size={16} className="text-slate-400" />
+            <label className="relative flex min-h-10 flex-1 items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 shadow-none">
+              <Globe2 size={16} className="text-slate-400 dark:text-zinc-500" />
               <input
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" && addDomain()}
                 placeholder="checkout.seudominio.com"
-                className="min-w-0 flex-1 bg-transparent text-xs font-medium text-[#191A23] outline-none"
+                className="min-w-0 flex-1 bg-transparent text-xs font-medium text-[#191A23] dark:text-white outline-none"
               />
             </label>
             <button
               type="button"
               onClick={addDomain}
-              className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] border border-black/5 px-5 text-xs font-bold text-[#191A23] shadow-xs transition-all cursor-pointer"
+              className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-5 text-xs font-bold text-[#191A23] shadow-xs transition-all cursor-pointer"
             >
               <Plus size={15} />
               Adicionar domínio
@@ -77,24 +77,24 @@ export default function SecurityPage() {
 
           <div className="space-y-2 pt-1">
             {domains.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-xs font-medium text-slate-500 bg-slate-50">
+              <div className="rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 p-6 text-center text-xs font-medium text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-900/50">
                 Nenhum domínio cadastrado. Enquanto a lista estiver vazia, seus players podem ser reproduzidos em qualquer site.
               </div>
             ) : (
               domains.map((item) => (
                 <div
                   key={item}
-                  className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 shadow-none"
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 px-3.5 shadow-none"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Globe2 size={15} className="text-slate-500" />
-                    <span className="font-semibold text-xs text-[#191A23]">{item}</span>
+                    <Globe2 size={15} className="text-slate-500 dark:text-zinc-400" />
+                    <span className="font-semibold text-xs text-[#191A23] dark:text-zinc-100">{item}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setDomains((values) => values.filter((value) => value !== item))}
                     aria-label={`Remover ${item}`}
-                    className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-red-600 cursor-pointer"
+                    className="flex h-8 w-8 items-center justify-center text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -104,17 +104,17 @@ export default function SecurityPage() {
           </div>
 
           {saved && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-900 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 p-3.5 text-xs font-semibold text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>Regras de proteção atualizadas com sucesso!</span>
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
             <Button
               onClick={() => void save()}
               disabled={saving}
-              className="h-10 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] text-[#191A23] font-bold text-xs shadow-xs border border-black/5 cursor-pointer disabled:opacity-50"
+              className="h-10 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] text-[#191A23] font-bold text-xs shadow-xs cursor-pointer disabled:opacity-50"
             >
               {saving ? "Salvando alterações..." : saved ? "Salvo com sucesso!" : "Salvar Configurações de Segurança"}
             </Button>

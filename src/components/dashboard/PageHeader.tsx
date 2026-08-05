@@ -26,10 +26,10 @@ export default function PageHeader({
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl border border-slate-200/80 bg-[#B9FF66] text-[#191A23] shadow-xs flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-[#B9FF66] text-[#191A23] shadow-xs flex items-center justify-center">
             {icon}
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#191A23]">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#191A23] dark:text-white">
             {title}
           </h2>
         </div>
@@ -42,8 +42,8 @@ export default function PageHeader({
                 flex min-h-9 items-center justify-center gap-2 rounded-xl text-xs transition-all active:scale-95 cursor-pointer
                 ${
                   action.primary
-                    ? "bg-[#B9FF66] text-[#191A23] border border-black/5 font-bold shadow-xs px-4 py-2 hover:bg-[#a6ee50]"
-                    : "bg-white text-[#191A23] border border-slate-200 font-semibold shadow-xs px-3.5 py-2 hover:bg-slate-50"
+                    ? "bg-[#B9FF66] hover:bg-[#a6ee50] text-[#191A23] font-bold shadow-xs px-4 py-2"
+                    : "bg-white dark:bg-zinc-900 text-[#191A23] dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 font-semibold shadow-xs px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-zinc-800"
                 }
               `}
             >

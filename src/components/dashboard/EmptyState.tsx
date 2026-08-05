@@ -18,45 +18,46 @@ export default function EmptyState({
   actionLabel = "Adicionar primeiro vídeo",
   onAction,
 }: EmptyStateProps) {
-  const content = (
+  return (
     <div className="flex flex-1 flex-col items-center justify-center px-5 py-12 sm:px-6 sm:py-16">
-      <div className="mb-6">
-        {icon || (
-          <div className="w-20 h-20 rounded-2xl themeable-bg-surface-pearl flex items-center justify-center">
+      <div className="mb-4 flex justify-center">
+        {icon ? (
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#B9FF66]/20 dark:bg-[#B9FF66]/10 text-[#191A23] dark:text-[#B9FF66]">
+            {icon}
+          </div>
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
             <svg
-              width="36"
-              height="36"
+              width="32"
+              height="32"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.2"
+              strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="themeable-text-ink-muted-48"
             >
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
           </div>
         )}
       </div>
-      <h3 className="text-center text-[21px] font-semibold tracking-[-0.35px] themeable-text-ink mb-2 sm:text-[22px]">
+      <h3 className="text-center text-xl font-bold tracking-tight text-[#191A23] dark:text-white mb-1.5">
         {title}
       </h3>
-      <p className="text-[15px] tracking-[-0.224px] themeable-text-ink-muted-48 text-center max-w-sm mb-8 leading-relaxed">
+      <p className="text-xs font-medium text-slate-500 dark:text-zinc-400 text-center max-w-sm mb-6 leading-relaxed">
         {description}
       </p>
-      <div className="flex items-center gap-3">
+      {onAction && (
         <button
           type="button"
           onClick={onAction}
-          className="flex min-h-11 items-center gap-2 rounded-full bg-prisma-blue px-5 py-2.5 text-[14px] font-normal tracking-[-0.2px] text-white transition-transform active:scale-95"
+          className="flex min-h-10 items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-5 text-xs font-bold text-[#191A23] shadow-xs transition-transform active:scale-95 cursor-pointer"
         >
-          <Plus size={16} />
+          <Plus size={15} />
           {actionLabel}
         </button>
-      </div>
+      )}
     </div>
   );
-
-  return content;
 }

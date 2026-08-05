@@ -37,12 +37,12 @@ export default async function ConversionsPage() {
         ].map((metric) => {
           const Icon = metric.icon;
           return (
-            <article key={metric.label} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-              <span className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
-                <Icon size={15} className="text-[#191A23]" />
+            <article key={metric.label} className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-5 shadow-xs">
+              <span className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500 dark:text-zinc-400">
+                <Icon size={15} className="text-[#191A23] dark:text-[#B9FF66]" />
                 {metric.label}
               </span>
-              <strong className="mt-2 block text-2xl font-bold tracking-tight text-[#191A23]">
+              <strong className="mt-2 block text-2xl font-bold tracking-tight text-[#191A23] dark:text-white">
                 {metric.value.toLocaleString("pt-BR")}
               </strong>
             </article>
@@ -50,17 +50,17 @@ export default async function ConversionsPage() {
         })}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-bold text-[#191A23]">Desempenho por VSL</h2>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xs">
+        <div className="border-b border-slate-100 dark:border-zinc-800 px-6 py-4">
+          <h2 className="text-base font-bold text-[#191A23] dark:text-white">Desempenho por VSL</h2>
+          <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-zinc-400">
             A conversão aparece somente quando uma integração de compra envia o evento confirmado.
           </p>
         </div>
         {rows.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-xs font-medium text-[#191A23]">
-              <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 border-b border-slate-100">
+            <table className="w-full min-w-[680px] text-left text-xs font-medium text-[#191A23] dark:text-zinc-200">
+              <thead className="bg-slate-50 dark:bg-zinc-900/60 text-xs font-semibold uppercase text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800">
                 <tr>
                   <th className="px-6 py-3.5">VSL</th>
                   <th className="px-4 py-3.5">Plays</th>
@@ -69,15 +69,15 @@ export default async function ConversionsPage() {
                   <th className="px-6 py-3.5 text-right">Conversão</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                 {rows.map((row) => (
-                  <tr key={row.videoId} className="hover:bg-slate-50/50">
-                    <td className="max-w-[360px] truncate px-6 py-3.5 font-semibold text-[#191A23]">{row.title}</td>
-                    <td className="px-4 py-3.5 text-slate-600">{row.plays}</td>
-                    <td className="px-4 py-3.5 text-slate-600">{row.clicks}</td>
-                    <td className="px-4 py-3.5 text-slate-600">{row.conversions}</td>
+                  <tr key={row.videoId} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/50">
+                    <td className="max-w-[360px] truncate px-6 py-3.5 font-semibold text-[#191A23] dark:text-zinc-100">{row.title}</td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-zinc-400">{row.plays}</td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-zinc-400">{row.clicks}</td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-zinc-400">{row.conversions}</td>
                     <td className="px-6 py-3.5 text-right font-bold font-mono">
-                      <span className="inline-flex rounded-full bg-[#B9FF66] border border-black/5 px-2.5 py-0.5 text-xs text-[#191A23]">
+                      <span className="inline-flex rounded-full bg-[#B9FF66] px-2.5 py-0.5 text-xs text-[#191A23]">
                         {row.rate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%
                       </span>
                     </td>
@@ -92,8 +92,8 @@ export default async function ConversionsPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#B9FF66] text-[#191A23] shadow-xs">
                 <Target size={24} />
               </div>
-              <h3 className="mt-4 text-lg font-bold text-[#191A23]">Aguardando os primeiros eventos</h3>
-              <p className="mx-auto mt-1 max-w-md text-xs font-medium text-slate-500 leading-relaxed">
+              <h3 className="mt-4 text-lg font-bold text-[#191A23] dark:text-white">Aguardando os primeiros eventos</h3>
+              <p className="mx-auto mt-1 max-w-md text-xs font-medium text-slate-500 dark:text-zinc-400 leading-relaxed">
                 Publique uma VSL e conecte o evento de compra para enxergar o caminho completo entre play, CTA e venda.
               </p>
             </div>

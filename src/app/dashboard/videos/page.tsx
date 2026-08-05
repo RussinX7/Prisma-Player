@@ -195,19 +195,43 @@ export default function VideosPage() {
     }
   }
 
-  const actions = [{ label: "Upload", icon: <Upload size={15} />, primary: false, onClick: () => setImportOpen(true) }, { label: "Nova pasta", icon: <FolderPlus size={15} />, primary: false, onClick: () => setFolderOpen(true) }, { label: "Adicionar vídeo", icon: <Plus size={15} />, primary: true, onClick: () => setImportOpen(true) }];
+  const actions = [
+    { label: "Upload", icon: <Upload size={15} />, primary: false, onClick: () => setImportOpen(true) },
+    { label: "Nova pasta", icon: <FolderPlus size={15} />, primary: false, onClick: () => setFolderOpen(true) },
+    { label: "Adicionar vídeo", icon: <Plus size={15} />, primary: true, onClick: () => setImportOpen(true) }
+  ];
 
   return <>
     <input ref={fileInputRef} type="file" accept="video/*" className="sr-only" onChange={(event) => { void handleFile(event.target.files?.[0]); event.target.value = ""; }} />
     <section className="videos-library-page dashboard-content flex min-w-0 flex-col space-y-5">
-      <PageHeader icon={<Video size={20} />} title={selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name ?? "Pasta" : "Meus vídeos"}>
+      <PageHeader icon={<Video size={20} />} title={selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name ?? "Pasta" : "Meus vídeos"} actions={actions}>
         <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"><span className="flex items-center gap-2 text-xs font-medium text-slate-500"><Video size={15} className="text-[#191A23]" />Biblioteca</span><strong className="mt-2 block text-2xl font-bold text-[#191A23]">{videos.length}</strong><small className="text-slate-500 font-medium">VSLs organizadas na conta</small></article>
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"><span className="flex items-center gap-2 text-xs font-medium text-slate-500"><CheckCircle2 size={15} className="text-emerald-500" />Publicadas</span><strong className="mt-2 block text-2xl font-bold text-[#191A23]">{tabs.find((item) => item.id === "published")?.count ?? 0}</strong><small className="text-slate-500 font-medium">Players disponíveis nas páginas</small></article>
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"><span className="flex items-center gap-2 text-xs font-medium text-slate-500"><Clock3 size={15} className="text-amber-500" />Em andamento</span><strong className="mt-2 block text-2xl font-bold text-[#191A23]">{tabs.find((item) => item.id === "processing")?.count ?? 0}</strong><small className="text-slate-500 font-medium">Uploads e processamento ativos</small></article>
+        <article className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-5 shadow-xs">
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <Video size={15} className="text-[#191A23] dark:text-[#B9FF66]" />Biblioteca
+          </span>
+          <strong className="mt-2 block text-2xl font-bold text-[#191A23] dark:text-white">{videos.length}</strong>
+          <small className="text-slate-500 dark:text-zinc-400 font-medium">VSLs organizadas na conta</small>
+        </article>
+        
+        <article className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-5 shadow-xs">
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <CheckCircle2 size={15} className="text-emerald-500" />Publicadas
+          </span>
+          <strong className="mt-2 block text-2xl font-bold text-[#191A23] dark:text-white">{tabs.find((item) => item.id === "published")?.count ?? 0}</strong>
+          <small className="text-slate-500 dark:text-zinc-400 font-medium">Players disponíveis nas páginas</small>
+        </article>
+        
+        <article className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-5 shadow-xs">
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <Clock3 size={15} className="text-amber-500" />Em andamento
+          </span>
+          <strong className="mt-2 block text-2xl font-bold text-[#191A23] dark:text-white">{tabs.find((item) => item.id === "processing")?.count ?? 0}</strong>
+          <small className="text-slate-500 dark:text-zinc-400 font-medium">Uploads e processamento ativos</small>
+        </article>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -217,8 +241,8 @@ export default function VideosPage() {
             onClick={() => setSelectedFolder(null)}
             className={`flex min-h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-all cursor-pointer border ${
               !selectedFolder
-                ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                ? "border-slate-300 dark:border-zinc-700 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
+                : "border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
             }`}
           >
             <Folder size={15} />Todos
@@ -228,14 +252,14 @@ export default function VideosPage() {
               key={folder.id}
               className={`flex min-h-9 shrink-0 items-center rounded-xl border transition-all ${
                 selectedFolder === folder.id
-                  ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-slate-300 dark:border-zinc-700 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs"
+                  : "border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
               }`}
             >
               <button
                 type="button"
                 onClick={() => setSelectedFolder(folder.id)}
-                className="flex h-full items-center gap-2 pl-3.5 pr-1.5 text-xs font-bold text-[#191A23]"
+                className="flex h-full items-center gap-2 pl-3.5 pr-1.5 text-xs font-bold text-[#191A23] dark:text-zinc-100"
               >
                 <Folder size={15} />{folder.name}
               </button>
@@ -243,7 +267,7 @@ export default function VideosPage() {
                 type="button"
                 onClick={() => void removeFolder(folder.id)}
                 aria-label={`Excluir ${folder.name}`}
-                className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-red-600"
+                className="flex h-8 w-8 items-center justify-center text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
               >
                 <Trash2 size={13} />
               </button>
@@ -251,92 +275,148 @@ export default function VideosPage() {
           ))}
         </div>
         <label className="relative block w-full lg:w-[280px]">
-          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
           <span className="sr-only">Buscar vídeo</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por nome da VSL"
-            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 text-xs font-medium text-[#191A23] outline-none transition focus:border-[#B9FF66]"
+            className="h-9 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 pl-9 pr-3.5 text-xs font-medium text-[#191A23] dark:text-zinc-100 outline-none transition focus:border-[#B9FF66]"
           />
         </label>
       </div>
 
-      <div className="min-h-[360px] rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+      <div className="min-h-[360px] rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 px-6 py-4">
           <div>
-            <h2 className="text-base font-bold text-[#191A23]">
+            <h2 className="text-base font-bold text-[#191A23] dark:text-white">
               {selectedFolder ? folders.find((folder) => folder.id === selectedFolder)?.name : "Todos os vídeos"}
             </h2>
-            <p className="mt-0.5 text-xs font-medium text-slate-500">
+            <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-zinc-400">
               {visibleVideos.length} resultado{visibleVideos.length === 1 ? "" : "s"}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="flex min-h-9 items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] border border-black/5 px-4 text-xs font-bold text-[#191A23] shadow-xs transition-all cursor-pointer"
+            className="flex min-h-9 items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-4 text-xs font-bold text-[#191A23] shadow-xs transition-all cursor-pointer"
           >
             <Plus size={15} />Nova VSL
           </button>
         </div>
-        <div className="p-4 sm:p-6">
-        {visibleVideos.length ? <div className="overflow-visible"><div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b border-slate-100 px-3 pb-3 text-xs font-semibold uppercase text-slate-400 md:grid"><span>VSL</span><span>Criado em</span><span>Plays</span><span className="text-right">Ações</span></div>{pagedVideos.map((item) => { const task = tasks.find((candidate) => candidate.videoId === item.id); const progress = task?.progress ?? (item.status === "ready" ? 100 : 0); return <article key={item.id} className="relative grid gap-4 border-b border-slate-100 py-4 last:border-b-0 md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3"><button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait"><span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-900 text-white md:h-12 md:w-20"><Play size={16} fill="currentColor" />{item.status === "processing" && <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25"><span className="block h-full bg-[#B9FF66] transition-[width]" style={{ width: `${progress}%` }} /></span>}</span><span className="min-w-0"><strong className="block truncate text-sm font-bold text-[#191A23]">{item.title}</strong><small className="mt-0.5 block text-xs font-medium text-slate-500">{item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}</small>{task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}</span></button><div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 md:contents"><span className="text-xs font-medium text-slate-600"><small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>{new Date(item.created_at).toLocaleDateString("pt-BR")}</span><span className="text-sm font-bold text-[#191A23]"><small className="mb-1 block text-[10px] font-normal uppercase tracking-wide text-slate-400 md:hidden">Plays</small>{item.plays ?? 0}</span></div><div className="flex justify-end gap-1 border-t border-slate-100 pt-3 md:border-0 md:pt-0"><button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30"><BarChart3 size={16} /></button><button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30"><Code2 size={16} /></button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button disabled={item.status === "processing"} aria-label="Mais ações" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30"><MoreHorizontal size={17} /></button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-[230px] p-1.5 bg-white border border-slate-200 rounded-xl shadow-lg">
-            {[
-              { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) },
-              { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) },
-              { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) },
-              { label: "Abrir player", icon: ExternalLink, action: () => void openPlayer(item) },
-              { label: "Renomear", icon: Pencil, action: () => startManage(item, "rename") },
-              { label: "Mover para pasta", icon: Folder, action: () => startManage(item, "move") },
-              { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) },
-              { label: "Download do original", icon: Download, action: () => item.signed_url && window.open(item.signed_url, "_blank", "noopener,noreferrer") },
-              { label: "Remover definitivamente", icon: Trash2, danger: true, action: () => { setPendingDelete(item); } },
-            ].map((action) => {
-              const Icon = action.icon;
-              return (
-                <DropdownMenuItem
-                  key={action.label}
-                  onClick={action.action}
-                  className={`flex min-h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer outline-none ${action.danger ? "text-red-600 hover:bg-red-50" : "text-slate-700"}`}
-                >
-                  <Icon size={15} className="shrink-0" />
-                  <span>{action.label}</span>
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
 
-        </div></article>; })}
-        {pageCount > 1 && <nav aria-label="Paginação de VSLs" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-3 pt-4">
-          <p className="text-xs font-medium text-slate-500">Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, visibleVideos.length)} de {visibleVideos.length}</p>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} aria-label="Página anterior" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30"><ChevronLeft size={15} /></button>
-            {buildPageItems(currentPage, pageCount).map((item, index) => item === "gap"
-              ? <span key={`gap-${index}`} aria-hidden className="grid h-8 w-8 place-items-center text-xs text-slate-400">…</span>
-              : <button key={item} type="button" onClick={() => setPage(item)} aria-label={`Página ${item}`} aria-current={item === currentPage ? "page" : undefined} className={`grid h-8 min-w-8 place-items-center rounded-lg border text-xs font-semibold transition ${item === currentPage ? "border-black/5 bg-[#B9FF66] text-[#191A23] font-bold shadow-xs" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>{item}</button>)}
-            <button type="button" onClick={() => setPage(currentPage + 1)} disabled={currentPage === pageCount} aria-label="Próxima página" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30"><ChevronRight size={15} /></button>
-          </div>
-        </nav>}
-        </div> : <EmptyState title="Nenhum vídeo encontrado" description={selectedFolder ? "Esta pasta ainda não tem vídeos. Faça um upload para adicioná-lo diretamente aqui." : "Seus vídeos salvos aparecerão aqui."} actionLabel="Adicionar vídeo" onAction={() => setImportOpen(true)} />}
+        <div className="p-4 sm:p-6">
+          {visibleVideos.length ? (
+            <div className="overflow-visible">
+              <div className="hidden grid-cols-[minmax(260px,1fr)_130px_100px_90px] gap-4 border-b border-slate-100 dark:border-zinc-800 px-3 pb-3 text-xs font-semibold uppercase text-slate-400 dark:text-zinc-500 md:grid">
+                <span>VSL</span>
+                <span>Criado em</span>
+                <span>Plays</span>
+                <span className="text-right">Ações</span>
+              </div>
+              {pagedVideos.map((item) => {
+                const task = tasks.find((candidate) => candidate.videoId === item.id);
+                const progress = task?.progress ?? (item.status === "ready" ? 100 : 0);
+                return (
+                  <article key={item.id} className="relative grid gap-4 border-b border-slate-100 dark:border-zinc-800 py-4 last:border-b-0 md:grid-cols-[minmax(260px,1fr)_130px_100px_90px] md:items-center md:px-3">
+                    <button type="button" disabled={item.status !== "ready"} onClick={() => edit(item)} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-wait">
+                      <span className="relative grid h-14 w-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-900 text-white md:h-12 md:w-20">
+                        <Play size={16} fill="currentColor" />
+                        {item.status === "processing" && (
+                          <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25">
+                            <span className="block h-full bg-[#B9FF66] transition-[width]" style={{ width: `${progress}%` }} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm font-bold text-[#191A23] dark:text-zinc-100">{item.title}</strong>
+                        <small className="mt-0.5 block text-xs font-medium text-slate-500 dark:text-zinc-400">
+                          {item.published ? "Publicado" : item.status === "ready" ? "Pronto para personalizar" : item.status === "processing" ? `Enviando e processando · ${progress}%` : item.status === "failed" ? "Falha no upload" : "Rascunho"}
+                        </small>
+                        {task?.error && <small className="mt-1 block text-red-500">{task.error}</small>}
+                      </span>
+                    </button>
+                    <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 dark:bg-zinc-900/60 p-3 md:contents">
+                      <span className="text-xs font-medium text-slate-600 dark:text-zinc-400">
+                        <small className="mb-1 block uppercase tracking-wide md:hidden">Criado em</small>
+                        {new Date(item.created_at).toLocaleDateString("pt-BR")}
+                      </span>
+                      <span className="text-sm font-bold text-[#191A23] dark:text-zinc-100">
+                        <small className="mb-1 block text-[10px] font-normal uppercase tracking-wide text-slate-400 dark:text-zinc-500 md:hidden">Plays</small>
+                        {item.plays ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-end gap-1 border-t border-slate-100 dark:border-zinc-800 pt-3 md:border-0 md:pt-0">
+                      <button disabled={item.status !== "ready"} onClick={() => router.push(`/dashboard/analytics/${item.id}`)} title="Analytics" aria-label="Ver Analytics" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-30">
+                        <BarChart3 size={16} />
+                      </button>
+                      <button disabled={item.status !== "ready"} onClick={() => void copyEmbed(item)} title="Copiar embed" aria-label="Copiar código embed" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-30">
+                        <Code2 size={16} />
+                      </button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <button disabled={item.status === "processing"} aria-label="Mais ações" className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-30"><MoreHorizontal size={17} /></button>
+                          }
+                        />
+                        <DropdownMenuContent align="end" className="w-[230px] p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg">
+                          {[
+                            { label: "Editar e personalizar", icon: Pencil, action: () => edit(item) },
+                            { label: "Ver Analytics", icon: BarChart3, action: () => router.push(`/dashboard/analytics/${item.id}`) },
+                            { label: "Copiar código embed", icon: Code2, action: () => void copyEmbed(item) },
+                            { label: "Abrir player", icon: ExternalLink, action: () => void openPlayer(item) },
+                            { label: "Renomear", icon: Pencil, action: () => startManage(item, "rename") },
+                            { label: "Mover para pasta", icon: Folder, action: () => startManage(item, "move") },
+                            { label: "Duplicar", icon: Copy, action: () => void duplicateVideo(item) },
+                          ].map((actionItem) => (
+                            <DropdownMenuItem key={actionItem.label} onClick={actionItem.action} className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg cursor-pointer">
+                              <actionItem.icon size={15} />
+                              <span>{actionItem.label}</span>
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuItem onClick={() => setPendingDelete(item)} className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg cursor-pointer border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2">
+                            <Trash2 size={15} />
+                            <span>Excluir VSL</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Video size={28} />}
+              title="Nenhum vídeo encontrado"
+              description="Seus vídeos salvos aparecerão aqui."
+              actionLabel="Adicionar vídeo"
+              onAction={() => setImportOpen(true)}
+            />
+          )}
         </div>
       </div>
     </section>
-    <Dialog open={importOpen} onClose={() => { if (!preparingUpload) setImportOpen(false); }} title="Importar vídeo" description="Depois de escolher o arquivo, o envio continua em segundo plano e aparece em Processando." size="lg"><button type="button" disabled={preparingUpload} onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[300px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 disabled:cursor-wait disabled:opacity-70"><FileVideo2 size={36} className="text-[#191A23]" /><h3 className="mt-4 text-xl font-bold text-[#191A23]">Solte seu vídeo aqui</h3><p className="mt-2 max-w-md text-center text-xs font-medium text-slate-500">Uploads grandes usam multipart e vão direto para a nuvem. Limite padrão de 5 GB por arquivo.</p><span className="mt-5 rounded-xl bg-[#B9FF66] border border-black/5 px-5 py-2.5 text-xs font-bold text-[#191A23] shadow-xs">{preparingUpload ? "Preparando upload…" : "Escolher arquivo"}</span></button></Dialog>
-    <Dialog open={folderOpen} onClose={() => setFolderOpen(false)} title="Criar nova pasta" description="A pasta ficará clicável e poderá receber seus próprios vídeos." size="sm" footer={<button type="button" onClick={() => void createFolder()} disabled={!folderName.trim()} className="min-h-10 rounded-xl bg-[#B9FF66] border border-black/5 px-5 text-xs font-bold text-[#191A23] shadow-xs disabled:opacity-40">Criar pasta</button>}><label className="block text-xs font-semibold text-[#191A23]">Nome da pasta<input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-medium outline-none focus:border-[#B9FF66]" /></label></Dialog>
-    <Dialog open={Boolean(manageVideo)} onClose={() => setManageVideo(null)} title={manageMode === "rename" ? "Renomear VSL" : "Mover VSL"} description={manageMode === "rename" ? "Escolha um nome claro para encontrar este vídeo depois." : "Selecione a pasta de destino. O vídeo e seu player serão preservados."} size="sm" footer={<><button type="button" onClick={() => setManageVideo(null)} className="min-h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-semibold text-slate-700">Cancelar</button><button type="button" onClick={() => void saveManage()} disabled={manageMode === "rename" && !manageTitle.trim()} className="min-h-10 rounded-xl bg-[#B9FF66] border border-black/5 px-5 text-xs font-bold text-[#191A23] shadow-xs disabled:opacity-40">{manageMode === "rename" ? "Salvar nome" : "Mover vídeo"}</button></>}>
-      {manageMode === "rename" ? <label className="block text-xs font-semibold text-[#191A23]">Nome do vídeo<input autoFocus value={manageTitle} maxLength={200} onChange={(event) => setManageTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void saveManage(); }} className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-medium outline-none focus:border-[#B9FF66]" /></label> : <label className="block text-xs font-semibold text-[#191A23]">Pasta de destino<select value={manageFolder} onChange={(event) => setManageFolder(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-medium outline-none focus:border-[#B9FF66]"><option value="">Todos os vídeos (sem pasta)</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
+
+    {/* Dialog: Import Video */}
+    <Dialog open={importOpen} onClose={() => { if (!preparingUpload) setImportOpen(false); }} title="Importar vídeo" description="Depois de escolher o arquivo, o envio continua em segundo plano e aparece em Processando." size="lg">
+      <button type="button" disabled={preparingUpload} onClick={() => fileInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void handleFile(event.dataTransfer.files?.[0]); }} className="flex min-h-[300px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900/50 p-6 disabled:cursor-wait disabled:opacity-70">
+        <FileVideo2 size={36} className="text-[#191A23] dark:text-[#B9FF66]" />
+        <h3 className="mt-4 text-xl font-bold text-[#191A23] dark:text-white">Solte seu vídeo aqui</h3>
+        <p className="mt-2 max-w-md text-center text-xs font-medium text-slate-500 dark:text-zinc-400">Uploads grandes usam multipart e vão direto para a nuvem. Limite padrão de 5 GB por arquivo.</p>
+        <span className="mt-5 rounded-xl bg-[#B9FF66] px-5 py-2.5 text-xs font-bold text-[#191A23] shadow-xs">
+          {preparingUpload ? "Preparando upload…" : "Escolher arquivo"}
+        </span>
+      </button>
     </Dialog>
-    <Dialog open={Boolean(pendingDelete)} onClose={() => { if (!deleting) setPendingDelete(null); }} title="Excluir VSL definitivamente?" description="Esta ação é permanente e não pode ser desfeita." size="sm" footer={<><button type="button" onClick={() => setPendingDelete(null)} disabled={deleting} className="min-h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-semibold text-slate-700">Cancelar</button><button type="button" onClick={() => pendingDelete && void removeVideo(pendingDelete)} disabled={deleting} className="min-h-10 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-xs disabled:opacity-60">{deleting ? "Excluindo…" : "Sim, excluir tudo"}</button></>}><div className="rounded-xl bg-red-50 p-4 text-xs font-medium leading-relaxed text-red-700">O vídeo, o player, as thumbnails, legendas e configurações de <strong>{pendingDelete?.title}</strong> serão apagados.</div></Dialog>
-    {(feedback || deleting) && <div role="status" className="fixed bottom-5 left-1/2 z-[120] -translate-x-1/2 animate-status-pop rounded-xl bg-slate-900 px-5 py-3 text-xs font-semibold text-white shadow-xl">{deleting ? "Excluindo VSL…" : feedback}</div>}
+
+    {/* Dialog: Folder */}
+    <Dialog open={folderOpen} onClose={() => setFolderOpen(false)} title="Criar nova pasta" description="A pasta ficará clicável e poderá receber seus próprios vídeos." size="sm" footer={<button type="button" onClick={() => void createFolder()} disabled={!folderName.trim()} className="min-h-10 rounded-xl bg-[#B9FF66] px-5 text-xs font-bold text-[#191A23] shadow-xs disabled:opacity-40">Criar pasta</button>}>
+      <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
+        Nome da pasta
+        <input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
+      </label>
+    </Dialog>
   </>;
 }

@@ -44,25 +44,25 @@ export default function Dialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex animate-dialog-backdrop items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[80] flex animate-dialog-backdrop items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-6" onMouseDown={onClose}>
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
-        className={`flex max-h-[92dvh] w-full animate-dialog-panel flex-col overflow-hidden rounded-t-[18px] border themeable-bg-canvas themeable-border-hairline sm:rounded-[18px] ${sizes[size]}`}
+        className={`flex max-h-[92dvh] w-full animate-dialog-panel flex-col overflow-hidden rounded-t-[18px] border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-2xl sm:rounded-[18px] ${sizes[size]}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b px-5 py-4 themeable-border-hairline sm:px-6">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 px-5 py-4 sm:px-6">
           <div>
-            <h2 id="dialog-title" className="text-[17px] font-semibold tracking-[-0.374px] themeable-text-ink">{title}</h2>
-            {description && <p className="mt-1 text-[13px] themeable-text-ink-muted-48">{description}</p>}
+            <h2 id="dialog-title" className="text-lg font-bold tracking-tight text-[#191A23] dark:text-white">{title}</h2>
+            {description && <p className="mt-1 text-xs font-medium text-slate-500 dark:text-zinc-400">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full themeable-bg-surface-pearl themeable-text-ink-muted-48">
-            <X size={18} />
+          <button type="button" onClick={onClose} aria-label="Fechar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700">
+            <X size={16} />
           </button>
         </header>
         <div className="overflow-y-auto p-5 sm:p-6">{children}</div>
-        {footer && <footer className="flex flex-wrap justify-end gap-3 border-t px-5 py-4 themeable-border-hairline sm:px-6">{footer}</footer>}
+        {footer && <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-100 dark:border-zinc-800 px-5 py-4 sm:px-6">{footer}</footer>}
       </section>
     </div>
   );
