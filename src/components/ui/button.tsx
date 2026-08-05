@@ -8,15 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[#B9FF66] text-[#191A23] font-bold border border-black/5 shadow-xs hover:bg-[#a6ee50]",
+        default: "bg-[#B9FF66] text-[#191A23] font-bold border border-slate-300/40 dark:border-zinc-700/50 shadow-xs hover:bg-[#a6ee50]",
         outline:
-          "border-slate-200 bg-white text-[#191A23] hover:bg-slate-50 hover:text-foreground font-semibold shadow-xs",
+          "border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[#191A23] dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold shadow-xs",
         secondary:
-          "bg-slate-100 text-slate-800 hover:bg-slate-200 font-semibold",
+          "bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 font-semibold",
         ghost:
-          "hover:bg-slate-100 hover:text-[#191A23] font-medium",
+          "hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-[#191A23] dark:hover:text-white font-medium",
         destructive:
-          "bg-red-50 text-red-600 hover:bg-red-100 font-semibold border border-red-200",
+          "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 font-semibold border border-red-200 dark:border-red-900/50",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
