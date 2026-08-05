@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import ClaudeChatInput from "@/components/ui/claude-style-chat-input";
+import { useSidebar } from "@/components/ui/sidebar";
 
 // Custom charts imports
 import {
@@ -114,11 +115,11 @@ type AiResult = {
 type AiConversation = { id: string; title: string; question: string; result: AiResult; createdAt: string };
 
 const tabs = [
-  { id: "performance", label: "Performance", icon: BarChart3 },
-  { id: "audience", label: "Audience", icon: Users },
-  { id: "traffic", label: "Traffic", icon: Globe2 },
-  { id: "engagement", label: "Engagement", icon: Activity },
-  { id: "intelligence", label: "Intelligence Engine", icon: BrainCircuit },
+  { id: "performance", label: "Desempenho", icon: BarChart3 },
+  { id: "audience", label: "Audiência", icon: Users },
+  { id: "traffic", label: "Fontes de Tráfego", icon: Globe2 },
+  { id: "engagement", label: "Engajamento & Retenção", icon: Activity },
+  { id: "intelligence", label: "Motor de Inteligência", icon: BrainCircuit },
 ];
 
 const heatmapMetricLabel: Record<"plays" | "impressions" | "conversions", (count: number) => string> = {
@@ -242,11 +243,17 @@ function DimensionTable({ title, rows, isCountry = false, onRowClick }: { title:
 }
 
 export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoId: string }) {
+  const { setOpen } = useSidebar();
   const [currentVideoId, setCurrentVideoId] = useState(initialVideoId);
   const [tab, setTab] = useState("performance");
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Auto-collapse main app sidebar on mount to open analytics in full-width desktop screen
+  useEffect(() => {
+    setOpen(false);
+  }, [setOpen]);
 
   // TikTok Sidebar Video List States
   const [allVideos, setAllVideos] = useState<VideoItem[]>([]);
@@ -515,14 +522,14 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
   }
 
   return (
-    <div className={`w-full flex-1 flex min-h-[calc(100vh-80px)] bg-[#F8F9FA] text-[#191A23] relative ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""} transition-all duration-300`}>
+    <div className={`w-full min-h-[calc(100vh-60px)] flex bg-[#F8F9FA] text-[#191A23] relative ${aiOpen && !aiFullscreen ? "xl:pr-[480px]" : ""} transition-all duration-300`}>
       
       {/* TIKTOK STUDIO LEFT SIDEBAR VIDEO SELECTOR LIST */}
-      <aside className="w-72 shrink-0 border-r border-slate-200/80 bg-white p-4 hidden md:flex flex-col space-y-4">
+      <aside className="w-64 lg:w-72 shrink-0 border-r border-slate-200/80 bg-white p-4 hidden md:flex flex-col space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
-          <Link href="/dashboard/videos" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#191A23]">
+          <Link href="/dashboard/videos" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#191A23]">
             <ArrowLeft size={14} />
-            <span>Voltar para todos os vídeos</span>
+            <span>Voltar para Meus vídeos</span>
           </Link>
         </div>
 
@@ -533,29 +540,29 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
             type="text"
             value={videoSearchQuery}
             onChange={(e) => setVideoSearchQuery(e.target.value)}
-            placeholder="Search videos by title..."
+            placeholder="Buscar VSL pelo nome..."
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs font-medium text-[#191A23] outline-none focus:border-[#B9FF66] focus:bg-white"
           />
         </div>
 
-        {/* Filter buttons (Recent vs All) */}
+        {/* Filter buttons (Recentes vs Todas VSLs) */}
         <div className="flex gap-1.5 border-b border-slate-100 pb-2">
           <button
             onClick={() => setSidebarFilter("recent")}
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${sidebarFilter === "recent" ? "bg-[#191A23] text-white" : "text-slate-500 hover:text-[#191A23]"}`}
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${sidebarFilter === "recent" ? "bg-[#191A23] text-white" : "text-slate-500 hover:text-[#191A23]"}`}
           >
-            Recent
+            Recentes
           </button>
           <button
             onClick={() => setSidebarFilter("all")}
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${sidebarFilter === "all" ? "bg-[#191A23] text-white" : "text-slate-500 hover:text-[#191A23]"}`}
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${sidebarFilter === "all" ? "bg-[#191A23] text-white" : "text-slate-500 hover:text-[#191A23]"}`}
           >
-            All videos
+            Todas VSLs
           </button>
         </div>
 
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          {filteredVideos.length} VSLs encontradas
+          {filteredVideos.length} {filteredVideos.length === 1 ? "VSL ENCONTRADA" : "VSLs ENCONTRADAS"}
         </span>
 
         {/* Scrollable list of user's videos */}
@@ -587,7 +594,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
+      {/* MAIN CONTENT AREA - OPTIMIZED FOR FULL DESKTOP SCREEN */}
       <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
         
         {/* TIKTOK STUDIO VIDEO HEADER */}
@@ -635,7 +642,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               aria-label="Exportar métricas em CSV"
             >
               <Download size={14} />
-              <span>Export</span>
+              <span>Exportar CSV</span>
             </button>
 
             <button 
@@ -643,7 +650,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] border border-black/5 px-4 text-xs font-bold text-[#191A23] shadow-xs cursor-pointer"
             >
               <Sparkles size={14} /> 
-              <span>Ask IA</span>
+              <span>Perguntar à IA</span>
             </button>
           </div>
         </div>
@@ -684,7 +691,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
         ) : (
           <div className="space-y-6">
             
-            {/* TIKTOK STUDIO PRIMARY KPI CARDS ROW (Included in Performance / Visão geral) */}
+            {/* TIKTOK STUDIO PRIMARY KPI CARDS ROW (Included in Performance / Desempenho) */}
             {tab === "performance" && (
               <>
                 <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -692,10 +699,10 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   <div className="rounded-2xl bg-gradient-to-br from-[#0066cc] to-[#2563eb] p-5 text-white shadow-md flex flex-col justify-between lg:col-span-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-blue-100 flex items-center gap-1.5">
-                        <Eye size={14} /> Video Views
+                        <Eye size={14} /> Visualizações
                       </span>
                       <span className="rounded-md bg-white/20 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white">
-                        Primary KPI
+                        KPI Principal
                       </span>
                     </div>
 
@@ -703,7 +710,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                       <strong className="text-4xl font-extrabold tracking-tight">{format(data.summary.plays)}</strong>
                       <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-emerald-300">
                         <TrendingUp size={14} />
-                        <span>+{data.comparison.delta.plays >= 0 ? data.comparison.delta.plays : 20}% vs prev</span>
+                        <span>+{data.comparison.delta.plays >= 0 ? data.comparison.delta.plays : 20}% vs período anterior</span>
                       </div>
                     </div>
 
@@ -713,15 +720,15 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   {/* Secondary Summary Metric Cards */}
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between">
                     <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                      <Clock size={14} className="text-slate-400" /> Total play time
+                      <Clock size={14} className="text-slate-400" /> Tempo total reproduzido
                     </span>
                     <strong className="mt-2 text-2xl font-bold text-[#191A23]">{formatSecondsToTimeString(totalPlayTimeSeconds)}</strong>
-                    <span className="mt-2 text-[11px] font-medium text-slate-400">Tempo total de exibição</span>
+                    <span className="mt-2 text-[11px] font-medium text-slate-400">Tempo total acumulado</span>
                   </div>
 
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between">
                     <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                      <Clock3 size={14} className="text-slate-400" /> Avg. watch time
+                      <Clock3 size={14} className="text-slate-400" /> Tempo médio assistido
                     </span>
                     <strong className="mt-2 text-2xl font-bold text-[#191A23]">{avgWatchTimeSeconds}s</strong>
                     <span className="mt-2 text-[11px] font-medium text-slate-400">Por espectador</span>
@@ -729,7 +736,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
 
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between">
                     <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                      <UserCheck size={14} className="text-slate-400" /> Watched full video
+                      <UserCheck size={14} className="text-slate-400" /> Conclusão do vídeo
                     </span>
                     <strong className="mt-2 text-2xl font-bold text-[#191A23]">{format(data.summary.completionRate, true)}</strong>
                     <span className="mt-2 text-[11px] font-medium text-slate-400">{data.summary.completed} de {data.summary.plays} espectadores</span>
@@ -740,7 +747,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                       <MousePointerClick size={14} className="text-slate-400" /> Conversões
                     </span>
                     <strong className="mt-2 text-2xl font-bold text-[#191A23]">{format(data.summary.conversions)}</strong>
-                    <span className="mt-2 text-[11px] font-bold text-emerald-600">+{data.summary.ctaClicks} cliques na CTA</span>
+                    <span className="mt-2 text-[11px] font-bold text-emerald-600">+{data.summary.ctaClicks} cliques no botão CTA</span>
                   </div>
                 </section>
 
@@ -748,22 +755,22 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                 <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-base font-bold text-[#191A23]">Views by hour</h2>
+                      <h2 className="text-base font-bold text-[#191A23]">Visualizações por período</h2>
                       <p className="text-xs font-medium text-slate-500">
-                        Hourly breakdown since video was posted. Peak at {peakPoint?.label ?? "4h"} with {peakPoint?.visitors ?? 0} views.
+                        Detalhamento de acessos desde a publicação. Pico em {peakPoint?.label ?? "4h"} com {peakPoint?.visitors ?? 0} visualizações.
                       </p>
                     </div>
 
                     {/* Series Legend Toggles */}
                     <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
                       <span className="flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#0066cc]" /> Views
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#0066cc]" /> Visualizações
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#a855f7]" /> Unique viewers
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#a855f7]" /> Espectadores únicos
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" /> Conversions
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" /> Conversões
                       </span>
                     </div>
                   </div>
@@ -771,7 +778,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   <div className="w-full font-sans relative pt-2">
                     {peakPoint && (
                       <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full bg-[#0066cc] text-white text-[10px] font-extrabold px-2.5 py-0.5 shadow-xs z-10">
-                        Peak: {peakPoint.label} ({peakPoint.visitors} views)
+                        Pico: {peakPoint.label} ({peakPoint.visitors} visualizações)
                       </span>
                     )}
                     <AreaChart data={trafficChartData} xDataKey="date">
@@ -795,11 +802,11 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4 flex flex-col justify-between">
                     <div>
                       <h3 className="text-sm font-bold text-[#191A23] flex items-center justify-between">
-                        <span>Retention rate</span>
+                        <span>Taxa de retenção</span>
                         <Info size={14} className="text-slate-400" />
                       </h3>
                       <p className="mt-1 text-xs font-medium text-slate-500 leading-relaxed">
-                        Most viewers stopped watching at 0:01. Play the video to see when they lost interest.
+                        Acompanhe onde os espectadores perderam interesse ao longo do vídeo.
                       </p>
 
                       <div className="mt-4 flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
@@ -808,11 +815,11 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                         </div>
                         <div className="grid grid-cols-2 gap-4 flex-1 text-xs font-bold text-[#191A23]">
                           <div>
-                            <span className="text-[10px] font-semibold uppercase text-slate-400 block">AVG. WATCHED</span>
+                            <span className="text-[10px] font-semibold uppercase text-slate-400 block">TEMPO MÉDIO</span>
                             <span className="text-sm">{avgWatchTimeSeconds}s</span>
                           </div>
                           <div>
-                            <span className="text-[10px] font-semibold uppercase text-slate-400 block">COMPLETION</span>
+                            <span className="text-[10px] font-semibold uppercase text-slate-400 block">CONCLUSÃO</span>
                             <span className="text-sm">{format(data.summary.completionRate, true)}</span>
                           </div>
                         </div>
@@ -829,18 +836,18 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   {/* Card 2: Traffic source */}
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
                     <h3 className="text-sm font-bold text-[#191A23] flex items-center justify-between">
-                      <span>Traffic source</span>
+                      <span>Origem do tráfego</span>
                       <Info size={14} className="text-slate-400" />
                     </h3>
                     <p className="text-xs font-medium text-slate-500">
-                      Breakdown of channels leading audience to player.
+                      Canais que trouxeram audiência para o player.
                     </p>
 
                     <div className="space-y-3 pt-2">
                       {(data.dimensions.traffic?.length ? data.dimensions.traffic : [
-                        { name: "Direct / Embed", impressions: data.summary.impressions * 0.5, playRate: 50, completionRate: 33 },
-                        { name: "Checkout Page", impressions: data.summary.impressions * 0.33, playRate: 33, completionRate: 20 },
-                        { name: "Facebook Ads", impressions: data.summary.impressions * 0.17, playRate: 17, completionRate: 15 },
+                        { name: "Direto / Embed", impressions: data.summary.impressions * 0.5, playRate: 50, completionRate: 33 },
+                        { name: "Página de Checkout", impressions: data.summary.impressions * 0.33, playRate: 33, completionRate: 20 },
+                        { name: "Anúncios (Facebook Ads)", impressions: data.summary.impressions * 0.17, playRate: 17, completionRate: 15 },
                       ]).map((item) => {
                         const totalImp = Math.max(data.summary.impressions, 1);
                         const pct = Math.round((item.impressions / totalImp) * 100);
@@ -848,7 +855,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                           <div key={item.name} className="space-y-1">
                             <div className="flex items-center justify-between text-xs font-semibold text-[#191A23]">
                               <span>{item.name}</span>
-                              <span className="font-bold">{pct}% <span className="text-slate-400 font-normal">({format(item.impressions)} views)</span></span>
+                              <span className="font-bold">{pct}% <span className="text-slate-400 font-normal">({format(item.impressions)} visualizações)</span></span>
                             </div>
                             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                               <div className="h-full rounded-full bg-[#0066cc]" style={{ width: `${pct}%` }} />
@@ -862,10 +869,10 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   {/* Card 3: Audience top countries */}
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
                     <h3 className="text-sm font-bold text-[#191A23] flex items-center justify-between">
-                      <span>Audience</span>
+                      <span>Audiência</span>
                       <Info size={14} className="text-slate-400" />
                     </h3>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">TOP COUNTRIES</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">PRINCIPAIS PAÍSES</span>
 
                     <div className="space-y-3">
                       {(data.dimensions.countries?.length ? data.dimensions.countries : [
