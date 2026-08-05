@@ -17,6 +17,7 @@ import {
   Heading,
   ImageIcon,
   Inbox,
+  Info,
   LockKeyhole,
   Maximize,
   MonitorPlay,
@@ -67,6 +68,34 @@ interface StudioConfig extends PixelTrackingFields {
   thumbnailStartName: string; thumbnailPauseName: string; thumbnailEndName: string;
   pixelsEnabled: boolean; pixelProvider: string; pixelName: string; pixelId: string; captionsEnabled: boolean; captionName: string;
   loop: boolean; muted: boolean; smartPause: boolean; fullscreenDesktop: boolean; fullscreenMobile: boolean; antiDownload: boolean; videoDuration: number; aspectRatio: number;
+
+  // Watermark Settings
+  watermarkEnabled: boolean;
+  watermarkShowEmail: boolean;
+  watermarkShowPhone: boolean;
+  watermarkShowIp: boolean;
+  watermarkShowUsername: boolean;
+  watermarkShowDate: boolean;
+  watermarkShowCustomText: boolean;
+  watermarkCustomText: string;
+  watermarkType: "static" | "dynamic";
+  watermarkPosition: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "center";
+  watermarkIntervalValue: number;
+  watermarkIntervalUnit: "second" | "minute";
+  watermarkOpacity: number;
+
+  // Restrictions Settings
+  limitConcurrentStreams: boolean;
+  maxConcurrentStreams: number;
+  domainWhitelistEnabled: boolean;
+  domainWhitelist: string[];
+
+  // DRM Settings
+  drmHlsEnabled: boolean;
+  drmSignedTokenEnabled: boolean;
+  disableContextMenu: boolean;
+  blockDevTools: boolean;
+
   assets: Record<string, string>;
 }
 
@@ -78,102 +107,33 @@ const modules: Array<{ id: ModuleId; label: string; icon: typeof Palette; status
   { id: "turbo", label: "Turbo", icon: Zap, badge: "Teste" },
   { id: "headlines", label: "Headlines", icon: Heading, status: "headlineEnabled" },
   { id: "hooks", label: "Mini-ganchos", icon: Zap, status: "miniHooksEnabled", badge: "Novo" },
-  { id: "traffic", label: "Filtro de tráfego", icon: Shield, status: "trafficEnabled", badge: "Novo" },
+  { id: "traffic", label: "Filtro de tráfego", icon: Shield, status: "trafficEnabled", badge: "Avançado" },
   { id: "actions", label: "Botões de ação", icon: MousePointerClick, status: "ctaEnabled" },
   { id: "thumbnail", label: "ThumbSniper", icon: ImageIcon, status: "thumbnailEnabled" },
   { id: "resume", label: "Continuar assistindo", icon: RotateCcw, status: "resumeEnabled" },
   { id: "pixels", label: "Pixels", icon: Radio, status: "pixelsEnabled" },
   { id: "captions", label: "Legendas", icon: Captions, status: "captionsEnabled" },
-  { id: "protection", label: "Anti-download", icon: LockKeyhole, status: "antiDownload", badge: "Proteção" },
+  { id: "protection", label: "Anti-download & DRM", icon: LockKeyhole, status: "antiDownload", badge: "Segurança" },
   { id: "playback", label: "Opções de reprodução", icon: TimerReset },
 ];
 
 const defaultAutoplayPresets: PresetItem[] = [
-  {
-    id: "auto-1",
-    name: "⚡ Padrão Pulso Verde Limão",
-    data: {
-      autoplayCoverType: "standard",
-      autoplayMessage: "Seu vídeo já começou. Clique para ouvir.",
-      autoplayTagBadge: "🔴 AULÃO AO VIVO",
-      autoplayTextColor: "#191A23",
-      autoplayBackground: "#B9FF66",
-      autoplayRadius: 16,
-      autoplayAnimation: "pulse",
-    },
-  },
-  {
-    id: "auto-2",
-    name: "🎬 Overlay GIF Animado",
-    data: {
-      autoplayCoverType: "gif",
-      autoplayGifUrl: "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif",
-      autoplayMessage: "CLIQUE PARA ATIVAR O ÁUDIO DO VÍDEO",
-      autoplayTagBadge: "🔥 VÍDEO EXCLUSIVO",
-      autoplayTextColor: "#ffffff",
-      autoplayBackground: "#191A23",
-      autoplayRadius: 20,
-      autoplayAnimation: "sound_bars",
-    },
-  },
-  {
-    id: "auto-3",
-    name: "🌙 Dark Glassmorphism",
-    data: {
-      autoplayCoverType: "standard",
-      autoplayMessage: "Atenção: O áudio está desativado. Clique para ouvir.",
-      autoplayTagBadge: "⚠️ ÁUDIO DESATIVADO",
-      autoplayTextColor: "#ffffff",
-      autoplayBackground: "#000000d0",
-      autoplayRadius: 12,
-      autoplayAnimation: "cursor_click",
-    },
-  },
-  {
-    id: "auto-4",
-    name: "🖼️ Capa com Imagem & Ícone",
-    data: {
-      autoplayCoverType: "image",
-      autoplayImageUrl: "",
-      autoplayMessage: "Ouvir explicação completa em áudio",
-      autoplayTagBadge: "📍 SESSÃO PRIVADA",
-      autoplayTextColor: "#191A23",
-      autoplayBackground: "#ffffff",
-      autoplayRadius: 24,
-      autoplayAnimation: "play_glow",
-    },
-  },
-  {
-    id: "auto-5",
-    name: "🟢 Verde Limão Hero",
-    data: {
-      autoplayCoverType: "standard",
-      autoplayMessage: "ASSISTIR AULA AGORA COM SOM",
-      autoplayTagBadge: "⚡ VAGAS LIMITADAS",
-      autoplayTextColor: "#191A23",
-      autoplayBackground: "#B9FF66",
-      autoplayRadius: 14,
-      autoplayAnimation: "pulse",
-    },
-  },
+  { id: "auto-1", name: "⚡ Padrão Pulso Verde Limão", data: { autoplayCoverType: "standard", autoplayMessage: "Seu vídeo já começou. Clique para ouvir.", autoplayTagBadge: "🔴 AULÃO AO VIVO", autoplayTextColor: "#191A23", autoplayBackground: "#B9FF66", autoplayRadius: 16, autoplayAnimation: "pulse" } },
+  { id: "auto-2", name: "🎬 Overlay GIF Animado", data: { autoplayCoverType: "gif", autoplayGifUrl: "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif", autoplayMessage: "CLIQUE PARA ATIVAR O ÁUDIO DO VÍDEO", autoplayTagBadge: "🔥 VÍDEO EXCLUSIVO", autoplayTextColor: "#ffffff", autoplayBackground: "#191A23", autoplayRadius: 20, autoplayAnimation: "sound_bars" } },
+  { id: "auto-3", name: "🌙 Dark Glassmorphism", data: { autoplayCoverType: "standard", autoplayMessage: "Atenção: O áudio está desativado. Clique para ouvir.", autoplayTagBadge: "⚠️ ÁUDIO DESATIVADO", autoplayTextColor: "#ffffff", autoplayBackground: "#000000d0", autoplayRadius: 12, autoplayAnimation: "cursor_click" } },
 ];
 
 const defaultHeadlinePresets: PresetItem[] = [
   { id: "head-1", name: "⚡ Headline Clássica Centrada", data: { headline: "Descubra a maneira mais simples de transformar atenção em vendas", headlineTagBadge: "🔥 EXCLUSIVO", headlineColor: "#1d1d1f", headlineBackground: "#ffffff", headlineSize: 28, headlineAlign: "center" } },
   { id: "head-2", name: "🔥 Urgência Total com Fundo Neon", data: { headline: "⚠️ ATENÇÃO: Esta apresentação sairá do ar em poucas horas", headlineTagBadge: "⚠️ URGENTE", headlineColor: "#191A23", headlineBackground: "#B9FF66", headlineSize: 30, headlineAlign: "center" } },
-  { id: "head-3", name: "🎯 Pergunta Direta para o Lead", data: { headline: "Você já tentou de tudo para escalar suas vendas e continua travado?", headlineTagBadge: "❓ PERGUNTA", headlineColor: "#ffffff", headlineBackground: "#191A23", headlineSize: 26, headlineAlign: "center" } },
 ];
 
 const defaultCtaPresets: PresetItem[] = [
   { id: "cta-1", name: "🟢 Botão Verde Limão Hero", data: { ctaText: "QUERO GARANTIR MINHA VAGA AGORA", ctaSubtitle: "🔒 Compra 100% Segura • Acesso Imediato", ctaBadges: "7 Dias de Garantia • Pix em 12x", ctaBackground: "#B9FF66", ctaTextColor: "#191A23", ctaHoverBackground: "#a6ee50", ctaPulse: true } },
-  { id: "cta-2", name: "⚡ Botão Pulsante Neon", data: { ctaText: "SIM! QUERO MUDAR DE VIDA HOJE", ctaSubtitle: "⚡ Desconto de 70% aplicado automaticamente", ctaBadges: "Satisfação Garantida ou 100% de Reembolso", ctaBackground: "#0066cc", ctaTextColor: "#ffffff", ctaHoverBackground: "#0055aa", ctaPulse: true } },
-  { id: "cta-3", name: "🔒 Botão Compra Segura + Pix", data: { ctaText: "ACESSAR O MÉTODO COMPLETO", ctaSubtitle: "💳 Cartão de Crédito em até 12x ou Pix Instantâneo", ctaBadges: "🔒 Ambiente Criptografado SSL 256-bit", ctaBackground: "#191A23", ctaTextColor: "#B9FF66", ctaHoverBackground: "#2c2d3c", ctaPulse: false } },
 ];
 
 const defaultHookPresets: PresetItem[] = [
   { id: "hook-1", name: "🔥 Audiência Ao Vivo: 1.482 assistindo", data: { miniHookType: "live_viewers", miniHookText: "🔥 1.482 pessoas assistindo a este vídeo agora", miniHookTextColor: "#ffffff", miniHookBackground: "#191A23" } },
-  { id: "hook-2", name: "🔊 Aviso de Som: Ligue o Áudio", data: { miniHookType: "sound_indicator", miniHookText: "🔊 Ligue o som do seu celular para ouvir a explicação", miniHookTextColor: "#191A23", miniHookBackground: "#B9FF66" } },
-  { id: "hook-3", name: "⏱️ Contagem Regressiva", data: { miniHookType: "custom", miniHookText: "Continue assistindo — o conteúdo expira em {mm:ss}", miniHookTextColor: "#ffffff", miniHookBackground: "#111111" } },
 ];
 
 const initialConfig: StudioConfig = {
@@ -190,13 +150,41 @@ const initialConfig: StudioConfig = {
   thumbnailStartName: "", thumbnailPauseName: "", thumbnailEndName: "",
   pixelsEnabled: false, pixelProvider: "Meta", pixelName: "", pixelId: "", metaPixelEnabled: false, metaPixelId: "", googlePixelEnabled: false, googleTagId: "", googleConversionDestination: "", tiktokPixelEnabled: false, tiktokPixelId: "", pixelConsentMode: "banner", pixelConsentTitle: "Sua privacidade importa", pixelConsentDescription: "Usamos tecnologias de publicidade para medir resultados e melhorar sua experiência.", pixelConsentAcceptLabel: "Aceitar", pixelConsentRejectLabel: "Recusar", pixelPrivacyUrl: "", captionsEnabled: false, captionName: "",
   loop: false, muted: false, smartPause: true, fullscreenDesktop: true, fullscreenMobile: true, antiDownload: true, videoDuration: 0, aspectRatio: 16 / 9,
+
+  // Watermark Defaults
+  watermarkEnabled: true,
+  watermarkShowEmail: true,
+  watermarkShowPhone: true,
+  watermarkShowIp: true,
+  watermarkShowUsername: true,
+  watermarkShowDate: true,
+  watermarkShowCustomText: true,
+  watermarkCustomText: "Sample Custom Text",
+  watermarkType: "static",
+  watermarkPosition: "top-right",
+  watermarkIntervalValue: 10,
+  watermarkIntervalUnit: "second",
+  watermarkOpacity: 85,
+
+  // Restrictions Defaults
+  limitConcurrentStreams: true,
+  maxConcurrentStreams: 5,
+  domainWhitelistEnabled: false,
+  domainWhitelist: [],
+
+  // DRM Defaults
+  drmHlsEnabled: true,
+  drmSignedTokenEnabled: true,
+  disableContextMenu: true,
+  blockDevTools: true,
+
   assets: {},
 };
 
 export default function VslStudio() {
   const router = useRouter();
   const [video] = useState<StoredVideo | null>(() => { if (typeof window === "undefined") return null; try { return JSON.parse(sessionStorage.getItem("prisma-mvp-video") ?? "null") as StoredVideo | null; } catch { return null; } });
-  const [active, setActiveState] = useState<ModuleId | null>("autoplay");
+  const [active, setActiveState] = useState<ModuleId | null>("protection");
   const [config, setConfig] = useState<StudioConfig>(() => {
     if (typeof window === "undefined") return initialConfig;
     try { return { ...initialConfig, ...JSON.parse(localStorage.getItem("prisma-studio-config") ?? "{}") as Partial<StudioConfig> }; }
@@ -226,7 +214,6 @@ export default function VslStudio() {
   const [resumePlaybackSignal, setResumePlaybackSignal] = useState(0);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [embedOpen, setEmbedOpen] = useState(false);
   const [playerId, setPlayerId] = useState<string>();
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -268,11 +255,6 @@ export default function VslStudio() {
   }, []);
 
   const sources = useMemo(() => video ? [{ src: video.src, type: video.type }] : [], [video]);
-
-  const previewStyle = useMemo(() => {
-    if (!videoSize.width || !videoSize.height) return { width: "100%", aspectRatio: "16 / 9" };
-    return { width: "100%", aspectRatio: `${videoSize.width} / ${videoSize.height}` };
-  }, [videoSize]);
 
   const playerStyle = useMemo(() => ({ borderRadius: `${config.radius}px` }), [config.radius]);
 
@@ -317,20 +299,6 @@ export default function VslStudio() {
     }
   };
 
-  const removeVsl = async () => {
-    if (!video?.id) return;
-    setDeleting(true);
-    try {
-      await fetch(`/api/videos/${video.id}`, { method: "DELETE" });
-      sessionStorage.removeItem("prisma-mvp-video");
-      router.push("/dashboard/videos");
-    } catch {
-      setDeleting(false);
-    }
-  };
-
-  const availablePreviewHeight = Math.max(260, previewStageSize.height - (config.headlineEnabled ? 80 : 0) - (config.ctaEnabled ? 70 : 0));
-
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-white text-[#1d1d1f] dark:bg-[#000000] dark:text-white">
       {/* Studio Navigation Top Bar */}
@@ -341,7 +309,7 @@ export default function VslStudio() {
           </Link>
           <div className="flex items-center gap-2">
             <BrandLogo />
-            <span className="text-xs font-bold text-[#191A23] dark:text-white">• Estúdio VSL</span>
+            <span className="text-xs font-bold text-[#191A23] dark:text-white">• Estúdio VSL & Proteção DRM</span>
           </div>
         </div>
 
@@ -354,7 +322,7 @@ export default function VslStudio() {
       </header>
 
       {/* Main Workspace Layout */}
-      <div className="grid flex-1 min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_340px_minmax(0,1fr)]">
+      <div className="grid flex-1 min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[260px_420px_minmax(0,1fr)]">
         {/* Column 1: Modules Selection Drawer */}
         <aside className="order-1 flex flex-col border-r border-black/10 bg-[#fafafa] dark:border-white/10 dark:bg-[#09090b]">
           <div className="p-3.5 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 border-b border-black/5 dark:border-white/5">
@@ -440,127 +408,17 @@ export default function VslStudio() {
                 />
               )}
 
-              {active === "headlines" && (
-                <PresetBar
-                  title="Headline"
-                  presets={headlinePresetList}
-                  activeIndex={activeHeadlineIndex}
-                  onSelect={(idx) => {
-                    setActiveHeadlineIndex(idx);
-                    applyPresetData(headlinePresetList[idx].data);
-                  }}
-                  onCreate={() => {
-                    const newIndex = headlinePresetList.length + 1;
-                    const newPreset: PresetItem = {
-                      id: `head-custom-${Date.now()}`,
-                      name: `🔥 Headline ${newIndex}`,
-                      data: {
-                        headline: "Digite a sua nova headline de alta conversão aqui",
-                        headlineTagBadge: "🔥 NOVO",
-                        headlineColor: "#191A23",
-                        headlineBackground: "#B9FF66",
-                        headlineSize: 28,
-                        headlineAlign: "center",
-                      },
-                    };
-                    setHeadlinePresetList((prev) => [...prev, newPreset]);
-                    setActiveHeadlineIndex(headlinePresetList.length);
-                    applyPresetData(newPreset.data);
-                  }}
-                  onDelete={(idx) => {
-                    const next = headlinePresetList.filter((_, i) => i !== idx);
-                    setHeadlinePresetList(next);
-                    const safeIdx = Math.max(0, idx - 1);
-                    setActiveHeadlineIndex(safeIdx);
-                    if (next[safeIdx]) applyPresetData(next[safeIdx].data);
-                  }}
-                />
-              )}
-
-              {active === "actions" && (
-                <PresetBar
-                  title="Botão CTA"
-                  presets={ctaPresetList}
-                  activeIndex={activeCtaIndex}
-                  onSelect={(idx) => {
-                    setActiveCtaIndex(idx);
-                    applyPresetData(ctaPresetList[idx].data);
-                  }}
-                  onCreate={() => {
-                    const newIndex = ctaPresetList.length + 1;
-                    const newPreset: PresetItem = {
-                      id: `cta-custom-${Date.now()}`,
-                      name: `🟢 Botão ${newIndex}`,
-                      data: {
-                        ctaText: "QUERO APROVEITAR A OFERTA AGORA",
-                        ctaSubtitle: "🔒 Compra 100% Segura • Acesso Imediato",
-                        ctaBadges: "7 Dias de Garantia • Pix em 12x",
-                        ctaBackground: "#B9FF66",
-                        ctaTextColor: "#191A23",
-                        ctaHoverBackground: "#a6ee50",
-                        ctaPulse: true,
-                      },
-                    };
-                    setCtaPresetList((prev) => [...prev, newPreset]);
-                    setActiveCtaIndex(ctaPresetList.length);
-                    applyPresetData(newPreset.data);
-                  }}
-                  onDelete={(idx) => {
-                    const next = ctaPresetList.filter((_, i) => i !== idx);
-                    setCtaPresetList(next);
-                    const safeIdx = Math.max(0, idx - 1);
-                    setActiveCtaIndex(safeIdx);
-                    if (next[safeIdx]) applyPresetData(next[safeIdx].data);
-                  }}
-                />
-              )}
-
-              {active === "hooks" && (
-                <PresetBar
-                  title="Mini-Ganhos"
-                  presets={hookPresetList}
-                  activeIndex={activeHookIndex}
-                  onSelect={(idx) => {
-                    setActiveHookIndex(idx);
-                    applyPresetData(hookPresetList[idx].data);
-                  }}
-                  onCreate={() => {
-                    const newIndex = hookPresetList.length + 1;
-                    const newPreset: PresetItem = {
-                      id: `hook-custom-${Date.now()}`,
-                      name: `⚡ Widget ${newIndex}`,
-                      data: {
-                        miniHookType: "live_viewers",
-                        miniHookText: "🔥 1.482 pessoas assistindo a este vídeo agora",
-                        miniHookTextColor: "#ffffff",
-                        miniHookBackground: "#191A23",
-                      },
-                    };
-                    setHookPresetList((prev) => [...prev, newPreset]);
-                    setActiveHookIndex(hookPresetList.length);
-                    applyPresetData(newPreset.data);
-                  }}
-                  onDelete={(idx) => {
-                    const next = hookPresetList.filter((_, i) => i !== idx);
-                    setHookPresetList(next);
-                    const safeIdx = Math.max(0, idx - 1);
-                    setActiveHookIndex(safeIdx);
-                    if (next[safeIdx]) applyPresetData(next[safeIdx].data);
-                  }}
-                />
-              )}
-
               {/* Module Form Controls */}
               {renderPanel(active, config, update, handlePoster, handleCaption, playerId, video?.id)}
             </div>
           </aside>
         )}
 
-        {/* Column 3: Live Player Preview & Timeline Stage */}
+        {/* Column 3: Live Player Preview Stage */}
         <main className="order-3 flex flex-1 flex-col overflow-hidden bg-[#f5f5f7] dark:bg-black p-4 sm:p-6">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5">
-              <Sparkles size={14} className="text-[#B9FF66]" /> Prévia em Tempo Real
+              <Sparkles size={14} className="text-[#B9FF66]" /> Prévia em Tempo Real com Marca D'água & Proteção
             </span>
             <span className="rounded-full bg-slate-200 dark:bg-zinc-800 px-3 py-0.5 text-xs font-bold text-slate-700 dark:text-zinc-300">
               {config.playbackRate.toFixed(2)}x
@@ -605,6 +463,35 @@ export default function VslStudio() {
                 </div>
               )}
 
+              {/* Watermark Overlay Preview (Live Image/Text Overlay) */}
+              {config.watermarkEnabled && (
+                <div
+                  className={`pointer-events-none absolute z-40 p-3 font-mono text-[11px] leading-tight select-none ${
+                    config.watermarkPosition === "top-left"
+                      ? "top-3 left-3 text-left"
+                      : config.watermarkPosition === "bottom-left"
+                      ? "bottom-3 left-3 text-left"
+                      : config.watermarkPosition === "bottom-right"
+                      ? "bottom-3 right-3 text-right"
+                      : config.watermarkPosition === "center"
+                      ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center"
+                      : "top-3 right-3 text-right"
+                  }`}
+                  style={{
+                    color: "rgba(255,255,255,0.9)",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                    opacity: config.watermarkOpacity / 100,
+                  }}
+                >
+                  {config.watermarkShowEmail && <div>john.doe@example.com</div>}
+                  {config.watermarkShowPhone && <div>+1-128-456-789</div>}
+                  {config.watermarkShowIp && <div>192.168.1.101</div>}
+                  {config.watermarkShowUsername && <div>John Doe</div>}
+                  {config.watermarkShowDate && <div>{new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</div>}
+                  {config.watermarkShowCustomText && config.watermarkCustomText && <div>{config.watermarkCustomText}</div>}
+                </div>
+              )}
+
               {/* Smart Autoplay Overlay Preview */}
               {config.smartAutoplay && !autoplayActivated && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -639,22 +526,6 @@ export default function VslStudio() {
                   </button>
                 </div>
               )}
-
-              {/* Mini Hook / Micro-Engagement Widget Overlay */}
-              {config.miniHooksEnabled && (
-                <div
-                  className="pointer-events-none absolute inset-x-4 top-4 z-20 mx-auto max-w-[480px] p-3 shadow-xl backdrop-blur-md flex items-center gap-2 font-bold"
-                  style={{
-                    color: config.miniHookTextColor,
-                    backgroundColor: `${config.miniHookBackground}e8`,
-                    fontSize: `${config.miniHookSize}px`,
-                    borderRadius: `${config.miniHookRadius}px`,
-                  }}
-                >
-                  <Sparkles size={16} className="shrink-0 text-[#B9FF66]" />
-                  <span className="flex-1">{config.miniHookText}</span>
-                </div>
-              )}
             </div>
 
             {/* CTA Button Preview */}
@@ -681,11 +552,6 @@ export default function VslStudio() {
                     <span className="text-[11px] font-normal opacity-90">{config.ctaSubtitle}</span>
                   )}
                 </a>
-                {config.ctaBadges && (
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
-                    {config.ctaBadges}
-                  </p>
-                )}
               </div>
             )}
           </div>
@@ -762,13 +628,275 @@ function PresetBar({
   );
 }
 
-function ModulePanel({ module, config, update, onPoster, onCaption, playerId, videoId }: { module: ModuleId; config: StudioConfig; update: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void; onPoster: (file: File, kind: "start" | "pause" | "end") => void; onCaption: (file: File) => void; playerId?: string; videoId?: string }) {
-  const definition = modules.find((item) => item.id === module)!;
-  const Icon = definition.icon;
-  const toggleStatus = (value: boolean) => {
-    if (definition.status) update(definition.status, value as StudioConfig[typeof definition.status]);
+function ProtectionPanel({ config: c, update: u }: { config: StudioConfig; update: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void }) {
+  const [subTab, setSubTab] = useState<"watermark" | "restrictions" | "drm" | "geo">("watermark");
+  const [newDomain, setNewDomain] = useState("");
+
+  const addDomain = () => {
+    const clean = newDomain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (clean && !c.domainWhitelist.includes(clean)) {
+      u("domainWhitelist", [...c.domainWhitelist, clean]);
+      setNewDomain("");
+    }
   };
-  return <div className="mx-auto w-full max-w-[310px]"><div className="mb-5 flex items-center gap-3 border-b border-black/10 pb-5 dark:border-white/10"><Icon size={21} className="shrink-0 text-[#0066cc] dark:text-[#2997ff]" /><h2 className="min-w-0 flex-1 truncate text-[18px] font-semibold">{definition.label}</h2>{definition.status && <Switch checked={Boolean(config[definition.status])} onChange={toggleStatus} />}</div><div className="space-y-6">{renderPanel(module, config, update, onPoster, onCaption, playerId, videoId)}</div></div>;
+
+  const removeDomain = (domain: string) => {
+    u("domainWhitelist", c.domainWhitelist.filter((d) => d !== domain));
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 4 Tabs Header */}
+      <div className="flex border-b border-slate-200 dark:border-zinc-800 text-xs font-bold">
+        {[
+          { id: "watermark", label: "Marca D'água" },
+          { id: "restrictions", label: "Restrições" },
+          { id: "drm", label: "DRM" },
+          { id: "geo", label: "Bloco Geográfico" },
+        ].map((tab) => {
+          const isActive = subTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSubTab(tab.id as typeof subTab)}
+              className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${
+                isActive
+                  ? "border-[#B9FF66] text-[#191A23] dark:text-[#B9FF66] font-extrabold"
+                  : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB 1: MARCA D'ÁGUA */}
+      {subTab === "watermark" && (
+        <div className="space-y-4 pt-1">
+          <CheckRow label="Adicionar marca d'água ao player" checked={c.watermarkEnabled} onChange={(v) => u("watermarkEnabled", v)} />
+
+          {c.watermarkEnabled && (
+            <>
+              <div className="space-y-2 pt-2">
+                <PanelTitle>Parâmetros</PanelTitle>
+                <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                  <CheckRow label="Endereço de e-mail do usuário" checked={c.watermarkShowEmail} onChange={(v) => u("watermarkShowEmail", v)} />
+                  <CheckRow label="Número de telefone" checked={c.watermarkShowPhone} onChange={(v) => u("watermarkShowPhone", v)} />
+                  <CheckRow label="Endereço IP" checked={c.watermarkShowIp} onChange={(v) => u("watermarkShowIp", v)} />
+                  <CheckRow label="Nome de usuário" checked={c.watermarkShowUsername} onChange={(v) => u("watermarkShowUsername", v)} />
+                  <CheckRow label="Data" checked={c.watermarkShowDate} onChange={(v) => u("watermarkShowDate", v)} />
+                  <CheckRow label="Texto personalizado" checked={c.watermarkShowCustomText} onChange={(v) => u("watermarkShowCustomText", v)} />
+                </div>
+
+                {c.watermarkShowCustomText && (
+                  <TextInput
+                    label=""
+                    value={c.watermarkCustomText}
+                    placeholder="Digite o texto personalizado"
+                    onChange={(v) => u("watermarkCustomText", v)}
+                  />
+                )}
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <PanelTitle>Aparência</PanelTitle>
+                <Segmented
+                  label=""
+                  value={c.watermarkType}
+                  options={[
+                    { label: "Dinâmico", value: "dynamic" },
+                    { label: "Estático", value: "static" },
+                  ]}
+                  onChange={(v) => u("watermarkType", v as StudioConfig["watermarkType"])}
+                />
+
+                {c.watermarkType === "static" ? (
+                  <Select
+                    label="Posição na Tela"
+                    value={c.watermarkPosition}
+                    options={[
+                      "top-right",
+                      "top-left",
+                      "bottom-right",
+                      "bottom-left",
+                      "center",
+                    ]}
+                    onChange={(v) => u("watermarkPosition", v as StudioConfig["watermarkPosition"])}
+                  />
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-500">Mostrar raramente, todos os dias</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={c.watermarkIntervalValue}
+                        onChange={(e) => u("watermarkIntervalValue", Number(e.target.value))}
+                        className="h-10 w-24 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-[#191A23] dark:text-white"
+                      />
+                      <select
+                        value={c.watermarkIntervalUnit}
+                        onChange={(e) => u("watermarkIntervalUnit", e.target.value as "second" | "minute")}
+                        className="h-10 flex-1 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-xs font-medium text-[#191A23] dark:text-white"
+                      >
+                        <option value="second">Segundo</option>
+                        <option value="minute">Minuto</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <Range
+                  label="Opacidade(%)"
+                  value={c.watermarkOpacity}
+                  min={10}
+                  max={100}
+                  suffix="%"
+                  onChange={(v) => u("watermarkOpacity", v)}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: RESTRIÇÕES */}
+      {subTab === "restrictions" && (
+        <div className="space-y-4 pt-1">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <CheckRow label="Limitar fluxos simultâneos" checked={c.limitConcurrentStreams} onChange={(v) => u("limitConcurrentStreams", v)} />
+              <span title="Número máximo de conexões simultâneas ativas por conta"><Info size={14} className="text-slate-400" /></span>
+            </div>
+
+            {c.limitConcurrentStreams && (
+              <div className="pl-2 pt-1 space-y-1">
+                <label className="text-xs font-medium text-slate-500">Número máximo de dispositivos por conta</label>
+                <input
+                  type="number"
+                  value={c.maxConcurrentStreams}
+                  onChange={(e) => u("maxConcurrentStreams", Number(e.target.value))}
+                  className="h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <CheckRow label="Lista de permissões de domínio" checked={c.domainWhitelistEnabled} onChange={(v) => u("domainWhitelistEnabled", v)} />
+              <span title="Se ativado, bloqueia a reprodução em sites não listados abaixo"><Info size={14} className="text-slate-400" /></span>
+            </div>
+
+            {c.domainWhitelistEnabled && (
+              <div className="space-y-3 pt-1">
+                <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 p-3 text-xs font-semibold text-amber-900 dark:text-amber-300 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <span>Aviso: Se nenhum nome de domínio for adicionado, o reproductor incorporado será bloqueado em todos os sites.</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Globe2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={newDomain}
+                      onChange={(e) => setNewDomain(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addDomain()}
+                      placeholder="por exemplo www.muvi.com"
+                      className="h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 pl-9 pr-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addDomain}
+                    className="flex min-h-10 items-center gap-1 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-4 text-xs font-bold text-[#191A23] cursor-pointer shadow-xs"
+                  >
+                    <Plus size={14} /> Adicionar
+                  </button>
+                </div>
+
+                {/* Table of Domains */}
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 dark:bg-zinc-900/60 text-slate-500 font-semibold border-b border-slate-100 dark:border-zinc-800">
+                      <tr>
+                        <th className="p-2.5">Nº De Série</th>
+                        <th className="p-2.5">URL Do Site</th>
+                        <th className="p-2.5 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {c.domainWhitelist.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="p-4 text-center text-slate-400">
+                            Nenhum domínio cadastrado na lista.
+                          </td>
+                        </tr>
+                      ) : (
+                        c.domainWhitelist.map((item, idx) => (
+                          <tr key={item}>
+                            <td className="p-2.5 text-slate-400 font-medium">{idx + 1}</td>
+                            <td className="p-2.5 font-bold text-[#191A23] dark:text-zinc-100">{item}</td>
+                            <td className="p-2.5 text-right">
+                              <button type="button" onClick={() => removeDomain(item)} className="text-slate-400 hover:text-red-600 p-1 cursor-pointer">
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: DRM */}
+      {subTab === "drm" && (
+        <div className="space-y-3 pt-1">
+          <div className="rounded-xl border border-[#B9FF66]/40 bg-[#B9FF66]/10 p-3 text-xs font-semibold text-[#191A23] dark:text-[#B9FF66] flex items-center gap-2">
+            <LockKeyhole size={16} />
+            <span>Proteção DRM de Mídia contra Captura & Download</span>
+          </div>
+
+          <CheckRow label="Ativar Criptografia HLS AES-128" checked={c.drmHlsEnabled} onChange={(v) => u("drmHlsEnabled", v)} />
+          <CheckRow label="Exigir Token Assinado por Sessão" checked={c.drmSignedTokenEnabled} onChange={(v) => u("drmSignedTokenEnabled", v)} />
+          <CheckRow label="Desativar Menu de Contexto (Botão Direito)" checked={c.disableContextMenu} onChange={(v) => u("disableContextMenu", v)} />
+          <CheckRow label="Bloquear Atalhos DevTools (F12 / Inspect)" checked={c.blockDevTools} onChange={(v) => u("blockDevTools", v)} />
+        </div>
+      )}
+
+      {/* TAB 4: BLOCO GEOGRÁFICO */}
+      {subTab === "geo" && (
+        <div className="space-y-4 pt-1">
+          <CheckRow label="Bloquear acessos de Proxy / VPN" checked={c.blockVpn} onChange={(v) => u("blockVpn", v)} />
+          <Select label="Idioma do Navegador" value={c.browserLanguage} options={["Todos", "Português", "Inglês", "Espanhol"]} onChange={(v) => u("browserLanguage", v)} />
+          <TextInput label="Países permitidos" value={c.allowedCountries} placeholder="Todos ou BR, PT, US" onChange={(v) => u("allowedCountries", v)} />
+
+          <div className="space-y-2">
+            <PanelTitle>Dispositivos Permitidos</PanelTitle>
+            {[["Desktop", "desktop"], ["Celular", "mobile"], ["Tablet", "tablet"]].map(([label, value]) => (
+              <CheckRow
+                key={value}
+                label={label}
+                checked={c.allowedDevices.includes(value)}
+                onChange={(checked) =>
+                  u(
+                    "allowedDevices",
+                    checked ? [...new Set([...c.allowedDevices, value])] : c.allowedDevices.filter((item) => item !== value)
+                  )
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function renderPanel(module: ModuleId, c: StudioConfig, u: <K extends keyof StudioConfig>(key: K, value: StudioConfig[K]) => void, onPoster: (file: File, kind: "start" | "pause" | "end") => void, onCaption: (file: File) => void, playerId?: string, videoId?: string) {
@@ -783,7 +911,7 @@ function renderPanel(module: ModuleId, c: StudioConfig, u: <K extends keyof Stud
   if (module === "thumbnail") return <><p className="panel-help">Use capas diferentes para aumentar o clique inicial e recuperar pausas ou finais.</p><UploadBox label="Thumbnail inicial" selectedName={c.thumbnailStartName || (c.assets.thumbnailStart ? "Thumbnail salva" : "")} accept="image/*" onFile={(file) => { onPoster(file, "start"); u("thumbnailStartName", file.name); u("thumbnailEnabled", true); }} /></>;
   if (module === "resume") return <TextArea label="Mensagem" value={c.resumeMessage} onChange={(v) => u("resumeMessage", v)} />;
   if (module === "pixels") return <PixelTrackingPanel config={c} update={u} playerId={playerId} videoId={videoId} />;
-  if (module === "protection") return <CheckRow label="Ativar barreiras anti-download" checked={c.antiDownload} onChange={(v) => u("antiDownload", v)} />;
+  if (module === "protection") return <ProtectionPanel config={c} update={u} />;
   if (module === "captions") return <UploadBox label={c.captionName || "Upload de legenda WebVTT"} accept=".vtt,text/vtt" onFile={(file) => { onCaption(file); u("captionName", file.name); u("captionsEnabled", true); }} />;
   return <><CheckRow label="Começar sem som" checked={c.muted} onChange={(v) => u("muted", v)} /><CheckRow label="Recomeçar após o fim" checked={c.loop} onChange={(v) => u("loop", v)} /></>;
 }
