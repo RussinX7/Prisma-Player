@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthErrorMessage } from "@/lib/supabase/auth-errors";
 import { csrfGuard } from "@/lib/security/csrf";
+import { recordAuthFailure } from "@/lib/security/auth-events";
 import { hashRateLimitIdentifier, rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     },
   });
   if (result.error) {
+    await recordAuthFailure("signup_failed", email, request);
     const message = getAuthErrorMessage(result.error, "Não foi possível criar a conta. Tente novamente.");
     return NextResponse.json({ error: "signup_failed", message }, { status: 400 });
   }

@@ -26,6 +26,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 .env.local
 .env.development.local
@@ -65,4 +66,8 @@ Thumbs.db
 workspace/
 VERCEL_ENVS.txt
 .mantis_snapshot_id
+
+# Agent/skill tooling (third-party, not project code)
+.claude/
+.opencode/
 
