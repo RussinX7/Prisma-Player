@@ -132,7 +132,7 @@ const heatmapMetricLabel: Record<"plays" | "impressions" | "conversions", (count
 };
 
 const FUNNEL_RAMP = ["#6366f1", "#8b5cf6", "#a855f7", "#c026d3", "#ec4899", "#f43f5e"];
-const HEATMAP_GAP = 4;
+const HEATMAP_GAP = 6;
 
 const suggestionPrompts = [
   "O que eu deveria melhorar primeiro nessa VSL?",
@@ -400,11 +400,13 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
     [heatmapColumns],
   );
 
+  // Optimized Heatmap Bin Size to stretch and fill the full desktop card width
   const heatmapBinSize = useMemo(() => {
     const columns = heatmapColumns.length;
-    if (!columns) return 16;
-    const available = 672 - (columns - 1) * HEATMAP_GAP;
-    return Math.max(12, Math.min(34, Math.floor(available / columns)));
+    if (!columns) return 40;
+    const containerWidth = 1100;
+    const available = containerWidth - (columns - 1) * HEATMAP_GAP - 80;
+    return Math.max(28, Math.floor(available / columns));
   }, [heatmapColumns]);
 
   const funnelChartData = useMemo(() => {
@@ -801,7 +803,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
 
                 {/* TIKTOK STUDIO BOTTOM MULTI-COLUMN CARDS (Retention, Traffic Source, Audience) */}
                 <section className="grid gap-5 lg:grid-cols-3">
-                  {/* Card 1: Retention rate */}
+                  {/* Card 1: Retention rate (Fixed height mini-chart bounds) */}
                   <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4 flex flex-col justify-between">
                     <div>
                       <h3 className="text-sm font-bold text-[#191A23] flex items-center justify-between">
@@ -829,7 +831,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                       </div>
                     </div>
 
-                    <div className="h-32 w-full pt-2">
+                    <div className="h-28 w-full pt-2 overflow-hidden rounded-xl">
                       <AreaChart data={retentionChartData} xDataKey="date">
                         <Area dataKey="visitors" fill="#a855f7" fillOpacity={0.3} />
                       </AreaChart>
@@ -910,18 +912,62 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               </>
             )}
 
-            {/* TAB: RETENTION (RETENÇÃO) */}
+            {/* TAB: RETENTION (FUSÃO COMPLETA DE RETENÇÃO) */}
             {tab === "retention" && (
               <div className="space-y-6">
-                <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between">
+                {/* Unified Retention Header Card with Player Preview & Metrics */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
-                      <h2 className="text-base font-bold text-[#191A23]">Curva de Retenção Detalhada</h2>
-                      <p className="text-xs font-medium text-slate-500">Percentual de audiência mantida em cada trecho do vídeo.</p>
+                      <h2 className="text-base font-bold text-[#191A23]">Visão Unificada da Retenção</h2>
+                      <p className="text-xs font-medium text-slate-500">
+                        Consolidação completa do tempo médio assistido, taxa de conclusão e marcos temporais da VSL.
+                      </p>
                     </div>
+                    <span className="rounded-full bg-[#B9FF66] border border-black/5 px-3 py-1 text-xs font-bold text-[#191A23]">
+                      {data.retention.length} marcos analisados
+                    </span>
                   </div>
 
-                  <div className="relative h-[360px] w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                      <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-900 grid place-items-center text-white shadow-xs">
+                        <Play size={18} fill="currentColor" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tempo Médio</span>
+                        <strong className="text-xl font-bold text-[#191A23]">{avgWatchTimeSeconds}s</strong>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Conclusão do Vídeo</span>
+                      <strong className="text-xl font-bold text-[#191A23]">{format(data.summary.completionRate, true)}</strong>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">{data.summary.completed} espectadores até o fim</span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Retenção no Pitch (75%)</span>
+                      <strong className="text-xl font-bold text-[#191A23]">{format(pitchRetention, true)}</strong>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">{data.summary.reached75} espectadores na oferta</span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Retenção Inicial (10%)</span>
+                      <strong className="text-xl font-bold text-[#191A23]">{format(data.retention.find(p => p.point === 10)?.rate ?? 0, true)}</strong>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">Primeiros segundos (Hook)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full-width interactive line chart */}
+                <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#191A23]">Curva de Retenção Detalhada em Tela Cheia</h3>
+                    <p className="text-xs font-medium text-slate-500">Passe o cursor sobre a curva para inspecionar a porcentagem e o número exato de espectadores.</p>
+                  </div>
+
+                  <div className="relative h-[380px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                     <LineChart
                       data={retentionLineData}
                       xDataKey="date"
@@ -929,13 +975,13 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                       className="h-full w-full"
                     >
                       <LineGrid horizontal />
-                      <Line dataKey="rate" stroke="#0066cc" strokeWidth={2.5} />
+                      <Line dataKey="rate" stroke="#0066cc" strokeWidth={3} />
                       <LineXAxis formatTick={(_date, index) => `${retentionLineData[index]?.point ?? 0}%`} />
                       <LineChartTooltip
                         showDatePill={false}
                         rows={(point) => [
                           { color: "#0066cc", label: `${point.point as number}% do vídeo`, value: format(point.rate as number, true) },
-                          { color: "#0066cc", label: "Espectadores", value: format(point.viewers as number) },
+                          { color: "#0066cc", label: "Espectadores ativos", value: format(point.viewers as number) },
                         ]}
                       />
                     </LineChart>
@@ -944,14 +990,14 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               </div>
             )}
 
-            {/* TAB: HEATMAP (MAPA DE CALOR) */}
+            {/* TAB: HEATMAP (MAPA DE CALOR EXPANDIDO PARA LARGURA TOTAL) */}
             {tab === "heatmap" && (
-              <section className="w-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
+              <section className="w-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
                   <div>
-                    <h2 className="text-base font-bold text-[#191A23]">Mapa de Calor da VSL</h2>
+                    <h2 className="text-base font-bold text-[#191A23]">Mapa de Calor da VSL (Largura Total)</h2>
                     <p className="text-xs font-medium text-slate-500">
-                      Intensidade de acessos por dia da semana e horário.
+                      Intensidade de acessos distribuída por dia da semana e horário do dia.
                     </p>
                   </div>
                   <div className="flex gap-1.5 rounded-xl border border-slate-200 bg-[#F8F9FA] p-1">
@@ -960,7 +1006,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                         key={id}
                         type="button"
                         onClick={() => setHeatmapMetric(id)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${heatmapMetric === id ? "bg-[#B9FF66] text-[#191A23] font-bold shadow-xs border border-black/5" : "text-slate-600 hover:text-[#191A23]"}`}
+                        className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${heatmapMetric === id ? "bg-[#B9FF66] text-[#191A23] font-bold shadow-xs border border-black/5" : "text-slate-600 hover:text-[#191A23]"}`}
                       >
                         {label}
                       </button>
@@ -968,28 +1014,28 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                   </div>
                 </div>
 
-                {heatmapColumns.length ? (
-                  <div className="pt-2 flex justify-center overflow-x-auto">
-                    <HeatmapInteractionProvider>
-                      <HeatmapInteractionBoundary>
-                        <div className="flex w-full flex-col items-stretch gap-3 overflow-x-auto min-w-[600px]">
-                          <HeatmapChart
-                            className="w-full"
-                            data={heatmapColumns}
-                            layout="fluid"
-                            binSize={heatmapBinSize}
-                            gap={HEATMAP_GAP}
-                            colorScale={heatmapColorScale}
-                            levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
-                          >
-                            <HeatmapCells inactiveOpacity={1} inactiveScale={1} />
-                            <HeatmapXAxis />
-                            <HeatmapYAxis />
-                            <HeatmapTooltip
-                              instant
-                              formatLabel={(count) => `${format(count)} ${heatmapMetricLabel[heatmapMetric](count)}`}
-                            />
-                          </HeatmapChart>
+                <div className="w-full pt-2 flex flex-col items-center">
+                  <HeatmapInteractionProvider>
+                    <HeatmapInteractionBoundary>
+                      <div className="flex w-full flex-col items-stretch gap-4">
+                        <HeatmapChart
+                          className="w-full"
+                          data={heatmapColumns}
+                          layout="fluid"
+                          binSize={heatmapBinSize}
+                          gap={HEATMAP_GAP}
+                          colorScale={heatmapColorScale}
+                          levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
+                        >
+                          <HeatmapCells inactiveOpacity={1} inactiveScale={1} />
+                          <HeatmapXAxis />
+                          <HeatmapYAxis />
+                          <HeatmapTooltip
+                            instant
+                            formatLabel={(count) => `${format(count)} ${heatmapMetricLabel[heatmapMetric](count)}`}
+                          />
+                        </HeatmapChart>
+                        <div className="flex justify-end pt-2">
                           <HeatmapLegend
                             inactiveOpacity={1}
                             inactiveScale={1}
@@ -998,25 +1044,23 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                             levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
                           />
                         </div>
-                      </HeatmapInteractionBoundary>
-                    </HeatmapInteractionProvider>
-                  </div>
-                ) : (
-                  <p className="py-12 text-center text-xs font-medium text-slate-400">Ainda não há dados suficientes no período selecionado.</p>
-                )}
+                      </div>
+                    </HeatmapInteractionBoundary>
+                  </HeatmapInteractionProvider>
+                </div>
               </section>
             )}
 
-            {/* TAB: FUNNEL (FUNIL DE CONVERSÃO) */}
+            {/* TAB: FUNNEL (FUNIL DE CONVERSÃO EM LARGURA TOTAL) */}
             {tab === "funnel" && (
-              <section className="w-full max-w-4xl rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+              <section className="w-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
                 <div>
-                  <h2 className="text-base font-bold text-[#191A23]">Funil de Conversão da VSL</h2>
-                  <p className="text-xs font-medium text-slate-500">Perda de público e taxas de conversão relativas a cada etapa.</p>
+                  <h2 className="text-base font-bold text-[#191A23]">Funil de Conversão da VSL (Largura Total)</h2>
+                  <p className="text-xs font-medium text-slate-500">Perda de público e taxas de conversão relativas a cada etapa da VSL.</p>
                 </div>
 
-                <div className="w-full py-4">
-                  <FunnelChart data={funnelChartData} layers={3} />
+                <div className="w-full py-6 flex justify-center">
+                  <FunnelChart data={funnelChartData} layers={3} className="w-full h-[400px]" />
                 </div>
               </section>
             )}
@@ -1277,7 +1321,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                 <h3 className="text-xs font-bold text-[#191A23] flex items-center gap-1.5">
                   <Sparkles size={15} /> {aiResult.headline}
                 </h3>
-                <p className="mt-1.5 text-xs font-medium text-slate-600 leading-relaxed">{aiResult.executiveSummary}</p>
+                <p className="mt-1.5 text-xs font-medium text-[#191A23]/70 leading-relaxed">{aiResult.executiveSummary}</p>
               </article>
 
               {aiResult.warnings.length > 0 && (
