@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  BrainCircuit,
   CreditCard,
   FlaskConical,
   LifeBuoy,
@@ -15,7 +14,6 @@ export type NavigationMessageKey =
   | "abTests"
   | "security"
   | "conversions"
-  | "intelligence"
   | "settings"
   | "plan"
   | "help";
@@ -39,7 +37,6 @@ export const navGroups: SidebarNavGroup[] = [{
     { title: "Testes A/B", messageKey: "abTests", path: "/dashboard/ab-tests", icon: <FlaskConical className="size-4" /> },
     { title: "Segurança", messageKey: "security", path: "/dashboard/security", icon: <Shield className="size-4" /> },
     { title: "Conversões", messageKey: "conversions", path: "/dashboard/conversions", icon: <Target className="size-4" /> },
-    { title: "Inteligência", messageKey: "intelligence", path: "/dashboard/intelligence", icon: <BrainCircuit className="size-4" /> },
     { title: "Configurações", messageKey: "settings", path: "/dashboard/settings", icon: <Settings className="size-4" /> },
     { title: "Plano", messageKey: "plan", path: "/dashboard/billing", icon: <CreditCard className="size-4" /> },
   ],
