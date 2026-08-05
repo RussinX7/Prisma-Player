@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   CreditCard,
   FlaskConical,
+  Inbox,
   LifeBuoy,
   Settings,
   Shield,
@@ -35,6 +36,7 @@ export const navGroups: SidebarNavGroup[] = [{
   items: [
     { title: "Meus vídeos", messageKey: "videos", path: "/dashboard/videos", icon: <Video className="size-4" /> },
     { title: "Testes A/B", messageKey: "abTests", path: "/dashboard/ab-tests", icon: <FlaskConical className="size-4" /> },
+    { title: "Inbox & Notificações", path: "/dashboard/inbox", icon: <Inbox className="size-4" /> },
     { title: "Segurança", messageKey: "security", path: "/dashboard/security", icon: <Shield className="size-4" /> },
     { title: "Conversões", messageKey: "conversions", path: "/dashboard/conversions", icon: <Target className="size-4" /> },
     { title: "Configurações", messageKey: "settings", path: "/dashboard/settings", icon: <Settings className="size-4" /> },

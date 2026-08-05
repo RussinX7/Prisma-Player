@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Check, Inbox, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,7 @@ export default function AccountMenu() {
           <Button
             variant="ghost"
             size="icon"
-            className="size-10 rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground"
+            className="size-10 rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground cursor-pointer"
             aria-label="Abrir menu da conta"
           />
         }
@@ -96,8 +96,24 @@ export default function AccountMenu() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <DropdownMenuItem
+            className="min-h-10 rounded-xl px-2.5 cursor-pointer"
+            render={<Link href="/dashboard/inbox" />}
+          >
+            <Inbox className="text-primary" />
+            <span>Inbox & Notificações</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            className="min-h-10 rounded-xl px-2.5 cursor-pointer"
+            render={<Link href="/dashboard/settings" />}
+          >
+            <Settings />
+            <span>{t("account")}</span>
+          </DropdownMenuItem>
+
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="min-h-10 rounded-xl px-2.5">
+            <DropdownMenuSubTrigger className="min-h-10 rounded-xl px-2.5 cursor-pointer">
               <Languages className="text-primary" />
               <span>{t("language")}</span>
             </DropdownMenuSubTrigger>
@@ -105,7 +121,7 @@ export default function AccountMenu() {
               {languages.map((item) => (
                 <DropdownMenuItem
                   key={item.code}
-                  className="min-h-10 rounded-lg px-2.5"
+                  className="min-h-10 rounded-lg px-2.5 cursor-pointer"
                   onClick={() => setLocale(item.code)}
                 >
                   <LocaleFlag locale={item.code} className="size-6" />
@@ -115,16 +131,10 @@ export default function AccountMenu() {
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
-          <DropdownMenuItem
-            className="min-h-10 rounded-xl px-2.5"
-            render={<Link href="/dashboard/settings" />}
-          >
-            <Settings />
-            <span>{t("account")}</span>
-          </DropdownMenuItem>
+
           {isAdmin && (
             <DropdownMenuItem
-              className="min-h-10 rounded-xl px-2.5"
+              className="min-h-10 rounded-xl px-2.5 cursor-pointer"
               render={<Link href="/admin" />}
             >
               <ShieldCheck className="text-primary" />
@@ -135,7 +145,7 @@ export default function AccountMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          className="min-h-10 rounded-xl px-2.5"
+          className="min-h-10 rounded-xl px-2.5 cursor-pointer"
           onClick={() => void logout()}
         >
           <LogOut />
