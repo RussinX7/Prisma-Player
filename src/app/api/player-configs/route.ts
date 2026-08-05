@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ownedAssetPaths } from "@/lib/player/assets";
 import { purgeEmbedManifest } from "@/lib/cache/embed-purge";
 import { normalizePixelConfig, pixelConfigErrors } from "@/lib/player/pixels";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 const MAX_CONFIG_BYTES = 100_000;
 
@@ -33,6 +34,9 @@ export async function PUT(request: Request) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
   const { account } = gate;
+
+  const limited = await rateLimit(request, `player-configs:${account.accountOwnerId}`, { max: 120, windowMs: 60_000 });
+  if (limited) return limited;
 
   const parsed = await readJsonBody<{ videoId?: unknown; config?: unknown; domains?: unknown }>(request, MAX_CONFIG_BYTES + 8192);
   if (!parsed.ok) return parsed.response;
@@ -68,6 +72,9 @@ export async function POST(request: Request) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
   const { account } = gate;
+
+  const limited = await rateLimit(request, `player-configs:${account.accountOwnerId}`, { max: 120, windowMs: 60_000 });
+  if (limited) return limited;
 
   const parsed = await readJsonBody<{ videoId?: unknown }>(request);
   if (!parsed.ok) return parsed.response;

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/api/request";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAiCreditCheckout } from "@/lib/billing/ai-credits";
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
   // Mesmo motivo de /api/billing/checkout: cada chamada cria checkout real no gateway.
   const checkoutLimit = await rateLimit(request, `ai-credit-checkout:${userId}`, { max: 5, windowMs: 60_000, failClosed: true });
   if (checkoutLimit) return checkoutLimit;
-  const body = await request.json().catch(() => null) as { product?: unknown } | null;
+  const parsed = await readJsonBody<{ product?: unknown }>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   if (typeof body?.product !== "string") return NextResponse.json({ error: "invalid_product" }, { status: 400 });
   const { data } = await createAdminClient().from("ai_credit_products").select("*").eq("slug", body.product).eq("is_active", true).maybeSingle();
   if (!data) return NextResponse.json({ error: "product_not_found" }, { status: 404 });

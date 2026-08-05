@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/api/request";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthErrorMessage } from "@/lib/supabase/auth-errors";
 import { csrfGuard } from "@/lib/security/csrf";
@@ -12,7 +13,9 @@ export async function POST(request: Request) {
   const limited = await rateLimit(request, "auth-login", { max: 10, windowMs: 10 * 60_000, failClosed: true });
   if (limited) return limited;
 
-  const body = await request.json().catch(() => null) as { email?: unknown; password?: unknown } | null;
+  const parsed = await readJsonBody<{ email?: unknown; password?: unknown }>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";
   if (!email || !password) return NextResponse.json({ error: "invalid_credentials" }, { status: 400 });

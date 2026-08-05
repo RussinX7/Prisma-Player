@@ -4,6 +4,7 @@ import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abortR2MultipartUpload, completeR2MultipartUpload, createR2MultipartUpload, describeR2Error, signR2UploadPart } from "@/lib/storage/r2";
 import { VIDEO } from "@/lib/constants";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -11,6 +12,9 @@ export async function POST(request: Request, { params }: Context) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
   const { userId, account } = gate;
+
+  const limited = await rateLimit(request, `video-upload:${account.accountOwnerId}`, { max: 30, windowMs: 60_000 });
+  if (limited) return limited;
 
   const { id } = await params;
   // O corpo aqui carrega a lista de partes concluídas: teto maior que o padrão,

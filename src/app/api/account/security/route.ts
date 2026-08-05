@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { csrfGuard } from "@/lib/security/csrf";
 import { readJsonBody } from "@/lib/api/request";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
 
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const limited = await rateLimit(request, `account-security:${userId}`, { max: 10, windowMs: 60_000, failClosed: true });
+  if (limited) return limited;
 
   const parsed = await readJsonBody<{ action?: unknown; factorId?: unknown; challengeId?: unknown; code?: unknown; friendlyName?: unknown }>(request);
   if (!parsed.ok) return parsed.response;

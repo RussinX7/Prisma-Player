@@ -4,11 +4,15 @@ import { getStorageUsedBytes } from "@/lib/access/service";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { copyR2Object, deleteR2Object } from "@/lib/storage/r2";
 import { VIDEO } from "@/lib/constants";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
   const { account, plan } = gate;
+
+  const limited = await rateLimit(request, `videos-duplicate:${account.accountOwnerId}`, { max: 30, windowMs: 60_000 });
+  if (limited) return limited;
 
   const { id } = await context.params;
   const supabase = createAdminClient();

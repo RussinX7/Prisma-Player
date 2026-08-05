@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/api/request";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createBillingCheckout } from "@/lib/billing/service";
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
   const checkoutLimit = await rateLimit(request, `billing-checkout:${userId}`, { max: 5, windowMs: 60_000, failClosed: true });
   if (checkoutLimit) return checkoutLimit;
 
-  const body = await request.json().catch(() => null) as { plan?: unknown; method?: unknown } | null;
+  const parsed = await readJsonBody<{ plan?: unknown; method?: unknown }>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const slug = typeof body?.plan === "string" ? body.plan : "";
   const method = body?.method === "pix" || body?.method === "card" ? body.method : null;
   if (!slug || !method) return NextResponse.json({ error: "invalid_checkout" }, { status: 400 });

@@ -81,6 +81,9 @@ export async function POST(request: Request) {
   if (!gate.ok) return gate.response;
   const { userId, account, plan } = gate;
 
+  const limited = await rateLimit(request, `videos-create:${gate.account.accountOwnerId}`, { max: 30, windowMs: 60_000 });
+  if (limited) return limited;
+
   const parsed = await readJsonBody<Record<string, unknown>>(request);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body;

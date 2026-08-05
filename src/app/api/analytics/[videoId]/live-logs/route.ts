@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTeamAccountContext } from "@/lib/access/team-context";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function GET(request: Request, context: { params: Promise<{ videoId: string }> }) {
   const userId = await getCurrentUserId();
@@ -9,6 +10,8 @@ export async function GET(request: Request, context: { params: Promise<{ videoId
   const { videoId } = await context.params;
   const country = new URL(request.url).searchParams.get("country")?.toUpperCase() ?? "";
   const account = await getTeamAccountContext(userId);
+  const limited = await rateLimit(request, `analytics-live:${account.accountOwnerId}`, { max: 60, windowMs: 60_000 });
+  if (limited) return limited;
   const supabase = createAdminClient();
   const { data: video } = await supabase.from("videos").select("id").eq("id", videoId).eq("user_id", account.accountOwnerId).maybeSingle();
   if (!video) return NextResponse.json({ error: "video_not_found" }, { status: 404 });

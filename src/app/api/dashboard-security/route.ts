@@ -3,6 +3,7 @@ import { guard } from "@/lib/api/guard";
 import { readJsonBody } from "@/lib/api/request";
 import { purgeEmbedManifest } from "@/lib/cache/embed-purge";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 const normalize = (value: unknown) => typeof value === "string"
   ? value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "")
@@ -22,6 +23,9 @@ export async function PUT(request: Request) {
   const gate = await guard(request, { csrf: true, role: "manage", paid: true });
   if (!gate.ok) return gate.response;
   const ownerId = gate.account.accountOwnerId;
+
+  const limited = await rateLimit(request, `dashboard-security:${gate.account.accountOwnerId}`, { max: 30, windowMs: 60_000, failClosed: true });
+  if (limited) return limited;
 
   const parsed = await readJsonBody<{ domains?: unknown }>(request);
   if (!parsed.ok) return parsed.response;

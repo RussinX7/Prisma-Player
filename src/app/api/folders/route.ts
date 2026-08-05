@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guard } from "@/lib/api/guard";
 import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function GET(request: Request) {
   const gate = await guard(request);
@@ -14,6 +15,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
+
+  const limited = await rateLimit(request, `folders-create:${gate.account.accountOwnerId}`, { max: 60, windowMs: 60_000 });
+  if (limited) return limited;
+
   const parsed = await readJsonBody<{ name?: unknown }>(request);
   if (!parsed.ok) return parsed.response;
   const name = typeof parsed.body?.name === "string" ? parsed.body.name.trim().slice(0, 100) : "";

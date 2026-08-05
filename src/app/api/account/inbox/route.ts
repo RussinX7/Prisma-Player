@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/api/request";
 import { getCurrentUserId } from "@/lib/auth/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const defaultMessages = [
   {
@@ -76,7 +78,12 @@ export async function PATCH(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { id?: unknown; markAll?: boolean } | null;
+  const limited = await rateLimit(request, `account-inbox:${userId}`, { max: 60, windowMs: 60_000 });
+  if (limited) return limited;
+
+  const parsed = await readJsonBody<{ id?: unknown; markAll?: boolean }>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
 
   const admin = createAdminClient();
 
@@ -106,7 +113,12 @@ export async function DELETE(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { id?: unknown; clearAll?: boolean } | null;
+  const limited = await rateLimit(request, `account-inbox:${userId}`, { max: 60, windowMs: 60_000 });
+  if (limited) return limited;
+
+  const parsed = await readJsonBody<{ id?: unknown; clearAll?: boolean }>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const admin = createAdminClient();
 
   if (body?.clearAll) {

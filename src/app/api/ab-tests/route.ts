@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guard } from "@/lib/api/guard";
 import { readJsonBody } from "@/lib/api/request";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 /**
  * Esta rota usava o cliente com RLS (`auth.uid()`), diferente de todo o resto do
@@ -62,6 +63,9 @@ export async function POST(request: Request) {
   const gate = await guard(request, { csrf: true, role: "edit", paid: true });
   if (!gate.ok) return gate.response;
   const ownerId = gate.account.accountOwnerId;
+
+  const limited = await rateLimit(request, `ab-tests-create:${ownerId}`, { max: 60, windowMs: 60_000 });
+  if (limited) return limited;
 
   const parsed = await readJsonBody<{ type?: unknown; name?: unknown; folderId?: unknown; videoIds?: unknown }>(request);
   if (!parsed.ok) return parsed.response;

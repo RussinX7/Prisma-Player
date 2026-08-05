@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/api/request";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserId } from "@/lib/auth/server";
 import { csrfGuard } from "@/lib/security/csrf";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -17,8 +19,12 @@ export async function PATCH(request: Request) {
   if (csrf) return csrf;
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  const limited = await rateLimit(request, `account-profile:${userId}`, { max: 30, windowMs: 60_000 });
+  if (limited) return limited;
+  const parsed = await readJsonBody<Record<string, unknown>>(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+  if (!body || Object.keys(body).length === 0) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   const update = {
     full_name: typeof body.fullName === "string" ? body.fullName.trim().slice(0, 160) : undefined,
     phone: typeof body.phone === "string" ? body.phone.trim().slice(0, 40) : undefined,
