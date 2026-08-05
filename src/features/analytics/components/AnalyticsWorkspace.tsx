@@ -116,9 +116,12 @@ type AiConversation = { id: string; title: string; question: string; result: AiR
 
 const tabs = [
   { id: "performance", label: "Desempenho", icon: BarChart3 },
-  { id: "audience", label: "Audiência", icon: Users },
-  { id: "traffic", label: "Fontes de Tráfego", icon: Globe2 },
-  { id: "engagement", label: "Engajamento & Retenção", icon: Activity },
+  { id: "retention", label: "Retenção", icon: Activity },
+  { id: "heatmap", label: "Mapa de Calor", icon: CalendarDays },
+  { id: "funnel", label: "Funil de Conversão", icon: TrendingUp },
+  { id: "audience", label: "Audiência & Países", icon: Users },
+  { id: "traffic", label: "Dispositivos & Tecnologia", icon: MonitorSmartphone },
+  { id: "live", label: "Ao Vivo", icon: Radio },
   { id: "intelligence", label: "Motor de Inteligência", icon: BrainCircuit },
 ];
 
@@ -665,7 +668,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                 <button
                   key={item.id}
                   onClick={() => setTab(item.id)}
-                  className={`flex items-center gap-2 pb-3 pt-1 border-b-2 transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 pb-3 pt-1 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                     active 
                       ? "border-[#191A23] text-[#191A23] font-bold" 
                       : "border-transparent text-slate-500 hover:text-[#191A23]"
@@ -907,6 +910,117 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               </>
             )}
 
+            {/* TAB: RETENTION (RETENÇÃO) */}
+            {tab === "retention" && (
+              <div className="space-y-6">
+                <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-[#191A23]">Curva de Retenção Detalhada</h2>
+                      <p className="text-xs font-medium text-slate-500">Percentual de audiência mantida em cada trecho do vídeo.</p>
+                    </div>
+                  </div>
+
+                  <div className="relative h-[360px] w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                    <LineChart
+                      data={retentionLineData}
+                      xDataKey="date"
+                      margin={{ top: 24, right: 28, bottom: 34, left: 46 }}
+                      className="h-full w-full"
+                    >
+                      <LineGrid horizontal />
+                      <Line dataKey="rate" stroke="#0066cc" strokeWidth={2.5} />
+                      <LineXAxis formatTick={(_date, index) => `${retentionLineData[index]?.point ?? 0}%`} />
+                      <LineChartTooltip
+                        showDatePill={false}
+                        rows={(point) => [
+                          { color: "#0066cc", label: `${point.point as number}% do vídeo`, value: format(point.rate as number, true) },
+                          { color: "#0066cc", label: "Espectadores", value: format(point.viewers as number) },
+                        ]}
+                      />
+                    </LineChart>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB: HEATMAP (MAPA DE CALOR) */}
+            {tab === "heatmap" && (
+              <section className="w-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h2 className="text-base font-bold text-[#191A23]">Mapa de Calor da VSL</h2>
+                    <p className="text-xs font-medium text-slate-500">
+                      Intensidade de acessos por dia da semana e horário.
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 rounded-xl border border-slate-200 bg-[#F8F9FA] p-1">
+                    {( [["plays", "Plays"], ["impressions", "Visualizações"], ["conversions", "Conversões"]] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setHeatmapMetric(id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${heatmapMetric === id ? "bg-[#B9FF66] text-[#191A23] font-bold shadow-xs border border-black/5" : "text-slate-600 hover:text-[#191A23]"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {heatmapColumns.length ? (
+                  <div className="pt-2 flex justify-center overflow-x-auto">
+                    <HeatmapInteractionProvider>
+                      <HeatmapInteractionBoundary>
+                        <div className="flex w-full flex-col items-stretch gap-3 overflow-x-auto min-w-[600px]">
+                          <HeatmapChart
+                            className="w-full"
+                            data={heatmapColumns}
+                            layout="fluid"
+                            binSize={heatmapBinSize}
+                            gap={HEATMAP_GAP}
+                            colorScale={heatmapColorScale}
+                            levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
+                          >
+                            <HeatmapCells inactiveOpacity={1} inactiveScale={1} />
+                            <HeatmapXAxis />
+                            <HeatmapYAxis />
+                            <HeatmapTooltip
+                              instant
+                              formatLabel={(count) => `${format(count)} ${heatmapMetricLabel[heatmapMetric](count)}`}
+                            />
+                          </HeatmapChart>
+                          <HeatmapLegend
+                            inactiveOpacity={1}
+                            inactiveScale={1}
+                            lessLabel="Menos acessos"
+                            moreLabel="Mais acessos"
+                            levelStyles={HEATMAP_DEFAULT_LEVEL_STYLES}
+                          />
+                        </div>
+                      </HeatmapInteractionBoundary>
+                    </HeatmapInteractionProvider>
+                  </div>
+                ) : (
+                  <p className="py-12 text-center text-xs font-medium text-slate-400">Ainda não há dados suficientes no período selecionado.</p>
+                )}
+              </section>
+            )}
+
+            {/* TAB: FUNNEL (FUNIL DE CONVERSÃO) */}
+            {tab === "funnel" && (
+              <section className="w-full max-w-4xl rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+                <div>
+                  <h2 className="text-base font-bold text-[#191A23]">Funil de Conversão da VSL</h2>
+                  <p className="text-xs font-medium text-slate-500">Perda de público e taxas de conversão relativas a cada etapa.</p>
+                </div>
+
+                <div className="w-full py-4">
+                  <FunnelChart data={funnelChartData} layers={3} />
+                </div>
+              </section>
+            )}
+
             {/* TAB: AUDIENCE */}
             {tab === "audience" && (
               <div className="grid gap-6 md:grid-cols-2">
@@ -998,38 +1112,66 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
               </div>
             )}
 
-            {/* TAB: ENGAGEMENT */}
-            {tab === "engagement" && (
-              <div className="space-y-6">
-                <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-base font-bold text-[#191A23]">Curva de Retenção Detalhada</h2>
-                      <p className="text-xs font-medium text-slate-500">Percentual de audiência mantida em cada trecho do vídeo.</p>
+            {/* TAB: AO VIVO */}
+            {tab === "live" && (
+              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-6 bg-slate-50/50">
+                  <div>
+                    <h2 className="text-base font-bold text-[#191A23]">Tráfego ao Vivo</h2>
+                    <p className="text-xs font-medium text-slate-500">Conexões em tempo real assistindo sua VSL neste instante.</p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full bg-[#B9FF66] border border-black/5 px-3 py-1 text-xs font-bold text-[#191A23]">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-600" />
+                    <span>{data.live} assistindo agora</span>
+                  </div>
+                </div>
+                
+                <div className="grid min-w-0 lg:grid-cols-[1.3fr_0.7fr]">
+                  <div className="p-6 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-100 bg-white">
+                    <StatCardChoropleth 
+                      title="Geolocalização do Tráfego Real"
+                      liveCountries={activeCountryRows} 
+                      totalLive={data.live}
+                    />
+                  </div>
+                  
+                  <div className="max-h-[500px] min-w-0 overflow-y-auto p-6 divide-y divide-slate-100 space-y-4">
+                    <div className="pb-3 flex items-center justify-between border-b border-slate-100">
+                      <h3 className="font-semibold text-xs uppercase text-slate-500">Cidades/Países Ativos</h3>
+                      <span className="text-[10px] font-medium text-slate-400">Últimos minutos</span>
+                    </div>
+                    
+                    <div className="space-y-3 pt-3">
+                      {(activeCountryRows.length ? activeCountryRows : [{ name: "Sem sessões ativas", impressions: 0, plays: 0, playRate: 0, completes: 0, completionRate: 0 }]).map((row) => (
+                        <div 
+                          key={row.name} 
+                          onClick={() => row.impressions > 0 && setActivePanel({ type: "live-session", title: row.name, data: row })}
+                          className={`grid grid-cols-[1fr_96px_60px] items-center gap-3 text-xs font-semibold ${
+                            row.impressions > 0 ? "cursor-pointer hover:text-[#191A23]" : ""
+                          }`}
+                        >
+                          <span className="truncate font-semibold text-[#191A23] flex items-center gap-2">
+                            {row.impressions > 0 && row.name !== "Sem sessões ativas" && (
+                              <img
+                                alt=""
+                                className="h-3 w-4 shrink-0 rounded object-cover border border-slate-200"
+                                height={12}
+                                src={flagUrl(row.name)}
+                                width={16}
+                              />
+                            )}
+                            {row.impressions > 0 && row.name !== "Sem sessões ativas" ? getCountryName(row.name) : row.name}
+                          </span>
+                          <span className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <span className="block h-full rounded-full bg-[#B9FF66]" style={{ width: `${Math.max(row.impressions ? 4 : 0, (row.impressions / Math.max(...activeCountryRows.map(r => r.impressions), 1)) * 100)}%` }} />
+                          </span>
+                          <strong className="text-right font-bold text-[#191A23]">{format(row.impressions)}</strong>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="relative h-[360px] w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                    <LineChart
-                      data={retentionLineData}
-                      xDataKey="date"
-                      margin={{ top: 24, right: 28, bottom: 34, left: 46 }}
-                      className="h-full w-full"
-                    >
-                      <LineGrid horizontal />
-                      <Line dataKey="rate" stroke="#0066cc" strokeWidth={2.5} />
-                      <LineXAxis formatTick={(_date, index) => `${retentionLineData[index]?.point ?? 0}%`} />
-                      <LineChartTooltip
-                        showDatePill={false}
-                        rows={(point) => [
-                          { color: "#0066cc", label: `${point.point as number}% do vídeo`, value: format(point.rate as number, true) },
-                          { color: "#0066cc", label: "Espectadores", value: format(point.viewers as number) },
-                        ]}
-                      />
-                    </LineChart>
-                  </div>
-                </section>
-              </div>
+                </div>
+              </section>
             )}
 
             {/* TAB: INTELLIGENCE ENGINE (Integrated Motor de Inteligência) */}
