@@ -31,13 +31,19 @@ export async function getAuthAssuranceLevel(): Promise<"aal1" | "aal2" | null> {
   return aal === "aal1" || aal === "aal2" ? (aal as "aal1" | "aal2") : null;
 }
 
+export async function hasVerifiedMfaFactor(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error || !data?.all) return false;
+  return data.all.some((factor) => factor.status === "verified");
+}
+
 export async function requireAdmin() {
   const userId = await getCurrentUserId();
   if (!userId) redirect(`/login?next=${encodeURIComponent("/admin")}`);
   const user = await getCurrentAdminUser();
   if (!user) redirect("/dashboard/videos");
-  const aal = await getAuthAssuranceLevel();
-  if (aal !== "aal2") {
+  if (!(await hasVerifiedMfaFactor())) {
     redirect("/dashboard/settings?section=security&adminMfa=required");
   }
   return user;
