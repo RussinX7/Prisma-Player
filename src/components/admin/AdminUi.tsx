@@ -5,7 +5,7 @@ export function AdminHeader({ eyebrow = "Prisma Control", title, description }: 
 }
 
 export function AdminMetric({ label, value, detail, icon: Icon, tone = "blue" }: { label: string; value: string; detail: string; icon: LucideIcon; tone?: "blue" | "green" | "amber" | "red" }) {
-  const tones = { blue: "bg-prisma-blue/10 text-prisma-blue", green: "bg-emerald-500/10 text-emerald-600", amber: "bg-amber-500/10 text-amber-600", red: "bg-red-500/10 text-red-600" };
+  const tones = { blue: "bg-prisma-blue/10 text-prisma-blue", green: "bg-prisma-blue-on-dark/25 text-prisma-blue dark:text-white", amber: "bg-amber-500/10 text-amber-600", red: "bg-red-500/10 text-red-600" };
   return <article className="rounded-[18px] border bg-white p-5 themeable-border-hairline dark:bg-white/[0.035]"><div className="flex items-start justify-between gap-3"><p className="text-[12px] font-medium themeable-text-ink-muted-48">{label}</p><span className={`grid h-9 w-9 place-items-center rounded-[11px] ${tones[tone]}`}><Icon size={17} /></span></div><strong className="mt-3 block text-[27px] font-semibold tracking-[-.04em] themeable-text-ink">{value}</strong><p className="mt-1 text-[11px] themeable-text-ink-muted-48">{detail}</p></article>;
 }
 

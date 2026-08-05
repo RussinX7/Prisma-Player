@@ -1198,7 +1198,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                 <IntelligenceControls
                   capabilities={data.capabilities ?? { automatic_reports: true, audience_sync: true, outgoing_webhooks: true, private_benchmark: true, conversion_drop_alerts: true }}
                   videoCount={allVideos.length}
-                  benchmarkData={data.benchmarkData ?? { leader: null, average: { completion: data.summary.completionRate, conversion: 0, playRate: data.summary.playRate }, videoCount: 1, global: { qualified: true, sampleVideos: 120, samplePlays: 5400, playRate: 35, completion: 28, conversion: 3.5 } }}
+                  benchmarkData={data.benchmarkData ?? { leader: null, average: { completion: data.summary.completionRate, conversion: 0, playRate: data.summary.playRate }, videoCount: 1, global: { qualified: false } }}
                   videos={allVideos.map((v) => ({ id: v.id, title: v.title }))}
                 />
               </section>

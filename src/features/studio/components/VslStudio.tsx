@@ -46,6 +46,7 @@ import {
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
 import { VideoPlayer } from "@/features/player/components";
+import { apiRequest, ApiError } from "@/services/http/client";
 import PixelTrackingPanel, { type PixelTrackingFields } from "./PixelTrackingPanel";
 
 interface StoredVideo { id?: string; name: string; src: string; type: string }
@@ -225,12 +226,25 @@ const initialConfig: StudioConfig = {
   assets: {},
 };
 
+const playerConfigSaveErrors: Record<string, string> = {
+  invalid_payload: "Os dados do player são inválidos. Revise as configurações e tente novamente.",
+  config_too_large: "A configuração excede o tamanho máximo permitido.",
+  invalid_pixel_config: "A configuração de pixels informada é inválida.",
+  video_not_found: "O vídeo não foi encontrado. Recarregue a página e tente novamente.",
+  config_save_failed: "Não foi possível salvar a configuração. Tente novamente em instantes.",
+};
+
+interface PlayerConfigResponse {
+  playerConfig: { id: string; config: Partial<StudioConfig> | null; allowed_domains: string[] | null; published: boolean; updated_at: string } | null;
+}
+
 export default function VslStudio() {
   const router = useRouter();
   const [video] = useState<StoredVideo | null>(() => { if (typeof window === "undefined") return null; try { return JSON.parse(sessionStorage.getItem("prisma-mvp-video") ?? "null") as StoredVideo | null; } catch { return null; } });
   const [active, setActiveState] = useState<ModuleId | null>("autoplay");
   const [config, setConfig] = useState<StudioConfig>(() => {
     if (typeof window === "undefined") return initialConfig;
+    if (video?.id) return initialConfig;
     try { return { ...initialConfig, ...JSON.parse(localStorage.getItem("prisma-studio-config") ?? "{}") as Partial<StudioConfig> }; }
     catch { return initialConfig; }
   });
@@ -256,6 +270,8 @@ export default function VslStudio() {
   const [resumePlaybackSignal, setResumePlaybackSignal] = useState(0);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string>();
   const [posterUrl, setPosterUrl] = useState<string>();
   const [pausePosterUrl, setPausePosterUrl] = useState<string>();
@@ -288,6 +304,25 @@ export default function VslStudio() {
       update(key as keyof StudioConfig, val as StudioConfig[keyof StudioConfig]);
     });
   };
+
+  useEffect(() => {
+    const id = video?.id;
+    if (!id) return;
+    let cancelled = false;
+    setLoadError(null);
+    apiRequest<PlayerConfigResponse>(`/api/player-configs?videoId=${encodeURIComponent(id)}` as `/${string}`, { cache: "no-store" })
+      .then((payload) => {
+        if (cancelled) return;
+        const saved = payload.playerConfig?.config;
+        if (saved && typeof saved === "object") setConfig({ ...initialConfig, ...saved });
+        else setConfig(initialConfig);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError("Não foi possível carregar a configuração salva deste player.");
+      });
+    return () => { cancelled = true; };
+  }, [video?.id]);
 
   useEffect(() => {
     const stage = previewStageRef.current;
@@ -331,13 +366,27 @@ export default function VslStudio() {
   };
 
   const saveConfig = async () => {
+    const id = video?.id;
     setSaving(true);
+    setSaveError(null);
+    setLoadError(null);
     try {
-      localStorage.setItem("prisma-studio-config", JSON.stringify(config));
+      if (id) {
+        await apiRequest("/api/player-configs", {
+          method: "PUT",
+          body: { videoId: id, config },
+        });
+      } else {
+        localStorage.setItem("prisma-studio-config", JSON.stringify(config));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
-      // ignore
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setSaveError(playerConfigSaveErrors[error.code] ?? error.message);
+      } else {
+        setSaveError("Não foi possível salvar a configuração. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
@@ -390,6 +439,11 @@ export default function VslStudio() {
         </div>
 
         <div className="flex items-center gap-2">
+          {(saveError || loadError) && (
+            <span role="alert" className="max-w-64 truncate text-[11px] font-bold text-red-600 dark:text-red-400">
+              {saveError ?? loadError}
+            </span>
+          )}
           <button type="button" onClick={() => void saveConfig()} disabled={saving} className="flex h-9 items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-4 text-xs font-bold text-[#191A23] shadow-xs cursor-pointer disabled:opacity-50">
             <Save size={15} />
             {saving ? "Salvando..." : "Salvar Player"}
@@ -907,7 +961,8 @@ export default function VslStudio() {
                     <button
                       type="button"
                       onClick={() => void saveConfig()}
-                      className="mt-4 flex w-full min-h-11 items-center justify-center rounded-xl bg-sky-500 hover:bg-sky-600 px-4 text-xs font-bold text-white shadow-xs cursor-pointer"
+                      disabled={saving}
+                      className="mt-4 flex w-full min-h-11 items-center justify-center rounded-xl bg-sky-500 hover:bg-sky-600 px-4 text-xs font-bold text-white shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       Iniciar novo teste
                     </button>

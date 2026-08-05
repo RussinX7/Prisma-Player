@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Administração", robots: { index: f
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin();
-  return <div className="min-h-dvh bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050507] dark:text-white">
+  return <div className="min-h-dvh themeable-bg-canvas-parchment themeable-text-ink">
     <AdminSidebar email={user.email ?? "Administrador"} />
     <main className="min-w-0 md:pl-[248px]">
       <div className="mx-auto min-h-dvh w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">{children}</div>

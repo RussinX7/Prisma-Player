@@ -1,25 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Bell,
-  CreditCard,
-  KeyRound,
-  Layers,
-  Lock,
-  LogOut,
-  Moon,
-  Plus,
-  Shield,
-  Trash2,
-  User,
-  Users,
-} from "lucide-react";
+import { Layers } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
-import { Button } from "@/components/ui/button";
 import { BillingSettingsTab } from "@/features/account/components/BillingSettingsTab";
+import { OverviewPanel } from "@/features/account/components/OverviewPanel";
+import { PasswordPanel } from "@/features/account/components/PasswordPanel";
 import { PreferencesSettingsTab } from "@/features/account/components/PreferencesSettingsTab";
+import { ProfilePanel } from "@/features/account/components/ProfilePanel";
+import { SecurityPanel } from "@/features/account/components/SecurityPanel";
+import { SettingsSkeleton } from "@/features/account/components/SettingsUi";
+import { TeamPanel } from "@/features/account/components/TeamPanel";
+import type { AccountOverview, AccountProfile } from "@/features/account/model/types";
+import { accountSettingsService } from "@/services/account/settings";
 
 const tabs = [
   { id: "overview", label: "Visão Geral" },
@@ -31,318 +26,77 @@ const tabs = [
   { id: "security", label: "Segurança" },
 ];
 
-export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+function SettingsContent() {
+  const searchParams = useSearchParams();
+  const section = searchParams.get("section");
+  const adminMfaRequired = searchParams.get("adminMfa") === "required";
 
-  // Profile Form States
-  const [name, setName] = useState("Raynan");
-  const [email, setEmail] = useState("raynan@empresa.com");
-  const [company, setCompany] = useState("Empresa VSL Ltda");
-  const [phone, setPhone] = useState("+55 (11) 99999-8888");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(false);
-
-  // Password States
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [updatingPassword, setUpdatingPassword] = useState(false);
-  const [passwordFeedback, setPasswordFeedback] = useState("");
-
-  // Team States
-  const [teamMembers, setTeamMembers] = useState([
-    { id: "1", name: "Raynan (Você)", email: "raynan@empresa.com", role: "Proprietário", status: "Ativo" },
-    { id: "2", name: "Carlos Gestor", email: "carlos@empresa.com", role: "Gestor de Tráfego", status: "Ativo" },
-    { id: "3", name: "Ana Copawriter", email: "ana@empresa.com", role: "Editor", status: "Convidado" },
-  ]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Gestor de Tráfego");
-
-  // Security 2FA
-  const [twoFactor, setTwoFactor] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => {
+    if (section && tabs.some((tab) => tab.id === section)) return section;
+    if (adminMfaRequired) return "security";
+    return "overview";
+  });
+  const [overview, setOverview] = useState<AccountOverview | null>(null);
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    void fetch("/api/account/profile", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) {
-          setName(data.user.name ?? "Raynan");
-          setEmail(data.user.email ?? "raynan@empresa.com");
-          if (data.user.phone) setPhone(data.user.phone);
-          if (data.user.company) setCompany(data.user.company);
-        }
-      })
+    void accountSettingsService
+      .getProfile()
+      .then((data) => setProfile(data.profile))
+      .catch(() => null);
+    void accountSettingsService
+      .getOverview()
+      .then(setOverview)
       .catch(() => null);
   }, []);
 
-  async function handleSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingProfile(true);
-    setProfileSaved(false);
-    try {
-      const res = await fetch("/api/account/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, company, phone }),
-      });
-      if (res.ok) {
-        setProfileSaved(true);
-        setTimeout(() => setProfileSaved(false), 2500);
-      }
-    } finally {
-      setSavingProfile(false);
-    }
-  }
-
-  async function handleUpdatePassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setPasswordFeedback("As senhas não coincidem.");
-      return;
-    }
-    setUpdatingPassword(true);
-    setPasswordFeedback("");
-    try {
-      const res = await fetch("/api/account/password", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      if (res.ok) {
-        setPasswordFeedback("Senha alterada com sucesso!");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      } else {
-        const data = await res.json();
-        setPasswordFeedback(data.error ?? "Erro ao alterar a senha.");
-      }
-    } finally {
-      setUpdatingPassword(false);
-    }
-  }
-
-  function handleInviteMember(e: React.FormEvent) {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setTeamMembers((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name: inviteEmail.split("@")[0] ?? "Membro", email: inviteEmail, role: inviteRole, status: "Convidado" },
-    ]);
-    setInviteEmail("");
-  }
-
-  function handleRemoveMember(id: string) {
-    setTeamMembers((prev) => prev.filter((m) => m.id !== id));
+  function notify(message: string) {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 4000);
   }
 
   return (
-    <main className="dashboard-content pb-16 space-y-5">
+    <main className="dashboard-content space-y-5 pb-16">
       <PageHeader icon={<Layers size={20} />} title="Configurações da Conta SaaS">
         <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </PageHeader>
 
-      {/* TAB 1: VISÃO GERAL */}
-      {activeTab === "overview" && (
-        <div className="grid gap-5 md:grid-cols-2">
-          <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#B9FF66] text-[#191A23] shadow-xs font-bold text-lg">
-                {name[0] ?? "U"}
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#191A23] dark:text-white">{name}</h3>
-                <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">{email}</p>
-              </div>
-            </div>
-            <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 space-y-2 text-xs font-medium text-slate-600 dark:text-zinc-300">
-              <p><b>Empresa:</b> {company || "Não informada"}</p>
-              <p><b>Telefone:</b> {phone || "Não informado"}</p>
-              <p><b>Plano Atual:</b> Pro Scale (Ativo)</p>
-            </div>
-            <Button onClick={() => setActiveTab("profile")} className="w-full h-9 rounded-xl text-xs font-bold">
-              Editar Perfil
-            </Button>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-[#191A23] dark:text-white flex items-center gap-2">
-              <Shield size={18} /> Resumo de Segurança
-            </h3>
-            <div className="space-y-2 text-xs font-medium text-slate-600 dark:text-zinc-300">
-              <p className="flex justify-between"><span>Autenticação em 2 etapas (2FA):</span> <b>{twoFactor ? "Ativada" : "Desativada"}</b></p>
-              <p className="flex justify-between"><span>Membros na Equipe:</span> <b>{teamMembers.length} pessoas</b></p>
-              <p className="flex justify-between"><span>Sessões Ativas:</span> <b>1 dispositivo</b></p>
-            </div>
-            <Button onClick={() => setActiveTab("security")} variant="outline" className="w-full h-9 rounded-xl text-xs font-semibold">
-              Gerenciar Segurança
-            </Button>
-          </section>
+      {notice && (
+        <div role="status" className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-medium text-primary">
+          {notice}
         </div>
       )}
 
-      {/* TAB 2: PERFIL */}
-      {activeTab === "profile" && (
-        <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 sm:p-7 shadow-xs">
-          <form onSubmit={handleSaveProfile} className="max-w-2xl space-y-4">
-            <h3 className="text-lg font-bold text-[#191A23] dark:text-white">Informações do Perfil</h3>
-            <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">Atualize seus dados pessoais e organizacionais.</p>
+      {activeTab === "overview" && <OverviewPanel overview={overview} profile={profile} />}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-                Nome Completo
-                <input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-              </label>
-              <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-                E-mail Profissional
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-              </label>
-              <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-                Empresa / Marca
-                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Sua empresa" className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-              </label>
-              <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-                Telefone / WhatsApp
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+55 11 99999-9999" className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-              </label>
-            </div>
+      {activeTab === "profile" &&
+        (profile ? <ProfilePanel profile={profile} onUpdated={setProfile} notify={notify} /> : <SettingsSkeleton />)}
 
-            {profileSaved && <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">Perfil salvo com sucesso!</p>}
+      {activeTab === "password" && <PasswordPanel notify={notify} />}
 
-            <Button type="submit" disabled={savingProfile} className="h-10 px-6 rounded-xl text-xs font-bold">
-              {savingProfile ? "Salvando..." : "Salvar Alterações do Perfil"}
-            </Button>
-          </form>
-        </section>
-      )}
+      {activeTab === "team" && <TeamPanel notify={notify} />}
 
-      {/* TAB 3: SENHA */}
-      {activeTab === "password" && (
-        <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 sm:p-7 shadow-xs">
-          <form onSubmit={handleUpdatePassword} className="max-w-md space-y-4">
-            <h3 className="text-lg font-bold text-[#191A23] dark:text-white">Alterar Senha</h3>
-            <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">Escolha uma senha forte com pelo menos 8 caracteres.</p>
-
-            <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-              Senha Atual
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-            </label>
-
-            <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-              Nova Senha
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={8} required className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-            </label>
-
-            <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
-              Confirmar Nova Senha
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-            </label>
-
-            {passwordFeedback && <p className="text-xs font-semibold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">{passwordFeedback}</p>}
-
-            <Button type="submit" disabled={updatingPassword} className="h-10 px-6 rounded-xl text-xs font-bold">
-              {updatingPassword ? "Atualizando..." : "Atualizar Senha"}
-            </Button>
-          </form>
-        </section>
-      )}
-
-      {/* TAB 4: EQUIPE */}
-      {activeTab === "team" && (
-        <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 sm:p-7 shadow-xs space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-[#191A23] dark:text-white">Membros da Equipe</h3>
-              <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">Convide copys, gestores e editores para trabalharem nos seus players.</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-2.5 max-w-xl">
-            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email.do.membro@empresa.com" required className="h-10 flex-1 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
-            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="h-10 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-zinc-200 outline-none">
-              <option value="Gestor de Tráfego">Gestor de Tráfego</option>
-              <option value="Editor">Editor</option>
-              <option value="Administrador">Administrador</option>
-            </select>
-            <Button type="submit" className="h-10 px-4 rounded-xl text-xs font-bold shrink-0">
-              <Plus size={15} className="mr-1" /> Convidar
-            </Button>
-          </form>
-
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
-            <table className="w-full min-w-[550px] text-left text-xs font-medium text-[#191A23] dark:text-zinc-200">
-              <thead className="bg-slate-50 dark:bg-zinc-900/60 text-xs font-semibold uppercase text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800">
-                <tr>
-                  <th className="px-4 py-3">Membro</th>
-                  <th className="px-4 py-3">Função</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {teamMembers.map((member) => (
-                  <tr key={member.id}>
-                    <td className="px-4 py-3 font-semibold text-[#191A23] dark:text-zinc-100">
-                      {member.name}
-                      <span className="block text-[11px] font-normal text-slate-500 dark:text-zinc-400">{member.email}</span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-zinc-400">{member.role}</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{member.status}</td>
-                    <td className="px-4 py-3 text-right">
-                      {member.role !== "Proprietário" && (
-                        <button type="button" onClick={() => handleRemoveMember(member.id)} className="text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 p-1">
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* TAB 5: BILLING */}
       {activeTab === "billing" && <BillingSettingsTab />}
 
-      {/* TAB 6: PREFERÊNCIAS */}
       {activeTab === "preferences" && <PreferencesSettingsTab />}
 
-      {/* TAB 7: SEGURANÇA */}
-      {activeTab === "security" && (
-        <section className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-6 sm:p-7 shadow-xs space-y-5 max-w-2xl">
-          <div>
-            <h3 className="text-lg font-bold text-[#191A23] dark:text-white">Segurança da Conta</h3>
-            <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">Proteja seu painel contra acessos não autorizados.</p>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 p-4">
-            <div>
-              <p className="text-xs font-bold text-[#191A23] dark:text-white">Autenticação em Dois Fatores (2FA)</p>
-              <p className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 mt-0.5">Exige um código temporário no seu celular ao fazer login.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setTwoFactor(!twoFactor)}
-              className={`h-6 w-11 rounded-full p-0.5 transition-colors cursor-pointer ${twoFactor ? "bg-[#B9FF66]" : "bg-slate-300 dark:bg-zinc-700"}`}
-            >
-              <div className={`h-5 w-5 rounded-full bg-[#191A23] transition-transform ${twoFactor ? "translate-x-5" : "translate-x-0"}`} />
-            </button>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-            <h4 className="text-xs font-bold text-[#191A23] dark:text-white">Sessões Ativas</h4>
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-zinc-800 p-3.5 text-xs">
-              <div>
-                <p className="font-semibold text-[#191A23] dark:text-zinc-100">Navegador Atual (Windows)</p>
-                <p className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">Último acesso: Agora mesmo</p>
-              </div>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Este dispositivo</span>
-            </div>
-          </div>
-        </section>
-      )}
+      {activeTab === "security" && <SecurityPanel notify={notify} adminMfaRequired={adminMfaRequired} />}
     </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="dashboard-content space-y-5 pb-16">
+          <PageHeader icon={<Layers size={20} />} title="Configurações da Conta SaaS" />
+          <SettingsSkeleton />
+        </main>
+      }
+    >
+      <SettingsContent />
+    </Suspense>
   );
 }
