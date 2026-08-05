@@ -17,8 +17,8 @@
   --color-body-muted: #7a7a7a;
   --color-ink-muted-80: #292A32;
   --color-ink-muted-48: #7a7a7a;
-  --color-divider-soft: #191A23/10;
-  --color-hairline: #191A23/20;
+  --color-divider-soft: rgba(25, 26, 35, 0.1);
+  --color-hairline: rgba(25, 26, 35, 0.2);
   --color-canvas: #ffffff;
   --color-canvas-parchment: #F3F3F3;
   --color-surface-pearl: #fafafc;
