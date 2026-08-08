@@ -11,6 +11,7 @@ import { ANALYTICS } from "@/lib/constants";
 import { pixelIntegrations } from "@/lib/player/pixels";
 import { deliverServerPurchase } from "@/services/ads/server-events";
 import { normalizeAnalyticsBatch, type NormalizedAnalyticsEvent } from "@/lib/player/analytics-batch";
+import { isValidViewerId } from "@/lib/player/viewer-id";
 
 function clientContext(request: Request) {
   const ua = request.headers.get("user-agent") ?? "";
@@ -91,9 +92,13 @@ export async function POST(request: Request) {
   const context = clientContext(request);
   const country = (request.headers.get("x-vercel-ip-country") ?? "XX").toUpperCase().slice(0, 2);
   const page = pageContext(parsed.body?.pageUrl ?? parsed.body?.referrer);
+  // Viewer ID persistente entre visitas. Nunca persistimos um valor invalido:
+  // sem viewerId valido o campo fica de fora (undefined => default/null na tabela).
+  const rawViewerId = typeof parsed.body?.viewerId === "string" ? parsed.body.viewerId : null;
+  const viewerId = rawViewerId && rawViewerId.length <= 64 && isValidViewerId(rawViewerId) ? rawViewerId : undefined;
 
   const lastEvent = events[events.length - 1];
-  const { error: liveError } = await supabase.from("video_live_sessions").upsert({ video_id: video.id, user_id: video.user_id, session_id: sessionId, country_code: country.length === 2 ? country : "XX", device_type: context.device, progress_percent: lastEvent.progressPercent, last_seen_at: new Date().toISOString() }, { onConflict: "video_id,session_id" });
+  const { error: liveError } = await supabase.from("video_live_sessions").upsert({ video_id: video.id, user_id: video.user_id, session_id: sessionId, country_code: country.length === 2 ? country : "XX", device_type: context.device, progress_percent: lastEvent.progressPercent, last_seen_at: new Date().toISOString(), ...(viewerId ? { viewer_id: viewerId } : {}) }, { onConflict: "video_id,session_id" });
   if (liveError) return NextResponse.json({ error: "live_session_write_failed" }, { status: 500 });
 
   const actionable = events.filter((event) => event.eventType !== "heartbeat");
@@ -108,6 +113,7 @@ export async function POST(request: Request) {
       page_url: page.pageUrl, campaign_id: first(page.params, ["campaign_id", "fb_campaign_id", "utm_campaign"]), creative_id: first(page.params, ["creative_id", "adset_id", "utm_content"]),
       ad_id: first(page.params, ["ad_id", "fb_ad_id"]), utm_source: first(page.params, ["utm_source"]), utm_medium: first(page.params, ["utm_medium"]), utm_campaign: first(page.params, ["utm_campaign"]), risk_score: riskScore, risk_reasons: riskReasons,
       transaction_id: event.transactionId, conversion_value: event.value, currency: event.currency, advertising_consent: event.advertisingConsent,
+      ...(viewerId ? { viewer_id: viewerId } : {}),
     };
   });
 

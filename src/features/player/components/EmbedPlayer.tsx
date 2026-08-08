@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import VideoPlayer from "./VideoPlayer";
 import { pixelIntegrations } from "@/lib/player/pixels";
 import { createAnalyticsBatcher } from "@/lib/player/analytics-batcher";
+import { getOrCreateViewerId } from "@/lib/player/viewer-id";
 
 interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown>; eventToken?: string }
 
@@ -48,6 +49,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   const analyticsEvents = useRef(new Set<string>());
   const ctaAutoScrolled = useRef(false);
   const sessionId = useRef("");
+  const viewerIdRef = useRef("");
   const liveProgress = useRef({ percent: 0, watchedSeconds: 0 });
   const isPlaying = useRef(false);
   const payloadRef = useRef(payload);
@@ -81,7 +83,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         rejectLabel: String(payload.config.pixelConsentRejectLabel ?? ""),
         privacyUrl: String(payload.config.pixelPrivacyUrl ?? ""),
       },
-      analyticsContext: { videoId: payload.videoId, sessionId: sessionId.current, eventToken: payload.eventToken },
+      analyticsContext: { videoId: payload.videoId, sessionId: sessionId.current, viewerId: viewerIdRef.current || null, eventToken: payload.eventToken },
     }, targetOrigin);
   };
 
@@ -129,6 +131,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
             body: JSON.stringify({
               videoId: currentPayload.videoId,
               sessionId: sessionId.current,
+              viewerId: viewerIdRef.current || null,
               eventToken: currentPayload.eventToken,
               pageUrl: document.referrer || window.location.href,
               referrer: document.referrer,
@@ -157,6 +160,9 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     // Analytics mede uma visita ao embed. Reusar um ID salvo no localStorage fazia
     // todas as visitas futuras do mesmo navegador parecerem uma unica sessao.
     sessionId.current = crypto.randomUUID();
+    // O viewerId e persistente e separado da sessao: identifica o navegador entre
+    // visitas (attribution) sem colapsar sessoes distintas.
+    viewerIdRef.current = getOrCreateViewerId();
     analyticsEvents.current.clear();
     payloadRef.current = payload;
   }, [playerId, payload]);
