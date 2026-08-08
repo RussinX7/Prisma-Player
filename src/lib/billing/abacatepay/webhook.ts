@@ -13,6 +13,15 @@ function webhookSecret(): string | null {
 }
 
 /**
+ * When `ABACATEPAY_REQUIRE_HMAC=true`, the webhook route only accepts a
+ * delivery signed with the HMAC header. The URL secret alone no longer
+ * authenticates. Default (off) preserves the historical OR fallback.
+ */
+export function shouldRequireHmac(): boolean {
+  return process.env.ABACATEPAY_REQUIRE_HMAC === "true";
+}
+
+/**
  * The secret AbacatePay appends to the webhook URL (`?webhookSecret=`).
  */
 export function verifyWebhookSecret(received: string | null): boolean {

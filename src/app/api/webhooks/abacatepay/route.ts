@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abacatepay/webhook";
+import { shouldRequireHmac, verifyWebhookSecret, verifyWebhookSignature } from "@/lib/billing/abacatepay/webhook";
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
 import { cancelPreviousProviderSubscription, nextPeriodEnd } from "@/lib/billing/shared-activation";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -36,6 +37,14 @@ function firstString(objects: Array<Record<string, unknown> | null>, key: string
 }
 
 export async function POST(request: Request) {
+  // Billing pode custar caro em erro repetido, entao o rate limit fecha a porta
+  // (failClosed) quando o contador ficar indisponivel.
+  const limited = await rateLimit(request, "webhook:abacatepay", { max: 60, windowMs: 60_000, failClosed: true });
+  if (limited) {
+    console.warn("AbacatePay webhook rate limited");
+    return limited;
+  }
+
   const url = new URL(request.url);
   const rawBody = await request.text();
   const signature = request.headers.get("x-webhook-signature")
@@ -43,10 +52,10 @@ export async function POST(request: Request) {
     || request.headers.get("x-signature");
   const validSecret = verifyWebhookSecret(url.searchParams.get("webhookSecret"));
   const validSignature = verifyWebhookSignature(rawBody, signature);
-  // Both mechanisms prove knowledge of the same registered webhook secret, so
-  // either one is sufficient. Requiring both would reject every real delivery
-  // whenever AbacatePay sends only the URL secret.
-  if (!validSecret && !validSignature) {
+  // Ambos os mecanismos provam conhecimento do mesmo secret cadastrado, entao
+  // historicamente qualquer um basta. Com ABACATEPAY_REQUIRE_HMAC=true a
+  // assinatura HMAC no header passa a ser exigida e o secret da URL nao basta.
+  if (shouldRequireHmac() ? !validSignature : !validSecret && !validSignature) {
     console.warn("AbacatePay webhook authentication failed", { validSecret, validSignature, hasSignature: Boolean(signature) });
     return NextResponse.json({ error: "invalid_webhook_signature" }, { status: 401 });
   }
