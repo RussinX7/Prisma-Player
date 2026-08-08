@@ -51,7 +51,7 @@ export async function GET() {
     admin.from("subscriptions").select("status,current_period_end,billing_method,plan:billing_plans(name,included_plays,storage_gb,prisma_ai_analyses,team_seats)").eq("user_id", userId).maybeSingle(),
     admin.from("videos").select("id,size_bytes,duration_seconds").eq("user_id", userId),
     admin.from("video_events").select("session_id").eq("user_id", userId).eq("event_type", "play").gte("created_at", monthStartIso),
-    admin.from("video_events").select(watchEvents).eq("user_id", userId).in("event_type", watchTypes).gte("created_at", monthStartIso),
+    admin.from("video_events").select(watchEvents).eq("user_id", userId).in("event_type", watchTypes).gte("created_at", monthStartIso).order("created_at", { ascending: false }).limit(BANDWIDTH.MAX_EVENTS_FOR_BANDWIDTH),
     admin.from("video_events").select(watchEvents).eq("user_id", userId).in("event_type", watchTypes).gte("created_at", ninetyDaysAgo).order("created_at", { ascending: false }).limit(BANDWIDTH.MAX_EVENTS_FOR_BANDWIDTH),
     admin.from("ai_credit_wallets").select("balance,lifetime_used").eq("user_id", userId).maybeSingle(),
     admin.from("videos").select("id", { count: "exact", head: true }).eq("user_id", userId),
