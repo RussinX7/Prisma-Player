@@ -50,7 +50,7 @@ export function OverviewPanel({
 
   const bandwidth = overview.usage.bandwidth;
   if (bandwidth) {
-    const trendDetail = bandwidth.trendPct === null ? "" : ` · ${bandwidth.trendPct > 0 ? "+" : ""}${bandwidth.trendPct.toFixed(0)}% em 14d`;
+    const trendDetail = bandwidth.trendPct === null ? "" : ` · ${bandwidth.trendPct > 0 ? "+" : ""}${bandwidth.trendPct.toFixed(0)}% últimos 7 dias`;
     metrics.push({
       icon: Calculator,
       label: "Custo de banda (estimado)",

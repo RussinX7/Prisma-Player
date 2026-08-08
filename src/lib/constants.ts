@@ -40,6 +40,9 @@ export const VIDEO = {
 export const BANDWIDTH = {
   EGRESS_CENTS_PER_GB: 15, // R$ 0,15/GB estimado (Cloudflare/Bunny ~US$0.005-0.01/GB)
   MAX_EVENTS_FOR_BANDWIDTH: 20000,
+  BYTES_PER_GB: 1024 ** 3,
+  TREND_WINDOW_DAYS: 7,
+  MAX_SERIES_DAYS: 4000,
 } as const;
 
 export const BILLING = {
