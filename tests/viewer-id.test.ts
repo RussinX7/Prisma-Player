@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getOrCreateViewerId,
   getViewerId,
@@ -36,6 +36,10 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe("viewer-id", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("creates a viewerId when nothing is stored and persists it", () => {
     const storage = memoryStorage();
     const id = getOrCreateViewerId(storage);
@@ -90,6 +94,31 @@ describe("viewer-id", () => {
     const first = getOrCreateViewerId(storage);
     const second = getOrCreateViewerId(memoryStorage());
     expect(first).not.toBe(second);
+  });
+
+  it("returns a fresh viewerId without crashing when the window.localStorage accessor throws", () => {
+    vi.stubGlobal(
+      "window",
+      new Proxy(
+        {},
+        {
+          get() {
+            throw new Error("SecurityError: The operation is insecure.");
+          },
+        },
+      ),
+    );
+    expect(() => getOrCreateViewerId()).not.toThrow();
+    const id = getOrCreateViewerId();
+    expect(UUID_PATTERN.test(id)).toBe(true);
+  });
+
+  it("falls back to a plain UUID generator when crypto is unavailable", () => {
+    vi.stubGlobal("crypto", undefined);
+    const storage = memoryStorage();
+    const id = getOrCreateViewerId(storage);
+    expect(UUID_PATTERN.test(id)).toBe(true);
+    expect(storage.getItem(VIEWER_ID_STORAGE_KEY)).toBe(id);
   });
 
   it("getViewerId reads without creating or persisting", () => {

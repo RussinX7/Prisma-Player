@@ -39,8 +39,16 @@ export function getViewerId(storage?: Storage): string | null {
   return readStoredId(storage);
 }
 
+function resolveDefaultStorage(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getOrCreateViewerId(storage?: Storage): string {
-  const store = storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+  const store = storage ?? resolveDefaultStorage();
   const existing = store ? readStoredId(store) : null;
   if (existing) return existing;
   const id = randomUUID();
