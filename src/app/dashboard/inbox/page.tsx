@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface InboxItem {
   id: string;
@@ -38,6 +39,7 @@ export default function InboxPage() {
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "system" | "tips">("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmDialog, confirm] = useConfirm();
 
   const loadInbox = useCallback(async () => {
     try {
@@ -96,7 +98,7 @@ export default function InboxPage() {
   };
 
   const clearAllMessages = async () => {
-    if (!confirm("Tem certeza que deseja excluir todas as mensagens da caixa de entrada?")) return;
+    if (!(await confirm({ title: "Excluir todas as mensagens", description: "Tem certeza que deseja excluir todas as mensagens da caixa de entrada?" }))) return;
     setItems([]);
     setSelectedId(null);
     await fetch("/api/account/inbox", {
@@ -146,7 +148,8 @@ export default function InboxPage() {
   };
 
   return (
-    <section className="dashboard-content flex flex-1 flex-col space-y-5 pb-12">
+    <>
+      <section className="dashboard-content flex flex-1 flex-col space-y-5 pb-12">
       <PageHeader
         icon={<InboxIcon size={20} />}
         title="Inbox & Notificações"
@@ -424,5 +427,7 @@ export default function InboxPage() {
         </div>
       </div>
     </section>
+      {confirmDialog}
+    </>
   );
 }

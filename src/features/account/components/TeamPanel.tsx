@@ -4,6 +4,7 @@ import { Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AccountTeam } from "@/features/account/model/types";
 import { ApiError } from "@/services/http/client";
 import { accountSettingsService } from "@/services/account/settings";
@@ -22,6 +23,7 @@ export function TeamPanel({ notify }: { notify: (message: string) => void }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("viewer");
   const [busy, setBusy] = useState(false);
+  const [confirmDialog, confirm] = useConfirm();
 
   const load = useCallback(async () => {
     try {
@@ -65,7 +67,7 @@ export function TeamPanel({ notify }: { notify: (message: string) => void }) {
   }
 
   async function remove(payload: { memberId?: string; inviteId?: string }) {
-    if (!window.confirm("Deseja realmente remover este acesso?")) return;
+    if (!(await confirm({ title: "Remover acesso", description: "Deseja realmente remover este acesso?" }))) return;
     await accountSettingsService.removeTeamAccess(payload);
     notify("Acesso removido.");
     await load();
@@ -146,6 +148,7 @@ export function TeamPanel({ notify }: { notify: (message: string) => void }) {
           ))}
         </div>
       </SettingsCard>
+      {confirmDialog}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Tabs from "@/components/dashboard/Tabs";
 import Dialog from "@/components/ui/Dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useVideoUploads } from "@/features/videos/components/VideoUploadProvider";
 import {
   DropdownMenu,
@@ -50,6 +51,7 @@ export default function VideosPage() {
   const [manageFolder, setManageFolder] = useState<string>("");
   const [page, setPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmDialog, confirm] = useConfirm();
 
   const load = useCallback(async () => {
     const [videosData, foldersData] = await Promise.all([
@@ -119,7 +121,7 @@ export default function VideosPage() {
     await load();
   }
 
-  async function removeFolder(id: string) { if (!confirm("Excluir esta pasta? Os vídeos voltarão para Todos.")) return; await videosService.removeFolder(id); if (selectedFolder === id) setSelectedFolder(null); await load(); }
+  async function removeFolder(id: string) { if (!(await confirm({ title: "Excluir pasta", description: "Excluir esta pasta? Os vídeos voltarão para Todos." }))) return; await videosService.removeFolder(id); if (selectedFolder === id) setSelectedFolder(null); await load(); }
 
   function edit(video: StoredVideo) {
     if (!video.signed_url) return;
@@ -418,5 +420,6 @@ export default function VideosPage() {
         <input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
       </label>
     </Dialog>
+    {confirmDialog}
   </>;
 }

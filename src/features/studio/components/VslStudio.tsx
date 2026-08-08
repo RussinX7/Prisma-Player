@@ -32,7 +32,6 @@ import {
   Radio,
   Rewind,
   RotateCcw,
-  Save,
   Shield,
   Sparkles,
   Subtitles,
@@ -45,6 +44,7 @@ import {
 } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import Dialog from "@/components/ui/Dialog";
+import { ToastSave } from "@/components/ui/toast-save";
 import { VideoPlayer } from "@/features/player/components";
 import { apiRequest, ApiError } from "@/services/http/client";
 import PixelTrackingPanel, { type PixelTrackingFields } from "./PixelTrackingPanel";
@@ -313,6 +313,7 @@ export default function VslStudio() {
     apiRequest<PlayerConfigResponse>(`/api/player-configs?videoId=${encodeURIComponent(id)}` as `/${string}`, { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
+        if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
         const saved = payload.playerConfig?.config;
         if (saved && typeof saved === "object") setConfig({ ...initialConfig, ...saved });
         else setConfig(initialConfig);
@@ -372,10 +373,11 @@ export default function VslStudio() {
     setLoadError(null);
     try {
       if (id) {
-        await apiRequest("/api/player-configs", {
+        const response = await apiRequest<PlayerConfigResponse>("/api/player-configs", {
           method: "PUT",
           body: { videoId: id, config },
         });
+        if (response.playerConfig?.id) setPlayerId(response.playerConfig.id);
       } else {
         localStorage.setItem("prisma-studio-config", JSON.stringify(config));
       }
@@ -444,10 +446,13 @@ export default function VslStudio() {
               {saveError ?? loadError}
             </span>
           )}
-          <button type="button" onClick={() => void saveConfig()} disabled={saving} className="flex h-9 items-center gap-2 rounded-xl bg-[#B9FF66] hover:bg-[#a6ee50] px-4 text-xs font-bold text-[#191A23] shadow-xs cursor-pointer disabled:opacity-50">
-            <Save size={15} />
-            {saving ? "Salvando..." : "Salvar Player"}
-          </button>
+          <ToastSave
+            state={saving ? "loading" : saved ? "success" : "initial"}
+            onSave={() => void saveConfig()}
+            onReset={() => setSaved(false)}
+            initialText={saving ? "Salvando" : "Alterações não salvas"}
+            saveText="Salvar Player"
+          />
         </div>
       </header>
 
@@ -646,7 +651,7 @@ export default function VslStudio() {
               {active === "autoplay" && (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div id="learn-autoplay" className="flex scroll-mt-28 items-center gap-2">
                       <Play size={16} className="text-[#0066cc] dark:text-[#B9FF66]" />
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#191A23] dark:text-white">
                         Smart Autoplay™
@@ -840,7 +845,16 @@ export default function VslStudio() {
                             </div>
                           </div>
 
-                          <button type="button" className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = headlinePresets.filter((_, i) => i !== idx);
+                              setHeadlinePresets(next);
+                              setActiveHeadlineIndex(Math.max(0, idx - 1));
+                            }}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1"
+                          >
                             <MoreVertical size={16} />
                           </button>
                         </div>
@@ -903,7 +917,7 @@ export default function VslStudio() {
               {/* TURBO MODULE PANEL */}
               {active === "turbo" && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+                  <div id="learn-turbo" className="flex scroll-mt-28 items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                     <div className="flex items-center gap-2">
                       <Zap size={18} className="text-amber-500" />
                       <h4 className="text-sm font-bold text-[#191A23] dark:text-white">Turbo</h4>

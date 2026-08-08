@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { MfaFactor } from "@/features/account/model/types";
 import { apiRequest, ApiError } from "@/services/http/client";
 import { InfoRow, SettingsCard } from "./SettingsUi";
@@ -27,6 +28,7 @@ export function SecurityPanel({
   const [factorId, setFactorId] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDialog, confirm] = useConfirm();
 
   const refresh = useCallback(async () => {
     try {
@@ -96,7 +98,7 @@ export function SecurityPanel({
       return;
     }
     const factor = factors.find((item) => item.status === "verified");
-    if (!factor || busy || !window.confirm("Desativar a autenticação em dois fatores?")) return;
+    if (!factor || busy || !(await confirm({ title: "Desativar MFA", description: "Desativar a autenticação em dois fatores?" }))) return;
     setBusy(true);
     try {
       await apiRequest("/api/account/security", {
@@ -157,6 +159,7 @@ export function SecurityPanel({
           <InfoRow icon={Shield} title="Conta isolada" detail="Seus vídeos e métricas não ficam acessíveis a outras contas." />
         </div>
       </SettingsCard>
+      {confirmDialog}
     </div>
   );
 }

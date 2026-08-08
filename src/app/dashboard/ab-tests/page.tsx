@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, Check, FlaskConical, FolderPlus, Plus, Search, Trash2 } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Dialog from "@/components/ui/Dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Metrics { impressions: number; plays: number; completed: number; reached75: number; playRate: number; completionRate: number; retention75: number }
 interface Variant { id: string; video_id: string; weight: number; videos: { title: string } | { title: string }[] | null; metrics: Metrics }
@@ -24,6 +25,7 @@ export default function AbTestsPage() {
   const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [confirmDialog, confirm] = useConfirm();
 
   const load = useCallback(async () => {
     const [testsResponse, videosResponse] = await Promise.all([fetch("/api/ab-tests", { cache: "no-store" }), fetch("/api/videos", { cache: "no-store" })]);
@@ -44,7 +46,7 @@ export default function AbTestsPage() {
     if (response.ok) { setName(""); setSelectedVideos([]); setTestOpen(false); await load(); }
   }
   async function createFolder() { if (!folderName.trim()) return; const response = await fetch("/api/ab-tests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "folder", name: folderName.trim() }) }); if (response.ok) { setFolderName(""); setFolderOpen(false); await load(); } }
-  async function removeTest(id: string) { if (!confirm("Excluir este teste e todas as métricas coletadas?")) return; const response = await fetch(`/api/ab-tests/${id}`, { method: "DELETE" }); if (response.ok) await load(); }
+  async function removeTest(id: string) { if (!(await confirm({ title: "Excluir teste", description: "Excluir este teste e todas as métricas coletadas?" }))) return; const response = await fetch(`/api/ab-tests/${id}`, { method: "DELETE" }); if (response.ok) await load(); }
   async function copyEmbed(id: string) { const origin = window.location.origin; await navigator.clipboard.writeText(`<prisma-player data-prisma-player="${id}" data-mode="ab" data-title="Teste A/B Prisma" style="display:block;margin:0 auto;width:100%;position:relative;padding-top:56.25%;background:#000;overflow:hidden"></prisma-player>\n<script async src="${origin}/api/player-loader/${id}" data-prisma-loader="${id}"></script>`); setCopied(id); setTimeout(() => setCopied(null), 1600); }
 
   const headerActions = [
@@ -177,5 +179,6 @@ export default function AbTestsPage() {
         <input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
       </label>
     </Dialog>
+    {confirmDialog}
   </>;
 }
