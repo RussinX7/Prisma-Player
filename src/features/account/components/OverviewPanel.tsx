@@ -1,7 +1,8 @@
-import { Bell, CreditCard, Database, HardDrive, Play, Shield, Sparkles } from "lucide-react";
+import { Bell, Calculator, CreditCard, Database, HardDrive, Play, Shield, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { AccountOverview, AccountProfile } from "@/features/account/model/types";
+import { formatBRL, formatStorageOverage } from "@/lib/billing/catalog";
 import { InfoRow, SettingsCard, SettingsSkeleton } from "./SettingsUi";
 
 export function OverviewPanel({
@@ -47,6 +48,18 @@ export function OverviewPanel({
     },
   ];
 
+  const bandwidth = overview.usage.bandwidth;
+  if (bandwidth) {
+    const trendDetail = bandwidth.trendPct === null ? "" : ` · ${bandwidth.trendPct > 0 ? "+" : ""}${bandwidth.trendPct.toFixed(0)}% em 14d`;
+    metrics.push({
+      icon: Calculator,
+      label: "Custo de banda (estimado)",
+      value: formatBRL(bandwidth.monthCostCents),
+      detail: `${bandwidth.gb.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} GB / ${formatStorageOverage(bandwidth.centsPerGb)} por GB${trendDetail}`,
+      percent: 0,
+    });
+  }
+
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-2xl border border-border/70 bg-card">
@@ -68,7 +81,7 @@ export function OverviewPanel({
             Gerenciar plano
           </Button>
         </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-5">
           {metrics.map((item) => {
             const Icon = item.icon;
             return (

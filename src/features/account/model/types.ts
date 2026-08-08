@@ -1,3 +1,5 @@
+import type { BandwidthSeries } from "@/lib/analytics/bandwidth";
+
 export type SettingsSection =
   | "overview"
   | "profile"
@@ -40,6 +42,15 @@ export interface AccountOverview {
     videos: number;
     aiCredits: number;
     aiUsed: number;
+    bandwidth?: {
+      monthEgressBytes: number;
+      monthCostCents: number;
+      gb: number;
+      centsPerGb: number;
+      series30: BandwidthSeries;
+      series90: BandwidthSeries;
+      trendPct: number | null;
+    };
   };
 }
 

@@ -35,6 +35,13 @@ export const VIDEO = {
   MULTIPART_UPLOAD_ID_MAX_LENGTH: 1024,
 } as const;
 
+// Estimativa de referência do custo de egress (R2/CDN), não cobrança real.
+// Ajustável via env no futuro.
+export const BANDWIDTH = {
+  EGRESS_CENTS_PER_GB: 15, // R$ 0,15/GB estimado (Cloudflare/Bunny ~US$0.005-0.01/GB)
+  MAX_EVENTS_FOR_BANDWIDTH: 20000,
+} as const;
+
 export const BILLING = {
   MAX_PROVIDER_SUBSCRIPTION_ID_LENGTH: 200,
   WEBHOOK_SIGNATURE_MAX_LENGTH: 500,
