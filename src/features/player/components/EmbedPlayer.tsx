@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import VideoPlayer from "./VideoPlayer";
 import { pixelIntegrations } from "@/lib/player/pixels";
+import { createAnalyticsBatcher } from "@/lib/player/analytics-batcher";
 
 interface Payload { videoId: string; title: string; source: string; type: string; config: Record<string, unknown>; eventToken?: string }
 
@@ -18,6 +19,9 @@ const EMBED_ERROR_MESSAGES: Record<string, string> = {
   player_lookup_failed: "Não foi possível consultar este vídeo agora. Tente novamente em instantes.",
   source_unavailable: "Não foi possível carregar o vídeo agora. Tente novamente em instantes.",
 };
+
+const ANALYTICS_BATCH_FLUSH_MS = 5_000;
+const ANALYTICS_BATCH_MAX_EVENTS = 10;
 
 function embedErrorMessage(code: string, status: number): string {
   if (EMBED_ERROR_MESSAGES[code]) return EMBED_ERROR_MESSAGES[code];
@@ -46,6 +50,8 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   const sessionId = useRef("");
   const liveProgress = useRef({ percent: 0, watchedSeconds: 0 });
   const isPlaying = useRef(false);
+  const payloadRef = useRef(payload);
+  const analyticsBatcherRef = useRef<ReturnType<typeof createAnalyticsBatcher> | null>(null);
   const trackingTestId = tracking?.testId;
   const trackingVariantId = tracking?.variantId;
   const trackingSessionId = tracking?.sessionId;
@@ -93,27 +99,67 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     if (analyticsEvents.current.has(key)) return;
     analyticsEvents.current.add(key);
     publishPixelEvent(eventType, progressPercent, commerce);
-    const eventPayload = { videoId: payload.videoId, sessionId: sessionId.current, eventType, progressPercent, watchedSeconds, eventToken: payload.eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href, transactionId: commerce?.transactionId, value: commerce?.value, currency: commerce?.currency, advertisingConsent: commerce?.advertisingConsent === true };
-    void (async () => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          const response = await fetch("/api/analytics-events", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(eventPayload) });
-          if (response.ok) return;
-          if (response.status < 500 && response.status !== 429) break;
-        } catch {
-          // A mesma chave de idempotencia torna o reenvio seguro.
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
-      }
-    })();
+    const batcher = analyticsBatcherRef.current;
+    if (!batcher) return;
+    batcher.enqueue({
+      eventType,
+      progressPercent,
+      watchedSeconds,
+      transactionId: commerce?.transactionId,
+      value: commerce?.value,
+      currency: commerce?.currency,
+      advertisingConsent: commerce?.advertisingConsent === true,
+    });
+    // Conversao e o unico evento que importa nao perder: envie o lote na hora.
+    if (eventType === "conversion") void batcher.flushNow();
   };
+
+  useEffect(() => {
+    analyticsBatcherRef.current = createAnalyticsBatcher({
+      maxEvents: ANALYTICS_BATCH_MAX_EVENTS,
+      flushIntervalMs: ANALYTICS_BATCH_FLUSH_MS,
+      flush: async (events) => {
+        const currentPayload = payloadRef.current;
+        if (!currentPayload?.videoId || !sessionId.current || events.length === 0) return true;
+        try {
+          const response = await fetch("/api/analytics-events", {
+            method: "POST",
+            keepalive: true,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              videoId: currentPayload.videoId,
+              sessionId: sessionId.current,
+              eventToken: currentPayload.eventToken,
+              pageUrl: document.referrer || window.location.href,
+              referrer: document.referrer,
+              events,
+            }),
+          });
+          return response.ok || response.status >= 400;
+        } catch {
+          return false;
+        }
+      },
+    });
+    const batcher = analyticsBatcherRef.current;
+    const sendPending = () => void batcher?.flushNow();
+    window.addEventListener("pagehide", sendPending);
+    window.addEventListener("blur", sendPending);
+    return () => {
+      window.removeEventListener("pagehide", sendPending);
+      window.removeEventListener("blur", sendPending);
+      batcher?.destroy();
+    };
+    // Dispoe o batcher uma unica vez, junto do ciclo de vida do embed.
+  }, []);
 
   useEffect(() => {
     // Analytics mede uma visita ao embed. Reusar um ID salvo no localStorage fazia
     // todas as visitas futuras do mesmo navegador parecerem uma unica sessao.
     sessionId.current = crypto.randomUUID();
     analyticsEvents.current.clear();
-  }, [playerId]);
+    payloadRef.current = payload;
+  }, [playerId, payload]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -178,17 +224,10 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
 
   useEffect(() => {
     if (!payload?.videoId || !payload.eventToken || !sessionId.current) return;
-    const eventToken = payload.eventToken;
-    const videoId = payload.videoId;
     const heartbeat = () => {
       if (!isPlaying.current || document.visibilityState === "hidden") return;
       const { percent, watchedSeconds } = liveProgress.current;
-      void fetch("/api/analytics-events", {
-        method: "POST",
-        keepalive: true,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ videoId, sessionId: sessionId.current, eventType: "heartbeat", progressPercent: percent, watchedSeconds, eventToken, referrer: document.referrer, pageUrl: document.referrer || window.location.href }),
-      });
+      analyticsBatcherRef.current?.enqueue({ eventType: "heartbeat", progressPercent: percent, watchedSeconds });
     };
     const timer = window.setInterval(heartbeat, 15_000);
     return () => window.clearInterval(timer);

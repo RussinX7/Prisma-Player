@@ -10,10 +10,7 @@ import { getAccountPlan } from "@/lib/access/service";
 import { ANALYTICS } from "@/lib/constants";
 import { pixelIntegrations } from "@/lib/player/pixels";
 import { deliverServerPurchase } from "@/services/ads/server-events";
-
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const events = new Set(["heartbeat", "impression", "play", "progress", "complete", "cta_click", "conversion"]);
-const milestones = new Set([0, 10, 25, 50, 75, 90, 100]);
+import { normalizeAnalyticsBatch, type NormalizedAnalyticsEvent } from "@/lib/player/analytics-batch";
 
 function clientContext(request: Request) {
   const ua = request.headers.get("user-agent") ?? "";
@@ -38,27 +35,43 @@ function first(params: URLSearchParams, names: string[]) {
   return null;
 }
 
+function riskReasonsFor(ua: string, event: NormalizedAnalyticsEvent): string[] {
+  const reasons: string[] = [];
+  if (!ua) reasons.push("missing_user_agent");
+  if (/bot|crawler|spider|headless|curl|wget|python|scrapy|phantom/i.test(ua)) reasons.push("automation_user_agent");
+  if (event.eventType === "complete" && event.watchedSeconds < 3) reasons.push("impossible_completion");
+  return reasons;
+}
+
+function corsHeaders(requestOrigin: string) {
+  return { "cache-control": "no-store", ...(requestOrigin ? { "access-control-allow-origin": requestOrigin, vary: "Origin" } : {}) };
+}
+
+/**
+ * Apenas o evento realmente persistido dispara efeitos laterais. Com lotes,
+ * `.select("id")` do upsert devolve as linhas novas; comparamos os índices com
+ * os eventos da requisição para nunca reenviar um webhook duplicado.
+ */
+function persistedEventKeys(writtenRows: Array<{ id?: unknown; event_type?: string; progress_percent?: number }> | null) {
+  return new Set((writtenRows ?? []).map((row) => `${row.event_type}:${row.progress_percent}`));
+}
+
 export async function POST(request: Request) {
   const firstPartyOrigin = validateOrigin(request);
   // Mede os bytes reais: só o header `content-length` deixava passar qualquer
   // cliente que usasse `Transfer-Encoding: chunked`.
   const parsed = await readJsonBody<Record<string, unknown>>(request, ANALYTICS.MAX_EVENT_PAYLOAD_BYTES);
   if (!parsed.ok) return parsed.response;
-  const body = parsed.body;
-  const videoId = String(body?.videoId ?? "");
-  const sessionId = String(body?.sessionId ?? "");
-  const eventType = String(body?.eventType ?? "");
-  const progressPercent = Math.round(Number(body?.progressPercent ?? 0));
-  const transactionId = typeof body?.transactionId === "string" ? body.transactionId.trim().slice(0, 120) : "";
-  const conversionValue = Number(body?.value);
-  const currency = typeof body?.currency === "string" ? body.currency.toUpperCase() : "";
-  if (!uuid.test(videoId) || !uuid.test(sessionId) || !events.has(eventType) || (eventType !== "heartbeat" && !milestones.has(progressPercent)) || progressPercent < 0 || progressPercent > 100) return NextResponse.json({ error: "invalid_event" }, { status: 400 });
-  if (eventType === "conversion" && (!transactionId || !Number.isFinite(conversionValue) || conversionValue < 0 || conversionValue > 1_000_000_000 || !/^[A-Z]{3}$/.test(currency))) return NextResponse.json({ error: "invalid_conversion" }, { status: 400 });
-  if (!firstPartyOrigin && eventType !== "conversion") return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
+  const normalized = normalizeAnalyticsBatch(parsed.body);
+  if (!normalized.ok) return NextResponse.json({ error: normalized.code }, { status: normalized.status });
+  const { videoId, sessionId, events } = normalized.batch;
+  // Conversão é o único fluxo que chega sem origem de embed (mensagem do pai);
+  // manter a regra antiga: sem first-party, só conversões seguem.
+  if (!firstPartyOrigin && events.some((event) => event.eventType !== "conversion")) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   // Proves the event came from a real embed load that already cleared the
   // player's domain and traffic rules, instead of anyone who knows the UUID.
-  if (!verifyEmbedEventToken(typeof body?.eventToken === "string" ? body.eventToken : null, videoId)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
-  const limited = await rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: eventType === "heartbeat" ? 120 : ANALYTICS.RATE_LIMIT_MAX_REQUESTS, windowMs: ANALYTICS.RATE_LIMIT_WINDOW_MS });
+  if (!verifyEmbedEventToken(typeof parsed.body?.eventToken === "string" ? parsed.body.eventToken : null, videoId)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  const limited = await rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: ANALYTICS.RATE_LIMIT_MAX_REQUESTS, windowMs: ANALYTICS.RATE_LIMIT_WINDOW_MS });
   if (limited) return limited;
 
   const supabase = createAdminClient();
@@ -77,54 +90,66 @@ export async function POST(request: Request) {
 
   const context = clientContext(request);
   const country = (request.headers.get("x-vercel-ip-country") ?? "XX").toUpperCase().slice(0, 2);
-  const page = pageContext(body?.pageUrl ?? body?.referrer);
-  const watchedSeconds = Math.max(0, Math.min(Number(body?.watchedSeconds ?? 0) || 0, 86400));
+  const page = pageContext(parsed.body?.pageUrl ?? parsed.body?.referrer);
 
-  const { error: liveError } = await supabase.from("video_live_sessions").upsert({ video_id: video.id, user_id: video.user_id, session_id: sessionId, country_code: country.length === 2 ? country : "XX", device_type: context.device, progress_percent: progressPercent, last_seen_at: new Date().toISOString() }, { onConflict: "video_id,session_id" });
-  if (eventType === "heartbeat") return liveError ? NextResponse.json({ error: "heartbeat_write_failed" }, { status: 500 }) : new NextResponse(null, { status: 204 });
+  const lastEvent = events[events.length - 1];
+  const { error: liveError } = await supabase.from("video_live_sessions").upsert({ video_id: video.id, user_id: video.user_id, session_id: sessionId, country_code: country.length === 2 ? country : "XX", device_type: context.device, progress_percent: lastEvent.progressPercent, last_seen_at: new Date().toISOString() }, { onConflict: "video_id,session_id" });
+  if (liveError) return NextResponse.json({ error: "live_session_write_failed" }, { status: 500 });
 
-  const riskReasons: string[] = [];
-  if (!context.ua) riskReasons.push("missing_user_agent");
-  if (/bot|crawler|spider|headless|curl|wget|python|scrapy|phantom/i.test(context.ua)) riskReasons.push("automation_user_agent");
-  if (eventType === "complete" && watchedSeconds < 3) riskReasons.push("impossible_completion");
-  const riskScore = Math.min(100, riskReasons.reduce((score, reason) => score + (reason === "missing_user_agent" ? 25 : 50), 0));
-  const { data: writtenEvent, error } = await supabase.from("video_events").upsert({
-    user_id: video.user_id, video_id: video.id, session_id: sessionId, event_type: eventType, progress_percent: progressPercent, watched_seconds: watchedSeconds,
-    country_code: country.length === 2 ? country : "XX", device_type: context.device, os_name: context.os, browser_name: context.browser, traffic_source: page.source,
-    page_url: page.pageUrl, campaign_id: first(page.params, ["campaign_id", "fb_campaign_id", "utm_campaign"]), creative_id: first(page.params, ["creative_id", "adset_id", "utm_content"]),
-    ad_id: first(page.params, ["ad_id", "fb_ad_id"]), utm_source: first(page.params, ["utm_source"]), utm_medium: first(page.params, ["utm_medium"]), utm_campaign: first(page.params, ["utm_campaign"]), risk_score: riskScore, risk_reasons: riskReasons,
-    transaction_id: eventType === "conversion" ? transactionId : null, conversion_value: eventType === "conversion" ? conversionValue : null, currency: eventType === "conversion" ? currency : null, advertising_consent: body?.advertisingConsent === true,
-  }, { onConflict: "video_id,session_id,event_type,progress_percent", ignoreDuplicates: true }).select("id").maybeSingle();
+  const actionable = events.filter((event) => event.eventType !== "heartbeat");
+  if (actionable.length === 0) return new NextResponse(null, { status: 204, headers: corsHeaders(requestOrigin) });
 
-  // `ignoreDuplicates` can legitimately return no row. Only the request that
-  // actually persisted the event may trigger webhooks or server-side pixels.
-  // The partial transaction index also closes races between different sessions.
-  if (!error && writtenEvent) after(async () => {
-    const [{ data: controls }, plan] = await Promise.all([
-      supabase.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", video.user_id).maybeSingle(),
-      getAccountPlan(video.user_id),
-    ]);
-    if (eventType === "conversion" && body?.advertisingConsent === true) {
-      await deliverServerPurchase({
-        integrations: pixelIntegrations((player.config && typeof player.config === "object" ? player.config : {}) as Record<string, unknown>),
-        eventId: transactionId,
-        eventName: "Purchase",
-        eventSourceUrl: page.pageUrl,
-        value: conversionValue,
-        currency,
-        clientUserAgent: context.ua,
-        clientIp: request.headers.get("x-forwarded-for"),
-      }).catch(() => undefined);
-    }
-    // Webhook de saída é recurso de plano superior: a checagem existia apenas na
-    // tela, então quem tivesse ativado a chave uma vez continuava recebendo.
-    if (!plan.capabilities.outgoing_webhooks) return;
-    if (controls?.outgoing_webhooks_enabled && controls.webhook_url && Array.isArray(controls.webhook_events) && controls.webhook_events.includes(eventType)) {
-      await deliverWebhook(controls.webhook_url, { id: randomUUID(), event: `vsl.${eventType}`, timestamp: new Date().toISOString(), data: { video_id: video.id, video_title: video.title, session_id: sessionId, progress_percent: progressPercent, watched_seconds: watchedSeconds, country_code: country, device_type: context.device } }).catch(() => undefined);
+  const persisting = actionable.map((event) => {
+    const riskReasons = riskReasonsFor(context.ua, event);
+    const riskScore = Math.min(100, riskReasons.reduce((score, reason) => score + (reason === "missing_user_agent" ? 25 : 50), 0));
+    return {
+      user_id: video.user_id, video_id: video.id, session_id: sessionId, event_type: event.eventType, progress_percent: event.progressPercent, watched_seconds: event.watchedSeconds,
+      country_code: country.length === 2 ? country : "XX", device_type: context.device, os_name: context.os, browser_name: context.browser, traffic_source: page.source,
+      page_url: page.pageUrl, campaign_id: first(page.params, ["campaign_id", "fb_campaign_id", "utm_campaign"]), creative_id: first(page.params, ["creative_id", "adset_id", "utm_content"]),
+      ad_id: first(page.params, ["ad_id", "fb_ad_id"]), utm_source: first(page.params, ["utm_source"]), utm_medium: first(page.params, ["utm_medium"]), utm_campaign: first(page.params, ["utm_campaign"]), risk_score: riskScore, risk_reasons: riskReasons,
+      transaction_id: event.transactionId, conversion_value: event.value, currency: event.currency, advertising_consent: event.advertisingConsent,
+    };
+  });
+
+  const { data: writtenRows, error } = await supabase.from("video_events")
+    .upsert(persisting, { onConflict: "video_id,session_id,event_type,progress_percent", ignoreDuplicates: true })
+    .select("id,event_type,progress_percent");
+  if (error && error.code !== "23505") return NextResponse.json({ error: "event_write_failed" }, { status: 500 });
+
+  const persistedKeys = persistedEventKeys(writtenRows);
+  const playerConfig = (player.config && typeof player.config === "object" ? player.config : {}) as Record<string, unknown>;
+  const videoInfo = { id: video.id, user_id: video.user_id, title: video.title };
+  const forwardFor = request.headers.get("x-forwarded-for") ?? "";
+  after(async () => {
+    const supabaseInner = createAdminClient();
+    for (const event of actionable) {
+      if (!persistedKeys.has(`${event.eventType}:${event.progressPercent}`)) continue;
+      const [{ data: controls }, plan] = await Promise.all([
+        supabaseInner.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", videoInfo.user_id).maybeSingle(),
+        getAccountPlan(videoInfo.user_id),
+      ]);
+      if (event.eventType === "conversion" && event.advertisingConsent) {
+        await deliverServerPurchase({
+          integrations: pixelIntegrations(playerConfig),
+          eventId: event.transactionId ?? "",
+          eventName: "Purchase",
+          eventSourceUrl: page.pageUrl,
+          value: event.value ?? 0,
+          currency: event.currency ?? "",
+          clientUserAgent: context.ua,
+          clientIp: forwardFor,
+        }).catch(() => undefined);
+      }
+      // Webhook de saída é recurso de plano superior: a checagem existia apenas na
+      // tela, então quem tivesse ativado a chave uma vez continuava recebendo.
+      if (!plan.capabilities.outgoing_webhooks) continue;
+      if (controls?.outgoing_webhooks_enabled && controls.webhook_url && Array.isArray(controls.webhook_events) && controls.webhook_events.includes(event.eventType)) {
+        await deliverWebhook(controls.webhook_url, { id: randomUUID(), event: `vsl.${event.eventType}`, timestamp: new Date().toISOString(), data: { video_id: videoInfo.id, video_title: videoInfo.title, session_id: sessionId, progress_percent: event.progressPercent, watched_seconds: event.watchedSeconds, country_code: country, device_type: context.device } }).catch(() => undefined);
+      }
     }
   });
-  if (error && error.code !== "23505") return NextResponse.json({ error: "event_write_failed" }, { status: 500 });
-  return new NextResponse(null, { status: 204, headers: { "cache-control": "no-store", ...(requestOrigin ? { "access-control-allow-origin": requestOrigin, vary: "Origin" } : {}) } });
+
+  return new NextResponse(null, { status: 204, headers: corsHeaders(requestOrigin) });
 }
 
 export async function OPTIONS(request: Request) {
