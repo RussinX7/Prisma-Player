@@ -8,7 +8,8 @@ import {
   useEffect,
   useState,
 } from "react";
-// @ts-ignore
+// topojson-client não publica tipos estáveis; suprime só nesta linha.
+// @ts-expect-error topojson-client ships no bundled type declarations
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 
@@ -105,12 +106,7 @@ export function WorldDataProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(!globalWorldDataCache);
 
   useEffect(() => {
-    if (globalWorldDataCache) {
-      setWorldData(globalWorldDataCache);
-      setIsLoading(false);
-      return;
-    }
-
+    // A promise só resolve depois do paint, então setState aqui não causa cascata.
     fetchWorldData().then((data) => {
       setWorldData(data);
       setIsLoading(false);
@@ -137,12 +133,7 @@ export function useWorldDataStandalone() {
   const [isLoading, setIsLoading] = useState(!globalWorldDataCache);
 
   useEffect(() => {
-    if (globalWorldDataCache) {
-      setWorldData(globalWorldDataCache);
-      setIsLoading(false);
-      return;
-    }
-
+    // A promise só resolve depois do paint, então setState aqui não causa cascata.
     fetchWorldData().then((data) => {
       setWorldData(data);
       setIsLoading(false);

@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 export interface AreaChartProps {
-  data: any[];
+  data: Record<string, unknown>[];
   xDataKey?: string;
   className?: string;
   children: React.ReactNode;
@@ -47,7 +47,7 @@ export function AreaChart({
             if (!React.isValidElement(child)) return null;
 
             if (child.type === Area) {
-              return React.cloneElement(child as React.ReactElement<any>, {
+              return React.cloneElement(child as React.ReactElement<AreaProps>, {
                 gradientId,
               });
             }

@@ -5,6 +5,7 @@ import { shouldRequireHmac, verifyWebhookSecret, verifyWebhookSignature } from "
 import type { AbacateWebhook } from "@/lib/billing/abacatepay/types";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { activatePaidAiCreditCheckout } from "@/lib/billing/ai-credit-reconcile";
+import { providerWebhookPayable } from "@/lib/billing/provider-payable";
 import { cancelPreviousProviderSubscription, nextPeriodEnd } from "@/lib/billing/shared-activation";
 import { getPostHogClient } from "@/lib/posthog-server";
 
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
   const providerEventId = stringValue(event.id) || createHash("sha256").update(rawBody).digest("hex");
   const dataObject = objectValue(event.data);
   const subscriptionObject = objectValue(dataObject?.subscription);
-  const checkoutObject = objectValue(dataObject?.checkout) || objectValue(dataObject?.payment) || subscriptionObject || dataObject;
+  const checkoutObject = objectValue(dataObject?.checkout) || objectValue(dataObject?.payment) || subscriptionObject || dataObject || {};
   const metadataObject = objectValue(checkoutObject?.metadata) || objectValue(dataObject?.metadata);
   const candidates = [checkoutObject, dataObject, subscriptionObject];
   const externalId = firstString(candidates, "externalId") || firstString(candidates, "external_id");
@@ -105,14 +106,37 @@ export async function POST(request: Request) {
   try {
     const isCreditCheckout = Boolean(creditCheckoutId || externalId?.startsWith("prisma_ai_"));
     if (isCreditCheckout) {
-      let creditQuery = admin.from("ai_credit_checkouts").select("id,user_id,external_id,status");
+      let creditQuery = admin.from("ai_credit_checkouts").select("id,user_id,external_id,status,amount_cents");
       creditQuery = creditCheckoutId ? creditQuery.eq("id", creditCheckoutId) : creditQuery.eq("external_id", externalId!);
       const creditResult = await creditQuery.single();
       if (creditResult.error || !creditResult.data) throw new Error("credit_checkout_not_found");
       const now = new Date().toISOString();
       if (event.event === "checkout.completed") {
+        // Fail-closed (RH-01): o handler confia no webhook autenticado para os
+        // dados de STATUS, mas o valor pago é conferido contra o registro local
+        // (devMode/amount/currency presentes e divergentes bloqueiam). A
+        // reconciliacao reconfere contra a API antes de qualquer reprocesso.
+        if (!providerWebhookPayable(checkoutObject, creditResult.data.amount_cents)) {
+          console.warn("AI credit webhook activation rejected: provider payload amount/currency/devMode mismatch", {
+            checkoutId: creditResult.data.id,
+            providerAmount: checkoutObject?.amount,
+            storedAmountCents: creditResult.data.amount_cents,
+            providerCurrency: checkoutObject?.currency,
+            providerDevMode: checkoutObject?.devMode,
+          });
+          await admin.from("payment_webhook_events").update({ status: "ignored", processed_at: now, processing_error: "provider_payload_mismatch" }).eq("provider_event_id", providerEventId);
+          return NextResponse.json({ ok: true, ignored: true });
+        }
         await activatePaidAiCreditCheckout(creditResult.data, { id: providerObjectId ?? `webhook:${providerEventId}` });
       } else if (["checkout.refunded", "checkout.disputed", "checkout.lost"].includes(event.event)) {
+        // Estorno real de creditos: o RPC so reverte a entrega quando o checkout
+        // esta 'paid' e existe lancamento de compra; se nunca foi pago, e um
+        // no-op idempotente. Reverte tambem em disputed (o usuario perde o
+        // direito enquanto a disputa existir).
+        const revoked = await admin.rpc("revoke_ai_credit_purchase", { p_checkout_id: creditResult.data.id });
+        if (revoked.error) throw new Error(`credit_revoke_failed:${revoked.error.code ?? "unknown"}`);
+        // Mantem o registro local refletindo o evento (o RPC ja marca 'refunded'
+        // para compras pagas; checkouts nunca pagos precisam deste update).
         await admin.from("ai_credit_checkouts").update({ status: event.event === "checkout.refunded" ? "refunded" : "disputed", updated_at: now }).eq("id", creditResult.data.id);
       } else {
         await admin.from("payment_webhook_events").update({ status: "ignored", processed_at: now }).eq("provider_event_id", providerEventId);
@@ -122,12 +146,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
     if (!externalId) throw new Error("missing_external_id");
-    const checkoutResult = await admin.from("billing_checkouts").select("id,user_id,plan_id,checkout_type,previous_provider_subscription_id").eq("external_id", externalId).single();
+    const checkoutResult = await admin.from("billing_checkouts").select("id,user_id,plan_id,checkout_type,previous_provider_subscription_id,amount_cents").eq("external_id", externalId).single();
     if (checkoutResult.error || !checkoutResult.data) throw new Error("checkout_not_found");
     const checkout = checkoutResult.data;
     const now = new Date().toISOString();
 
     if (event.event === "checkout.completed" || event.event === "subscription.completed" || event.event === "subscription.renewed") {
+      // Mesmo gate fail-closed da ativação de créditos (RH-01): valor/currency/
+      // devMode divergentes do payload do provedor não ativam assinatura.
+      if (!providerWebhookPayable(checkoutObject, Number(checkout.amount_cents) || 0)) {
+        console.warn("Subscription webhook activation rejected: provider payload amount/currency/devMode mismatch", {
+          checkoutId: checkout.id,
+          providerAmount: checkoutObject?.amount,
+          storedAmountCents: checkout.amount_cents,
+          providerCurrency: checkoutObject?.currency,
+          providerDevMode: checkoutObject?.devMode,
+        });
+        await admin.from("payment_webhook_events").update({ status: "ignored", processed_at: now, processing_error: "provider_payload_mismatch" }).eq("provider_event_id", providerEventId);
+        return NextResponse.json({ ok: true, ignored: true });
+      }
       const newProviderSubscriptionId = checkout.checkout_type === "card_subscription" ? stringValue(subscriptionObject?.id) : null;
       await cancelPreviousProviderSubscription(checkout.previous_provider_subscription_id, newProviderSubscriptionId);
       await admin.from("billing_checkouts").update({ status: "paid", paid_at: now, provider_checkout_id: providerObjectId, receipt_url: stringValue(checkoutObject?.receiptUrl), previous_provider_subscription_id: null, updated_at: now }).eq("id", checkout.id);

@@ -9,7 +9,10 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const requestHeaders = await headers();
   const trustedHost = trustedEmbedHostFromHeaders(requestHeaders);
-  const originToken = createEmbedOriginTokenSafely({ playerId: id, host: trustedHost });
+  // Nonce desta renderização única (injetado pelo proxy e replicado no cookie
+  // `pp_embed`). Token sem o nonce é rejeitado no consumo (RM-02).
+  const renderNonce = requestHeaders.get("x-nonce") ?? "";
+  const originToken = createEmbedOriginTokenSafely({ playerId: id, host: trustedHost, nonce: renderNonce || undefined });
 
   return <EmbedPlayer playerId={id} originToken={originToken} />;
 }

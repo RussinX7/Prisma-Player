@@ -24,6 +24,7 @@ export type AbacateCheckout = {
   amount: number;
   status: string;
   devMode?: boolean;
+  currency?: string;
   receiptUrl?: string | null;
 };
 

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { abacateRequest } from "./abacatepay/client";
 import type { AbacateCheckout } from "./abacatepay/types";
+import { providerPayable } from "./provider-payable";
 import { activateSubscription, cancelPreviousProviderSubscription } from "./shared-activation";
 
 type StoredCheckout = {
@@ -11,6 +12,7 @@ type StoredCheckout = {
   checkout_type: "pix" | "card_subscription";
   external_id: string;
   status: string;
+  amount_cents: number;
   previous_provider_subscription_id?: string | null;
 };
 
@@ -46,8 +48,22 @@ export async function reconcileBillingCheckout(checkout: StoredCheckout) {
   const provider = matches.find((item) => item.externalId === checkout.external_id);
   if (!provider) return false;
 
+  if (provider.devMode === true) {
+    console.warn("Billing checkout reconciliation rejected: provider checkout in devMode", { checkoutId: checkout.id });
+    return false;
+  }
+
   const status = provider.status.toUpperCase();
   if (status === "PAID") {
+    if (!providerPayable(provider, checkout)) {
+      console.warn("Billing checkout reconciliation rejected: provider PAID amount/currency/devMode mismatch", {
+        checkoutId: checkout.id,
+        providerAmount: provider.amount,
+        storedAmountCents: checkout.amount_cents,
+        providerCurrency: provider.currency,
+      });
+      return false;
+    }
     await activatePaidCheckout(checkout, provider);
     return true;
   }

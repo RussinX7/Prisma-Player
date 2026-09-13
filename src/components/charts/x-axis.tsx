@@ -568,14 +568,19 @@ function appendProjectionTailTicks(
 
 export function XAxis(props: XAxisProps) {
   const { containerRef } = useChartStable();
-  const [mounted, setMounted] = useState(false);
 
+  // O container é capturado para estado pós-commit (a ref não é lida durante
+  // o render). Sem setState síncrono no corpo do efeito.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const el = containerRef.current;
+    if (el) {
+      const id = window.setTimeout(() => setContainer(el), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [containerRef]);
 
-  const container = containerRef.current;
-  if (!(mounted && container)) {
+  if (!container) {
     return null;
   }
 

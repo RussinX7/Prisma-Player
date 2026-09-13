@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
   let [{ data: checkout }, { data: subscription }] = await Promise.all([
-    admin.from("billing_checkouts").select("id,user_id,plan_id,external_id,status,checkout_type,paid_at,receipt_url,previous_provider_subscription_id,plan:billing_plans(name,slug)").eq("id", checkoutId).eq("user_id", userId).maybeSingle(),
+    admin.from("billing_checkouts").select("id,user_id,plan_id,external_id,status,checkout_type,paid_at,receipt_url,amount_cents,previous_provider_subscription_id,plan:billing_plans(name,slug)").eq("id", checkoutId).eq("user_id", userId).maybeSingle(),
     admin.from("subscriptions").select("status,billing_method,current_period_end,plan:billing_plans(name,slug)").eq("user_id", userId).maybeSingle(),
   ]);
   if (!checkout) return NextResponse.json({ error: "checkout_not_found" }, { status: 404 });
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       const activated = await reconcileBillingCheckout(checkout);
       if (activated) {
         const refreshed = await Promise.all([
-          admin.from("billing_checkouts").select("id,user_id,plan_id,external_id,status,checkout_type,paid_at,receipt_url,previous_provider_subscription_id,plan:billing_plans(name,slug)").eq("id", checkoutId).eq("user_id", userId).single(),
+          admin.from("billing_checkouts").select("id,user_id,plan_id,external_id,status,checkout_type,paid_at,receipt_url,amount_cents,previous_provider_subscription_id,plan:billing_plans(name,slug)").eq("id", checkoutId).eq("user_id", userId).single(),
           admin.from("subscriptions").select("status,billing_method,current_period_end,plan:billing_plans(name,slug)").eq("user_id", userId).maybeSingle(),
         ]);
         checkout = refreshed[0].data;

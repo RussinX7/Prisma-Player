@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { headers } from "next/headers";
 import ThemeScript from "@/components/ThemeScript";
 import { AppProviders } from "@/providers/AppProviders";
+import { softwareApplicationJsonLd } from "@/lib/security/inline-scripts";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -60,34 +62,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce");
   return (
     <html lang="pt-BR" className={cn("h-full", "antialiased", "font-sans", geist.variable)}>
       <head>
         <ThemeScript />
         <script
+          nonce={nonce ?? undefined}
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              name: "Prisma Player",
-              applicationCategory: "Multimedia",
-              operatingSystem: "Web",
-              description:
-                "Player de vídeo para publicar, personalizar, proteger e otimizar VSLs com dados de conversão.",
-              url: siteUrl,
-              offers: {
-                "@type": "Offer",
-                price: "0",
-                priceCurrency: "BRL",
-                description: "Teste gratuito de 14 dias",
-              },
-            }),
+            __html: softwareApplicationJsonLd(siteUrl),
           }}
         />
       </head>

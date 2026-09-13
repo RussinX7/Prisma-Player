@@ -2,6 +2,7 @@
 
 import { Check, Inbox, Languages, LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ const languages = [
 ] satisfies Array<{ code: AppLocale; label: string }>;
 
 export default function AccountMenu() {
+  const router = useRouter();
   const { locale, setLocale, t } = useI18n();
   const [profile, setProfile] = useState<AccountIdentity>({
     name: "Conta Prisma",
@@ -48,7 +50,11 @@ export default function AccountMenu() {
 
   async function logout() {
     await authService.signOut();
-    window.location.assign("/login");
+    // Logout encerra a sessão e precisa limpar o estado do servidor (cache de
+    // dados do usuário) — replace + refresh reproduzem isso sem recarregar o
+    // documento inteiro.
+    router.replace("/login");
+    router.refresh();
   }
 
   const initials =

@@ -12,7 +12,7 @@ import { useDelayedTooltipData } from "./use-delayed-tooltip-data";
 
 export interface HeatmapTooltipProps {
   /** Custom contribution line (bottom section). Default: `N contribution(s)`. */
-  formatLabel?: (count: number, date: Date) => string;
+  formatLabel?: (count: number) => string;
   /** Custom class name */
   className?: string;
   /** Inline styles for the tooltip panel (background, blur, etc.). */
@@ -81,7 +81,7 @@ export const HeatmapTooltip = memo(function HeatmapTooltip({
           </div>
           <div className="my-2 border-chart-tooltip-muted/30 border-t" />
           <div className="text-chart-tooltip-foreground text-sm">
-            {formatLabel(count, date)}
+            {formatLabel(count)}
           </div>
         </div>
       </div>

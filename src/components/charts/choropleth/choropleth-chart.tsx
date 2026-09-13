@@ -2,6 +2,7 @@
 
 import { Mercator } from "@visx/geo";
 import { ParentSize } from "@visx/responsive";
+import type { GeoPath, GeoPermissibleObjects } from "@visx/vendor/d3-geo";
 import type { TransformMatrix } from "@visx/zoom";
 import { Zoom } from "@visx/zoom";
 import type { FeatureCollection, Geometry } from "geojson";
@@ -168,8 +169,9 @@ const DEFAULT_INITIAL_ZOOM: TransformMatrix = {
 };
 
 interface MercatorRenderProps {
-  // biome-ignore lint/suspicious/noExplicitAny: visx geo projection bundle
-  path: (geo: any) => string | null;
+  // O d3-geo digere qualquer objeto GeoJSON permissível (features, geometrias,
+  // graticules…) — o tipo real do @visx/vendor/d3-geo cobre isso sem `any`.
+  path: GeoPath;
   projection: (coords: [number, number]) => [number, number] | null | undefined;
 }
 
@@ -261,8 +263,7 @@ const ChoroplethMercatorContent = memo(function ChoroplethMercatorContent({
   );
 
   const rawPathGenerator = useCallback(
-    // biome-ignore lint/suspicious/noExplicitAny: GeoJSON types are complex
-    (geo: any) => mercator.path(geo),
+    (geo: GeoPermissibleObjects) => mercator.path(geo),
     [mercator]
   );
 
@@ -387,6 +388,7 @@ function ChoroplethChartInner({
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: revealSignature
+  /* eslint-disable react-hooks/set-state-in-effect -- replay da animação de entrada: o reset síncrono de revealEpoch/isLoaded ao trocar revealSignature é o comportamento desejado (o setIsLoaded(true) só ocorre via timer) */
   useEffect(() => {
     setRevealEpoch((n) => n + 1);
     setIsLoaded(false);
@@ -395,6 +397,7 @@ function ChoroplethChartInner({
     }, animationDuration);
     return () => clearTimeout(timeout);
   }, [animationDuration, revealSignature]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (width < 10 || height < 10) {
     return null;

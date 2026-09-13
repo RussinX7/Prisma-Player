@@ -53,6 +53,13 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   const liveProgress = useRef({ percent: 0, watchedSeconds: 0 });
   const isPlaying = useRef(false);
   const payloadRef = useRef(payload);
+  // O `timeupdate` dispara ~4x/s; re-render do componente inteiro a cada tick
+  // e escrita de localStorage a cada tick eram o gargalo do embed. Estado só
+  // muda quando o segundo inteiro muda (a barra tem transition de 300ms) e a
+  // escrita de retomada só acontece quando o segundo gravado muda.
+  const renderedSecondRef = useRef(-1);
+  const lastResumeWriteRef = useRef(-1);
+  const ctaUnlockWrittenRef = useRef("");
   const analyticsBatcherRef = useRef<ReturnType<typeof createAnalyticsBatcher> | null>(null);
   const trackingTestId = tracking?.testId;
   const trackingVariantId = tracking?.variantId;
@@ -159,7 +166,9 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   useEffect(() => {
     // Analytics mede uma visita ao embed. Reusar um ID salvo no localStorage fazia
     // todas as visitas futuras do mesmo navegador parecerem uma unica sessao.
-    sessionId.current = crypto.randomUUID();
+    // A sessao e criada UMA vez por render (antes do fetch de config) e mandada
+    // junto no query para o eventToken ser emitido amarrado a ela (RM-03).
+    if (!sessionId.current) sessionId.current = crypto.randomUUID();
     // O viewerId e persistente e separado da sessao: identifica o navegador entre
     // visitas (attribution) sem colapsar sessoes distintas.
     viewerIdRef.current = getOrCreateViewerId();
@@ -170,6 +179,11 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
   useEffect(() => {
     const params = new URLSearchParams();
     if (originToken) params.set("originToken", originToken);
+    if (sessionId.current) params.set("sessionId", sessionId.current);
+    // RM-04: no fluxo A/B o token foi mintado no escopo do TESTE (playerId =
+    // testId + claim `abTest`). A API precisa do id do teste para verificar o
+    // token no escopo certo — sem ele, o consumo do player variante rejeita.
+    if (trackingTestId) params.set("abTestId", trackingTestId);
     fetch(`/api/embed/${encodeURIComponent(playerId)}${params.size ? `?${params.toString()}` : ""}`, { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json().catch(() => null) as (Payload & { error?: string }) | null;
@@ -202,7 +216,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
         setPayload({ ...data, config });
       })
       .catch((reason: Error) => setError(reason.message));
-  }, [originToken, playerId]);
+  }, [originToken, playerId, trackingTestId]);
 
   useEffect(() => {
     if (payload) trackAnalytics("impression");
@@ -249,6 +263,10 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
 
   useEffect(() => {
     if (!payload || !Boolean(payload.config.ctaPersist) || currentTime < Number(payload.config.ctaStart ?? 0)) return;
+    // Grava o unlock uma única vez por vídeo; o efeito era re-executado a cada
+    // tick do timeupdate (currentTime muda ~4x/s) reescrevendo localStorage.
+    if (ctaUnlockWrittenRef.current === payload.videoId) return;
+    ctaUnlockWrittenRef.current = payload.videoId;
     localStorage.setItem(`prisma-cta-unlocked:${payload.videoId}`, "1");
     const timer = window.setTimeout(() => setCtaUnlocked(true), 0);
     return () => window.clearTimeout(timer);
@@ -348,7 +366,7 @@ export default function EmbedPlayer({ playerId, tracking, originToken }: { playe
     <div className="w-full" style={responsiveStyle}>
       {Boolean(c.headlineEnabled) && (c.headlineFormat === "image" && (assetUrls.headlineDesktop || assetUrls.headlineMobile) ? <picture className="mb-4 block w-full"><source media="(max-width: 767px)" srcSet={assetUrls.headlineMobile || assetUrls.headlineDesktop} /><img src={assetUrls.headlineDesktop || assetUrls.headlineMobile} alt="" draggable={false} className="block h-auto w-full object-contain" /></picture> : <h1 className="mb-4 px-4 py-3 font-semibold leading-tight" style={{ color: String(c.headlineColor ?? "#1d1d1f"), backgroundColor: String(c.headlineBackground ?? "#ffffff"), fontSize: `clamp(16px,4vw,${Number(c.headlineSize ?? 30)}px)`, textAlign: String(c.headlineAlign ?? "center") as CSSProperties["textAlign"], borderRadius: `${Math.min(Number(c.radius ?? 0), 16)}px` }}>{String(c.headline ?? "")}</h1>)}
       <div className="relative w-full overflow-hidden bg-transparent" style={{ borderRadius: `${Number(c.radius ?? 0)}px`, aspectRatio: String(videoRatio ?? initialRatio) }}>
-      <VideoPlayer className={playerClasses} sources={[{ src: payload.source, type: payload.type }]} poster={thumbnailEnabled && !smartAutoplay ? assetUrls.thumbnailStart : undefined} textTracks={Boolean(c.captionsEnabled) && assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: String(c.captionName || "Legendas"), srclang: "pt-BR", default: true }] : []} autoplay={smartAutoplay && resumeChecked && resumePoint === null && !autoplayActivated} muted={Boolean(c.muted) || (smartAutoplay && !autoplayActivated)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} onPlay={() => { isPlaying.current = true; track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); setThumbnailOverlay(null); }} onPause={() => { isPlaying.current = false; if (thumbnailEnabled && assetUrls.thumbnailPause && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onEnded={() => { isPlaying.current = false; track("complete", 100, duration); trackAnalytics("complete", 100, duration); if (!Boolean(c.loop)) localStorage.removeItem(resumeStorageKey); if (thumbnailEnabled && assetUrls.thumbnailEnd) setThumbnailOverlay("end"); }} onTimeUpdate={(time) => { setCurrentTime(time); liveProgress.current = { percent: duration > 0 ? Math.min(100, Math.round(time / duration * 100)) : 0, watchedSeconds: time }; if (resumeEnabled && time > 0) localStorage.setItem(resumeStorageKey, String(Math.floor(time))); if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => { setDuration(metadata.duration); if (metadata.width > 0 && metadata.height > 0) setVideoRatio(metadata.width / metadata.height); if (resumeEnabled) { const saved = Number(localStorage.getItem(resumeStorageKey)); if (Number.isFinite(saved) && saved >= 5 && saved < metadata.duration - 5) setResumePoint(saved); } setResumeChecked(true); }} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
+      <VideoPlayer className={playerClasses} sources={[{ src: payload.source, type: payload.type }]} poster={thumbnailEnabled && !smartAutoplay ? assetUrls.thumbnailStart : undefined} textTracks={Boolean(c.captionsEnabled) && assetUrls.captions ? [{ src: assetUrls.captions, kind: "subtitles", label: String(c.captionName || "Legendas"), srclang: "pt-BR", default: true }] : []} autoplay={smartAutoplay && resumeChecked && resumePoint === null && !autoplayActivated} muted={Boolean(c.muted) || (smartAutoplay && !autoplayActivated)} loop={Boolean(c.loop)} playbackRate={Number(c.playbackRate ?? 1)} bigPlayButton={c.bigPlay !== false} pauseWhenHidden={Boolean(c.smartPause)} startTime={startTime} restartWithSoundSignal={restartWithSoundSignal} resumePlaybackSignal={resumePlaybackSignal} onPlay={() => { isPlaying.current = true; track("play", 0, currentTime); trackAnalytics("play", 0, currentTime); setThumbnailOverlay(null); }} onPause={() => { isPlaying.current = false; if (thumbnailEnabled && assetUrls.thumbnailPause && currentTime > 0 && currentTime < duration) setThumbnailOverlay("pause"); }} onEnded={() => { isPlaying.current = false; track("complete", 100, duration); trackAnalytics("complete", 100, duration); if (!Boolean(c.loop)) localStorage.removeItem(resumeStorageKey); if (thumbnailEnabled && assetUrls.thumbnailEnd) setThumbnailOverlay("end"); }} onTimeUpdate={(time) => { if (Math.floor(time) !== renderedSecondRef.current) { renderedSecondRef.current = Math.floor(time); setCurrentTime(time); } liveProgress.current = { percent: duration > 0 ? Math.min(100, Math.round(time / duration * 100)) : 0, watchedSeconds: time }; if (resumeEnabled && time > 0 && Math.floor(time) !== lastResumeWriteRef.current) { lastResumeWriteRef.current = Math.floor(time); localStorage.setItem(resumeStorageKey, String(Math.floor(time))); } if (duration > 0) [10, 25, 50, 75, 90].forEach((point) => { if (time / duration * 100 >= point) { if ([25, 50, 75].includes(point)) track("progress", point, time); trackAnalytics("progress", point, time); } }); }} onLoadedMetadata={(metadata) => { setDuration(metadata.duration); if (metadata.width > 0 && metadata.height > 0) setVideoRatio(metadata.width / metadata.height); if (resumeEnabled) { const saved = Number(localStorage.getItem(resumeStorageKey)); if (Number.isFinite(saved) && saved >= 5 && saved < metadata.duration - 5) setResumePoint(saved); } setResumeChecked(true); }} controlVisibility={{ progressControl: !Boolean(c.smartProgress) && c.progressBar !== false, currentTimeDisplay: c.time !== false, durationDisplay: c.time !== false, volumePanel: c.volume !== false, fullscreenToggle: c.fullscreen !== false, pictureInPictureToggle: c.pictureInPicture !== false, playbackRateMenuButton: c.speedControl !== false }} />
         {Boolean(c.watermarkEnabled) && <div className={`pointer-events-none absolute z-40 p-3 font-mono text-[11px] leading-tight select-none ${c.watermarkPosition === "top-left" ? "top-3 left-3 text-left" : c.watermarkPosition === "bottom-left" ? "bottom-3 left-3 text-left" : c.watermarkPosition === "bottom-right" ? "bottom-3 right-3 text-right" : c.watermarkPosition === "center" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center" : "top-3 right-3 text-right"}`} style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 3px rgba(0,0,0,0.8)", opacity: Number(c.watermarkOpacity ?? 85) / 100 }}>
           {Boolean(c.watermarkShowEmail) && <div>john.doe@example.com</div>}
           {Boolean(c.watermarkShowPhone) && <div>+1-128-456-789</div>}

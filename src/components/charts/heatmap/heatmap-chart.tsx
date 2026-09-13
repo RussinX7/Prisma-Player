@@ -521,7 +521,10 @@ function useHeatmapChartLifecycle({
   const [revealMode, setRevealMode] = useState<HeatmapRevealMode>(null);
   const prevStatusRef = useRef(chartStatus);
   const phaseRef = useRef(chartPhase);
-  phaseRef.current = chartPhase;
+  // Espelho da fase mantido fora do render: sincronizado em efeito pós-commit.
+  useEffect(() => {
+    phaseRef.current = chartPhase;
+  }, [chartPhase]);
 
   const animateCells = animate && !reducedMotion;
   const animateEnter = animateCells && animationDuration > 0;
@@ -576,6 +579,7 @@ function useHeatmapChartLifecycle({
   }, [chartPhase]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: revealSignature replays enter
+  /* eslint-disable react-hooks/set-state-in-effect -- quando a animação de entrada está desligada, o descanso é forçado sincronamente (comportamento do orquestrador); nos demais caminhos o setState só ocorre via callbacks/timers */
   useEffect(() => {
     if (!animateEnter) {
       setIsLoaded(true);
@@ -597,6 +601,7 @@ function useHeatmapChartLifecycle({
     chartStatus,
     revealSignature,
   ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: revealEpoch replays finish timer
   useEffect(() => {

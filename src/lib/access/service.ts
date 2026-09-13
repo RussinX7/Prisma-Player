@@ -147,7 +147,7 @@ export async function getAccountPlan(ownerId: string): Promise<AccountPlan> {
 /** Bytes já ocupados pelos vídeos da conta. Somado no servidor, nunca no cliente. */
 export async function getStorageUsedBytes(ownerId: string): Promise<number> {
   const admin = createAdminClient();
-  const { data } = await admin.from("videos").select("size_bytes").eq("user_id", ownerId).neq("status", "failed");
+  const { data } = await admin.from("videos").select("size_bytes").eq("user_id", ownerId);
   let total = 0;
   for (const row of data ?? []) total += Number(row.size_bytes) || 0;
   return total;

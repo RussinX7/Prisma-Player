@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Plus, CheckCircle2, Download } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function BillingSettingsTab() {
@@ -9,8 +9,6 @@ export function BillingSettingsTab() {
   const [cardExpiry, setCardExpiry] = useState("08 / 2028");
   const [cardNumber, setCardNumber] = useState("•••• •••• •••• 4242");
   const [cardCvv, setCardCvv] = useState("•••");
-  const [contactEmailOption, setContactEmailOption] = useState("existing");
-  const [customEmail, setCustomEmail] = useState("");
   const [savedNotice, setSavedNotice] = useState(false);
 
   const billingHistory = [

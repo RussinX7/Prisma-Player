@@ -136,22 +136,27 @@ export function useAnimatedYDomains({
     skeletonByAxis,
     targetByAxis
   );
+  // Espelhos mantidos fora do render: sincronizados em efeitos pós-commit
+  // (os efeitos de tween leem os valores atuais sem capturá-los no render).
   const destinationRef = useRef(destinationByAxis);
-  destinationRef.current = destinationByAxis;
   const skeletonRef = useRef(skeletonByAxis);
-  skeletonRef.current = skeletonByAxis;
   const targetRef = useRef(targetByAxis);
-  targetRef.current = targetByAxis;
+
+  useEffect(() => {
+    destinationRef.current = destinationByAxis;
+    skeletonRef.current = skeletonByAxis;
+    targetRef.current = targetByAxis;
+  }, [destinationByAxis, skeletonByAxis, targetByAxis]);
 
   const [animatedByAxis, setAnimatedByAxis] = useState(destinationByAxis);
   const animatedRef = useRef(animatedByAxis);
   const prevPhaseRef = useRef(chartPhase);
   const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
 
   useEffect(() => {
     animatedRef.current = animatedByAxis;
-  }, [animatedByAxis]);
+    onSettledRef.current = onSettled;
+  }, [animatedByAxis, onSettled]);
 
   useEffect(() => {
     if (prevPhaseRef.current === chartPhase) {

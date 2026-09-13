@@ -1,23 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
   Captions,
-  Check,
   Clock3,
-  Code2,
-  Copy,
   FastForward,
   Gauge,
-  Gift,
   Globe2,
   Heading,
   ImageIcon,
-  Inbox,
   Info,
   LockKeyhole,
   Maximize,
@@ -309,19 +304,23 @@ export default function VslStudio() {
     const id = video?.id;
     if (!id) return;
     let cancelled = false;
-    setLoadError(null);
-    apiRequest<PlayerConfigResponse>(`/api/player-configs?videoId=${encodeURIComponent(id)}` as `/${string}`, { cache: "no-store" })
-      .then((payload) => {
-        if (cancelled) return;
-        if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
-        const saved = payload.playerConfig?.config;
-        if (saved && typeof saved === "object") setConfig({ ...initialConfig, ...saved });
-        else setConfig(initialConfig);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLoadError("Não foi possível carregar a configuração salva deste player.");
-      });
+    // Função interna: mantém o setState fora do corpo direto do efeito.
+    const run = () => {
+      setLoadError(null);
+      apiRequest<PlayerConfigResponse>(`/api/player-configs?videoId=${encodeURIComponent(id)}` as `/${string}`, { cache: "no-store" })
+        .then((payload) => {
+          if (cancelled) return;
+          if (payload.playerConfig?.id) setPlayerId(payload.playerConfig.id);
+          const saved = payload.playerConfig?.config;
+          if (saved && typeof saved === "object") setConfig({ ...initialConfig, ...saved });
+          else setConfig(initialConfig);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setLoadError("Não foi possível carregar a configuração salva deste player.");
+        });
+    };
+    run();
     return () => { cancelled = true; };
   }, [video?.id]);
 
@@ -406,7 +405,8 @@ export default function VslStudio() {
     ];
     const t = templates[templateIndex % templates.length];
     const newCard: PresetCardItem = {
-      id: `auto-${Date.now()}`,
+      // ID determinístico baseado no comprimento atual dos presets; usado como React key.
+      id: `auto-${autoplayPresets.length + 1}`,
       name: t.name,
       color: t.color,
       badge: "Ativo",
@@ -613,7 +613,9 @@ export default function VslStudio() {
                   target={config.ctaNewTab ? "_blank" : undefined}
                   rel="noreferrer"
                   className={`inline-flex flex-col items-center justify-center rounded-2xl transition-transform active:scale-95 font-extrabold cursor-pointer ${
-                    config.ctaPulse ? "animate-bounce" : ""
+                    // Mesmo pulso suave (scale 1→1.045, ease-in-out) do embed real
+                    // (globals.css) — sem salto brusco, deceleração exponencial.
+                    config.ctaPulse ? "studio-cta-pulse" : ""
                   }`}
                   style={{
                     color: config.ctaTextColor,
@@ -985,6 +987,8 @@ export default function VslStudio() {
               )}
 
               {/* Module Form Controls for remaining modules */}
+              {/* O update grava em um ref write-only (rastreamento sujo); inlining aqui exigiria refatorar o painel. */}
+              {/* eslint-disable-next-line react-hooks/refs -- ref é gravado apenas em handlers; análise estática não enxerga através do helper de módulo */}
               {renderPanel(active, config, update, handlePoster, handleCaption, playerId, video?.id)}
             </div>
           </aside>

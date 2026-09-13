@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Code2, Copy, Download, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Upload, Video } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock3, Code2, Copy, ExternalLink, FileVideo2, Folder, FolderPlus, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Upload, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import EmptyState from "@/components/dashboard/EmptyState";
 import PageHeader from "@/components/dashboard/PageHeader";
@@ -21,15 +21,6 @@ import { videosService } from "@/services/videos/client";
 const statusByTab: Record<string, StoredVideo["status"] | undefined> = { published: "ready", drafts: "draft", processing: "processing" };
 const PAGE_SIZE = 4;
 
-function buildPageItems(current: number, total: number): (number | "gap")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
-  const pages = new Set([1, total, current, current - 1, current + 1]);
-  if (current <= 3) [2, 3, 4].forEach((page) => pages.add(page));
-  if (current >= total - 2) [total - 3, total - 2, total - 1].forEach((page) => pages.add(page));
-  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
-  return sorted.flatMap((page, index) => (index > 0 && page - sorted[index - 1]! > 1 ? ["gap" as const, page] : [page]));
-}
-
 export default function VideosPage() {
   const router = useRouter();
   const { tasks, startUpload } = useVideoUploads();
@@ -42,8 +33,6 @@ export default function VideosPage() {
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [preparingUpload, setPreparingUpload] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<StoredVideo | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [manageVideo, setManageVideo] = useState<StoredVideo | null>(null);
   const [manageMode, setManageMode] = useState<"rename" | "move">("rename");
@@ -130,16 +119,10 @@ export default function VideosPage() {
   }
 
   async function removeVideo(video: StoredVideo) {
-    setDeleting(true);
-    try {
-      await videosService.remove(video.id);
-      setPendingDelete(null);
-      setFeedback("VSL excluída definitivamente");
-      window.setTimeout(() => setFeedback(""), 2400);
-      await load();
-    } finally {
-      setDeleting(false);
-    }
+    if (!(await confirm({ title: "Excluir VSL", description: `Excluir "${video.title}" definitivamente? Esta ação não pode ser desfeita.` }))) return;
+    await videosService.remove(video.id);
+    notify("VSL excluída definitivamente");
+    await load();
   }
 
   function notify(message: string) { setFeedback(message); window.setTimeout(() => setFeedback(""), 2400); }
@@ -377,7 +360,7 @@ export default function VideosPage() {
                               <span>{actionItem.label}</span>
                             </DropdownMenuItem>
                           ))}
-                          <DropdownMenuItem onClick={() => setPendingDelete(item)} className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg cursor-pointer border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2">
+                          <DropdownMenuItem onClick={() => void removeVideo(item)} className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg cursor-pointer border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2">
                             <Trash2 size={15} />
                             <span>Excluir VSL</span>
                           </DropdownMenuItem>
@@ -399,6 +382,12 @@ export default function VideosPage() {
           )}
         </div>
       </div>
+
+      {feedback && (
+        <div role="status" className="fixed bottom-6 left-1/2 z-[90] -translate-x-1/2 rounded-xl bg-[#191A23] px-4 py-2.5 text-xs font-bold text-white shadow-lg dark:bg-white dark:text-[#191A23]">
+          {feedback}
+        </div>
+      )}
     </section>
 
     {/* Dialog: Import Video */}
@@ -419,6 +408,50 @@ export default function VideosPage() {
         Nome da pasta
         <input value={folderName} onChange={(event) => setFolderName(event.target.value)} className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]" />
       </label>
+    </Dialog>
+
+    {/* Dialog: Rename / Move */}
+    <Dialog
+      open={manageVideo !== null}
+      onClose={() => setManageVideo(null)}
+      title={manageMode === "rename" ? "Renomear VSL" : "Mover VSL para pasta"}
+      description={manageMode === "rename" ? "Este é o nome exibido na biblioteca e no código embed." : "Escolha a pasta de destino. Os vídeos ficam agrupados por pasta na biblioteca."}
+      size="sm"
+      footer={
+        <button
+          type="button"
+          onClick={() => void saveManage()}
+          disabled={manageMode === "rename" && !manageTitle.trim()}
+          className="min-h-10 rounded-xl bg-[#B9FF66] px-5 text-xs font-bold text-[#191A23] shadow-xs disabled:opacity-40"
+        >
+          {manageMode === "rename" ? "Salvar nome" : "Mover"}
+        </button>
+      }
+    >
+      {manageMode === "rename" ? (
+        <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
+          Novo nome
+          <input
+            value={manageTitle}
+            onChange={(event) => setManageTitle(event.target.value)}
+            className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]"
+          />
+        </label>
+      ) : (
+        <label className="block text-xs font-semibold text-[#191A23] dark:text-zinc-200">
+          Pasta de destino
+          <select
+            value={manageFolder}
+            onChange={(event) => setManageFolder(event.target.value)}
+            className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-xs font-medium text-[#191A23] dark:text-white outline-none focus:border-[#B9FF66]"
+          >
+            <option value="">Sem pasta</option>
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>{folder.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </Dialog>
     {confirmDialog}
   </>;

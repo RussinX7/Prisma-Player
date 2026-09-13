@@ -12,7 +12,12 @@ export function useMountProgress(
 ) {
   const progress = useMotionValue(0);
   const transitionRef = useRef(enterTransition);
-  transitionRef.current = enterTransition;
+
+  // Mantém o espelho da transição fora do render; rodando antes do efeito
+  // principal, o valor já está atualizado quando a animação dispara.
+  useEffect(() => {
+    transitionRef.current = enterTransition;
+  }, [enterTransition]);
 
   // replayKey intentionally retriggers enter when motion settings change
   // biome-ignore lint/correctness/useExhaustiveDependencies: replayKey

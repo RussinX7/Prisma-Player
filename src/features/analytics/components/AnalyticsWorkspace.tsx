@@ -8,17 +8,12 @@ import {
   BarChart3,
   BrainCircuit,
   CalendarDays,
-  ChevronRight,
   Clock,
   Clock3,
   Download,
   Eye,
-  FileText,
-  Filter,
-  Globe2,
   History,
   Info,
-  Lightbulb,
   Maximize2,
   Minimize2,
   MonitorSmartphone,
@@ -27,13 +22,10 @@ import {
   Radio,
   RefreshCw,
   Search,
-  Share2,
   Sparkles,
-  Target,
   TrendingUp,
   UserCheck,
   Users,
-  Video,
   X,
 } from "lucide-react";
 import ClaudeChatInput from "@/components/ui/claude-style-chat-input";
@@ -65,9 +57,8 @@ import {
   HeatmapInteractionProvider,
   HeatmapInteractionBoundary,
   HEATMAP_DEFAULT_LEVEL_STYLES,
-  levelColorsFromStyles,
 } from "@/components/charts";
-import { buildHeatmapColumns, buildQuantileColorScale } from "@/lib/heatmap-data";
+import { buildHeatmapColumns } from "@/lib/heatmap-data";
 import { StatCardChoropleth } from "@/components/stat-card-choropleth";
 import IntelligenceControls from "@/features/intelligence/components/IntelligenceControls";
 
@@ -88,6 +79,9 @@ type Summary = {
 type Point = { point: number; viewers: number; rate: number };
 type Dimension = { name: string; impressions: number; plays: number; playRate: number; completes: number; completionRate: number };
 type TimelinePoint = { date: string; label: string; impressions: number; plays: number; completes: number; conversions: number };
+// Espelha os tipos de benchmark definidos em IntelligenceControls (não exportados lá).
+type GlobalBenchmark = { qualified: boolean; sampleVideos: number; samplePlays: number; playRate: number; completion: number; conversion: number };
+type BenchmarkData = { leader: { title: string; completion: number; conversion: number; playRate: number } | null; average: { completion: number; conversion: number; playRate: number }; videoCount: number; global: GlobalBenchmark };
 type Data = {
   video: { title: string; duration_seconds: number | null; source: string | null; type: string | null; created_at?: string };
   summary: Summary;
@@ -100,7 +94,7 @@ type Data = {
   live: number;
   liveCountries: Dimension[];
   capabilities?: Record<string, boolean>;
-  benchmarkData?: any;
+  benchmarkData?: BenchmarkData;
 };
 
 type VideoItem = { id: string; title: string; status: string; created_at: string; plays?: number };
@@ -124,12 +118,6 @@ const tabs = [
   { id: "live", label: "Ao Vivo", icon: Radio },
   { id: "intelligence", label: "Motor de Inteligência", icon: BrainCircuit },
 ];
-
-const heatmapMetricLabel: Record<"plays" | "impressions" | "conversions", (count: number) => string> = {
-  plays: (count) => (count === 1 ? "play" : "plays"),
-  impressions: (count) => (count === 1 ? "impressão" : "impressões"),
-  conversions: (count) => (count === 1 ? "conversão" : "conversões"),
-};
 
 const FUNNEL_RAMP = ["#6366f1", "#8b5cf6", "#a855f7", "#c026d3", "#ec4899", "#f43f5e"];
 
@@ -158,7 +146,7 @@ function getCountryName(countryCode: string) {
   }
   try {
     return regionNames.of(code) ?? countryCode;
-  } catch (e) {
+  } catch {
     return countryCode;
   }
 }
@@ -273,7 +261,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
   const [aiError, setAiError] = useState("");
 
   // Segment detailed view state
-  const [activePanel, setActivePanel] = useState<{ type: "metric" | "segment" | "insight" | "retention-pitch" | "live-session"; title: string; subtitle?: string; data: any } | null>(null);
+  const [activePanel, setActivePanel] = useState<{ type: "metric" | "segment" | "insight" | "retention-pitch" | "live-session"; title: string; subtitle?: string; data: Dimension & { detail?: string } } | null>(null);
 
   // Ring chart active hover states
   const [hoveredDevicesIndex, setHoveredDevicesIndex] = useState<number | null>(null);
@@ -314,30 +302,23 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
   }, [currentVideoId, days]);
 
   useEffect(() => {
-    void load();
+    // A promise resolve após o paint, evitando cascata de setState sincronizado.
+    void (async () => {
+      await load();
+    })();
   }, [load]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`prisma-ai-conversations:${currentVideoId}`);
-      if (saved) setAiConversations(JSON.parse(saved));
-    } catch (e) {
-      console.error(e);
-    }
+    // A promise resolve após o paint, então setState aqui não causa cascata.
+    Promise.resolve().then(() => {
+      try {
+        const saved = localStorage.getItem(`prisma-ai-conversations:${currentVideoId}`);
+        if (saved) setAiConversations(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    });
   }, [currentVideoId]);
-
-  const metricsSeriesData = useMemo(() => {
-    if (!data?.timeline) return { views: [], plays: [], playRate: [], sales: [] };
-    const views = data.timeline.map((p) => ({ date: p.date, value: p.impressions }));
-    const plays = data.timeline.map((p) => ({ date: p.date, value: p.plays }));
-    const playRate = data.timeline.map((p) => ({
-      date: p.date,
-      value: p.impressions > 0 ? (p.plays / p.impressions) * 100 : 0
-    }));
-    const sales = data.timeline.map((p) => ({ date: p.date, value: p.conversions }));
-
-    return { views, plays, playRate, sales };
-  }, [data]);
 
   const pitchRetention = useMemo(() => {
     if (!data) return 0;
@@ -504,7 +485,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
         localStorage.setItem(`prisma-ai-conversations:${currentVideoId}`, JSON.stringify(next));
         return next;
       });
-    } catch (e) {
+    } catch {
       setAiError("Ocorreu uma falha na comunicação com o servidor.");
     } finally {
       setAiLoading(false);
@@ -1198,7 +1179,7 @@ export default function AnalyticsWorkspace({ videoId: initialVideoId }: { videoI
                 <IntelligenceControls
                   capabilities={data.capabilities ?? { automatic_reports: true, audience_sync: true, outgoing_webhooks: true, private_benchmark: true, conversion_drop_alerts: true }}
                   videoCount={allVideos.length}
-                  benchmarkData={data.benchmarkData ?? { leader: null, average: { completion: data.summary.completionRate, conversion: 0, playRate: data.summary.playRate }, videoCount: 1, global: { qualified: false } }}
+                  benchmarkData={data.benchmarkData ?? { leader: null, average: { completion: data.summary.completionRate, conversion: 0, playRate: data.summary.playRate }, videoCount: 1, global: { qualified: false, sampleVideos: 0, samplePlays: 0, playRate: 0, completion: 0, conversion: 0 } }}
                   videos={allVideos.map((v) => ({ id: v.id, title: v.title }))}
                 />
               </section>

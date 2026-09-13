@@ -3,6 +3,10 @@ export const SECURITY = {
   EMBED_TOKEN_MAX_AGE_SECONDS: 600,
   EMBED_TOKEN_VERSION: "v1",
   CSRF_ALLOWED_ORIGINS: new Set(["http://localhost:3000"]),
+  // Cookie de render do embed (RM-02): setado no response da página /embed e
+  // exigido no consumo para provar que o token veio de um render real no browser.
+  EMBED_RENDER_COOKIE: "pp_embed",
+  EMBED_RENDER_COOKIE_MAX_AGE_SECONDS: 600,
 } as const;
 
 export const ANALYTICS = {
@@ -25,7 +29,7 @@ export const AI = {
 
 export const VIDEO = {
   MAX_TITLE_LENGTH: 200,
-  R2_SIGNED_URL_EXPIRY_SECONDS: 1800,
+  R2_SIGNED_URL_EXPIRY_SECONDS: 900,
   SUPABASE_SIGNED_URL_EXPIRY_SECONDS: 900,
   LIST_PAGE_SIZE: 30,
   R2_DEFAULT_MAX_UPLOAD_BYTES: 20 * 1024 ** 3,

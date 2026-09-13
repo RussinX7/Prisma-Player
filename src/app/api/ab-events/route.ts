@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
-import { verifyEmbedEventToken } from "@/lib/security/embed-origin";
+import { originHeaderDisagrees, verifyEmbedEventTokenContext, verifyEmbedRenderCookie } from "@/lib/security/embed-origin";
 import { readJsonBody } from "@/lib/api/request";
 import { ANALYTICS } from "@/lib/constants";
 
@@ -29,8 +29,17 @@ export async function POST(request: Request) {
   const { data: variant } = await supabase.from("ab_test_variants").select("user_id,video_id,test_id").eq("id", variantId).eq("test_id", testId).maybeSingle();
   if (!variant) return NextResponse.json({ error: "variant_not_found" }, { status: 404 });
   // Same proof-of-embed requirement as /api/analytics-events, bound to the
-  // video actually served for this variant.
-  if (!verifyEmbedEventToken(typeof body?.eventToken === "string" ? body.eventToken : null, variant.video_id)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // video actually served for this variant. A sessão A/B (persistida entre
+  // visitas) é intencionalmente distinta da sessão de analytics do viewer, por
+  // isso não exigimos sessão no token aqui — temos que evitar quebrar o
+  // sorteio consistente de variante. Sem efeito lateral pago, não há prejuízo.
+  const eventToken = typeof body?.eventToken === "string" ? body.eventToken : null;
+  const verifiedEvent = verifyEmbedEventTokenContext(eventToken, { videoId: variant.video_id });
+  if (!verifiedEvent) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // Prova de render (mesmo cookie `pp_embed` do embed).
+  if (!verifiedEvent.nonce || !verifyEmbedRenderCookie(request.headers, verifiedEvent.nonce)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // Origin presente e não-self precisa concordar com o host do token.
+  if (verifiedEvent.host && originHeaderDisagrees(request.headers, verifiedEvent.host, new URL(request.url).origin)) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   const [{ data: test }, { data: video }, { data: player }] = await Promise.all([
     supabase.from("ab_tests").select("status").eq("id", testId).eq("user_id", variant.user_id).maybeSingle(),
     supabase.from("videos").select("status").eq("id", variant.video_id).eq("user_id", variant.user_id).maybeSingle(),

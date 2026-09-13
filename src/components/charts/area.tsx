@@ -3,9 +3,9 @@
 import { curveMonotoneX } from "@visx/curve";
 import { AreaClosed, LinePath } from "@visx/shape";
 
-// CurveFactory type - simplified version compatible with visx
-// biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type
-type CurveFactory = any;
+// Curva do visx/d3: reexporta o tipo real da @types/d3-shape (via @visx/vendor)
+// em vez de `any` — a fábrica é opaca ao consumo aqui, só é repassada adiante.
+import type { CurveFactory } from "@visx/vendor/d3-shape";
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { AreaGradientDefs } from "./area-gradient-defs";

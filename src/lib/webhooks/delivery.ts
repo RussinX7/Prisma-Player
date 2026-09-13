@@ -9,9 +9,14 @@ export interface WebhookEvent {
   data: Record<string, string | number | boolean | null>;
 }
 function blockedIp(address: string) {
-  if (address === "::1" || address === "::" || address.startsWith("fe80:") || address.startsWith("fc") || address.startsWith("fd")) return true;
-  if (!address.includes(".")) return false;
-  const [a, b] = address.split(".").map(Number);
+  // IPv4-mapped IPv6 (::ffff:10.0.0.1, ::ffff:c0a8:1) é IPv6 na superfície mas
+  // roteia para a rede IPv4 privada — sem a extração, o bloco IPv4 abaixo era
+  // burlado por qualquer alvo que anunciasse um endereço mapeado.
+  const mapped = address.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  const normalized = mapped ? mapped[1] : address.toLowerCase().replace(/^::ffff:/, "").replace(/:/g, "");
+  if (normalized === "::1" || normalized === "::" || normalized.startsWith("fe80:") || normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+  if (!normalized.includes(".")) return false;
+  const [a, b] = normalized.split(".").map(Number);
   return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
 }
 

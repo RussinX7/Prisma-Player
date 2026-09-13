@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CreditCard, LoaderCircle, QrCode } from "lucide-react";
 import posthog from "posthog-js";
 
 export default function CheckoutActions({ plan, change = "subscribe" }: { plan: string; change?: "subscribe" | "upgrade" | "downgrade" }) {
+  const router = useRouter();
   const [loading, setLoading] = useState<"pix" | "card" | null>(null);
   const [error, setError] = useState("");
 
@@ -18,7 +20,8 @@ export default function CheckoutActions({ plan, change = "subscribe" }: { plan: 
       body: JSON.stringify({ plan, method }),
     });
     if (response.status === 401) {
-      window.location.href = `/login?next=${encodeURIComponent("/dashboard/billing")}`;
+      // Sessão expirada: volta ao login com retorno para o billing.
+      router.replace(`/login?next=${encodeURIComponent("/dashboard/billing")}`);
       return;
     }
     const data = await response.json().catch(() => null) as { url?: string; message?: string } | null;
@@ -27,6 +30,8 @@ export default function CheckoutActions({ plan, change = "subscribe" }: { plan: 
       setLoading(null);
       return;
     }
+    // URL do provedor de pagamento (AbacatePay): navegação externa fora do app
+    // Next.js — window.location.assign é o mecanismo correto aqui.
     window.location.assign(data.url);
   }
 

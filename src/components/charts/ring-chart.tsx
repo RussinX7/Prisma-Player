@@ -72,10 +72,10 @@ export function RingChart({
       hoveredIndex,
       setHoveredIndex,
     }),
+    // setHoveredIndex é estável por composição (função local por render) — o
+    // contexto é recriado quando hoveredIndex muda, que é o gatilho real.
     [data, size, strokeWidth, ringGap, baseInnerRadius, hoveredIndex]
   );
-
-  const colors = ["#0066cc", "#10b981", "#6366f1", "#f59e0b", "#ec4899", "#8b5cf6"];
 
   return (
     <RingChartContext.Provider value={contextValue}>

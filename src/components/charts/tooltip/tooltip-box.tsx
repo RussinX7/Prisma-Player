@@ -51,14 +51,19 @@ export interface TooltipBoxProps {
 // Inner-only-on-visible so `useSpring` initializes at the cursor's actual x/y
 // instead of (0, 0) on first hover.
 export function TooltipBox(props: TooltipBoxProps) {
-  const [mounted, setMounted] = useState(false);
-
+  // O container é capturado para estado pós-commit (a ref não é lida durante
+  // o render). O portal só renderiza após o primeiro commit, como no antigo
+  // `mounted`, mas sem setState síncrono no corpo do efeito.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const el = props.containerRef.current;
+    if (el) {
+      const id = window.setTimeout(() => setContainer(el), 0);
+      return () => window.clearTimeout(id);
+    }
+  });
 
-  const container = props.containerRef.current;
-  if (!(mounted && container)) {
+  if (!container) {
     return null;
   }
   if (!props.visible) {
@@ -91,12 +96,13 @@ function TooltipBoxInner({
   const effectiveSpring = springConfig ?? tooltipBoxSpring;
 
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const tooltipWidthRef = useRef(180);
-  const tooltipHeightRef = useRef(80);
   const [staticPosition, setStaticPosition] = useState({ left: x, top: y });
 
-  const tw = tooltipWidthRef.current;
-  const th = tooltipHeightRef.current;
+  // Estado derivado em render (padrão "adjusting state"): as medidas lidas no
+  // layout effect tornam-se estado renderizável sem acessar refs no render.
+  const [measured, setMeasured] = useState({ w: 180, h: 80, seq: 0 });
+  const tw = measured.w;
+  const th = measured.h;
   const shouldFlipX = x + tw + offset > containerWidth;
   const targetX = shouldFlipX ? x - offset - tw : x + offset;
   const targetY = Math.max(
@@ -121,14 +127,14 @@ function TooltipBoxInner({
     const el = tooltipRef.current;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
-    if (w > 0) {
-      tooltipWidthRef.current = w;
-    }
-    if (h > 0) {
-      tooltipHeightRef.current = h;
-    }
-    const w2 = tooltipWidthRef.current;
-    const h2 = tooltipHeightRef.current;
+    // Publica as medidas como estado; refs deixam de ser lidas no render.
+    setMeasured((prev) =>
+      w > 0 && h > 0 && (prev.w !== w || prev.h !== h)
+        ? { w, h, seq: prev.seq + 1 }
+        : prev
+    );
+    const w2 = w > 0 ? w : measured.w;
+    const h2 = h > 0 ? h : measured.h;
     const flip = x + w2 + offset > containerWidth;
     const tx = flip ? x - offset - w2 : x + offset;
     const ty = Math.max(
@@ -156,8 +162,12 @@ function TooltipBoxInner({
     animate,
     animatedLeft,
     animatedTop,
+    measured.h,
+    measured.w,
   ]);
 
+  // Marca a virada de flip em efeito, guardando o valor anterior em ref
+  // escrita apenas pós-commit.
   const prevFlipRef = useRef(shouldFlipX);
   const [flipKey, setFlipKey] = useState(0);
 

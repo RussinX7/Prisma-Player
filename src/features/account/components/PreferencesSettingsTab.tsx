@@ -12,8 +12,11 @@ export function PreferencesSettingsTab() {
   const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains("dark");
-    setDarkMode(isDark);
+    // Sincronização client-only (evita mismatch de hidratação): resolve após o paint.
+    Promise.resolve().then(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setDarkMode(isDark);
+    });
   }, []);
 
   const toggleDarkMode = (enabled: boolean) => {

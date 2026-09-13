@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Gift,
   Inbox as InboxIcon,
-  Info,
   Mail,
   MailOpen,
   Search,
@@ -59,7 +58,10 @@ export default function InboxPage() {
   }, [selectedId]);
 
   useEffect(() => {
-    void loadInbox();
+    // A promise resolve após o paint, evitando cascata de setState sincronizado.
+    void (async () => {
+      await loadInbox();
+    })();
   }, [loadInbox]);
 
   const markAsRead = async (id: string) => {

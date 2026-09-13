@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateOrigin } from "@/lib/security/csrf";
-import { domainAllowed, normalizeHost, verifyEmbedEventToken } from "@/lib/security/embed-origin";
+import { domainAllowed, normalizeHost, originHeaderDisagrees, verifyEmbedEventTokenContext, verifyEmbedRenderCookie } from "@/lib/security/embed-origin";
 import { deliverWebhook } from "@/lib/webhooks/delivery";
 import { readJsonBody } from "@/lib/api/request";
 import { getAccountPlan } from "@/lib/access/service";
@@ -44,8 +44,28 @@ function riskReasonsFor(ua: string, event: NormalizedAnalyticsEvent): string[] {
   return reasons;
 }
 
-function corsHeaders(requestOrigin: string) {
-  return { "cache-control": "no-store", ...(requestOrigin ? { "access-control-allow-origin": requestOrigin, vary: "Origin" } : {}) };
+/**
+ * RM-03: nada de refletir o Origin arbitrariamente no `access-control-allow-origin`.
+ * O único fluxo legítimo é o iframe do embed (mesma origem) postando analytics;
+ * a header de CORS só é devolvida quando a origem é uma origem própria da
+ * plataforma. Credenciais continuam de fora (nenhum `Access-Control-Allow-Credentials`).
+ */
+function corsHeaders(request: Request) {
+  const origin = request.headers.get("origin");
+  const allowedOrigin = origin && validateOrigin(request) ? origin : null;
+  return { "cache-control": "no-store", ...(allowedOrigin ? { "access-control-allow-origin": allowedOrigin, vary: "Origin" } : {}) };
+}
+
+/**
+ * IP de peer da plataforma para o CAPI. `x-forwarded-for` é controlável pelo
+ * cliente (RM-03 item 2): não o repassamos para o payload do Meta/TikTok.
+ * Preferimos os headers que a própria plataforma sobrescreve (Vercel/real-ip) e
+ * omitimos o campo quando não há um valor confiável.
+ */
+function platformPeerIp(request: Request): string {
+  const candidate = request.headers.get("x-vercel-forwarded-for") || request.headers.get("x-real-ip");
+  const first = candidate?.split(",")[0]?.trim();
+  return first && first !== "unknown" && first !== "::1" ? first : "";
 }
 
 /**
@@ -69,9 +89,17 @@ export async function POST(request: Request) {
   // Conversão é o único fluxo que chega sem origem de embed (mensagem do pai);
   // manter a regra antiga: sem first-party, só conversões seguem.
   if (!firstPartyOrigin && events.some((event) => event.eventType !== "conversion")) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
-  // Proves the event came from a real embed load that already cleared the
-  // player's domain and traffic rules, instead of anyone who knows the UUID.
-  if (!verifyEmbedEventToken(typeof parsed.body?.eventToken === "string" ? parsed.body.eventToken : null, videoId)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // RM-03: o eventToken é amarrado à sessão do viewer e ao host do embed. Um
+  // evento cujo sessionId do corpo não bata com o token é rejeitado.
+  const eventToken = typeof parsed.body?.eventToken === "string" ? parsed.body.eventToken : null;
+  const verifiedEvent = verifyEmbedEventTokenContext(eventToken, { videoId, sessionId });
+  if (!verifiedEvent) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // Prova de render: o nonce do token precisa existir e estar no cookie `pp_embed`
+  // que o proxy setou na resposta da página. Token sem render não passa.
+  if (!verifiedEvent.nonce || !verifyEmbedRenderCookie(request.headers, verifiedEvent.nonce)) return NextResponse.json({ error: "invalid_event_token" }, { status: 403 });
+  // Origin presente e não-self precisa concordar com o host reivindicado pelo token.
+  const requestSelfOrigin = new URL(request.url).origin;
+  if (verifiedEvent.host && originHeaderDisagrees(request.headers, verifiedEvent.host, requestSelfOrigin)) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   const limited = await rateLimit(request, `analytics:${videoId}:${sessionId}`, { max: ANALYTICS.RATE_LIMIT_MAX_REQUESTS, windowMs: ANALYTICS.RATE_LIMIT_WINDOW_MS });
   if (limited) return limited;
 
@@ -102,7 +130,7 @@ export async function POST(request: Request) {
   if (liveError) return NextResponse.json({ error: "live_session_write_failed" }, { status: 500 });
 
   const actionable = events.filter((event) => event.eventType !== "heartbeat");
-  if (actionable.length === 0) return new NextResponse(null, { status: 204, headers: corsHeaders(requestOrigin) });
+  if (actionable.length === 0) return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
 
   const persisting = actionable.map((event) => {
     const riskReasons = riskReasonsFor(context.ua, event);
@@ -125,11 +153,16 @@ export async function POST(request: Request) {
   const persistedKeys = persistedEventKeys(writtenRows);
   const playerConfig = (player.config && typeof player.config === "object" ? player.config : {}) as Record<string, unknown>;
   const videoInfo = { id: video.id, user_id: video.user_id, title: video.title };
-  const forwardFor = request.headers.get("x-forwarded-for") ?? "";
+  // RM-03 item 2: IP confiável da plataforma, nunca o `x-forwarded-for` do cliente.
+  const peerIp = platformPeerIp(request);
   after(async () => {
     const supabaseInner = createAdminClient();
     for (const event of actionable) {
       if (!persistedKeys.has(`${event.eventType}:${event.progressPercent}`)) continue;
+      // RM-03 item 2: requisição não-first-party (só pode ser conversões) não
+      // dispara efeitos laterais pagos (webhook + CAPI). O atacante que forja
+      // Origin batendo com o host do token ainda falha aqui.
+      if (!firstPartyOrigin) continue;
       const [{ data: controls }, plan] = await Promise.all([
         supabaseInner.from("intelligence_controls").select("outgoing_webhooks_enabled,webhook_url,webhook_events").eq("user_id", videoInfo.user_id).maybeSingle(),
         getAccountPlan(videoInfo.user_id),
@@ -143,7 +176,7 @@ export async function POST(request: Request) {
           value: event.value ?? 0,
           currency: event.currency ?? "",
           clientUserAgent: context.ua,
-          clientIp: forwardFor,
+          clientIp: peerIp || undefined,
         }).catch(() => undefined);
       }
       // Webhook de saída é recurso de plano superior: a checagem existia apenas na
@@ -155,16 +188,18 @@ export async function POST(request: Request) {
     }
   });
 
-  return new NextResponse(null, { status: 204, headers: corsHeaders(requestOrigin) });
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
 }
 
 export async function OPTIONS(request: Request) {
-  const origin = request.headers.get("origin") ?? "*";
+  // RM-03 item 3: sem reflexão arbitrária de Origin. Só responde CORS para
+  // origens próprias da plataforma; qualquer outra origem não recebe ACAO.
+  const origin = request.headers.get("origin");
+  const allowedOrigin = origin && validateOrigin(request) ? origin : null;
   return new NextResponse(null, { status: 204, headers: {
-    "access-control-allow-origin": origin,
+    ...(allowedOrigin ? { "access-control-allow-origin": allowedOrigin, vary: "Origin" } : {}),
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-allow-headers": "content-type",
     "access-control-max-age": "600",
-    vary: "Origin",
   } });
 }

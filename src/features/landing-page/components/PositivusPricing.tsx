@@ -4,7 +4,7 @@ import Nav from "./Nav";
 import Footer from "./Footer";
 import Link from "next/link";
 import { useState } from "react";
-import { Check, Sparkles, Zap, Shield, ArrowUpRight, HelpCircle, Star, Package } from "lucide-react";
+import { Check, Sparkles, Zap, Shield, ArrowUpRight, Star, Package } from "lucide-react";
 
 interface PositivusPricingProps {
   account?: { firstName: string } | null;

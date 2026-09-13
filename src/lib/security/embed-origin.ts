@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { safeLog } from "@/lib/utils/log";
+import { SECURITY } from "@/lib/constants";
 
 const TOKEN_VERSION = "v1";
 const DEFAULT_MAX_AGE_SECONDS = 10 * 60;
@@ -50,7 +51,59 @@ function sign(value: string): string {
   return createHmac("sha256", key).update(value).digest("base64url");
 }
 
-export function createEmbedOriginToken(input: { playerId: string; host: string; maxAgeSeconds?: number }): string {
+/**
+ * Origens próprias da plataforma derivadas do ambiente (mesmo critério do
+ * `csrf.ts`). Usadas apenas para ISENTAR o header de Origin/Referer self quando
+ * conferimos o host reivindicado por um token — nunca como autoridade de
+ * domínio para embeds.
+ */
+function buildSelfOrigins(): ReadonlySet<string> {
+  const origins = new Set<string>();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  if (siteUrl) {
+    try { origins.add(new URL(siteUrl).origin); } catch {}
+  }
+  if (process.env.VERCEL_URL) {
+    try { origins.add(new URL(`https://${process.env.VERCEL_URL}`).origin); } catch {}
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    try { origins.add(new URL(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`).origin); } catch {}
+  }
+  if (process.env.NODE_ENV !== "production") origins.add("http://localhost:3000");
+  return origins;
+}
+
+const SELF_ORIGINS = buildSelfOrigins();
+
+export function isSelfOrigin(value: string): boolean {
+  if (!value) return false;
+  try {
+    return SELF_ORIGINS.has(new URL(value).origin);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Controle no consumo de tokens (RM-02). Quando um header `Origin`/`Referer`
+ * ESTÁ presente e não é uma origem própria da plataforma, ele precisa
+ * concordar com o host reivindicado pelo token. Um cliente que obteve um token
+ * mintado para o host A e depois bate na API com Origin de B é rejeitado.
+ */
+export function originHeaderDisagrees(
+  headers: Pick<Headers, "get">,
+  tokenHost: string,
+  requestSelfOrigin = "",
+): boolean {
+  const claimed = headers.get("origin") || headers.get("referer");
+  if (!claimed) return false;
+  const claimedHost = normalizeHost(claimed);
+  if (!claimedHost) return false;
+  if (isSelfOrigin(claimed) || (requestSelfOrigin && normalizeHost(requestSelfOrigin) === claimedHost)) return false;
+  return claimedHost !== normalizeHost(tokenHost);
+}
+
+export function createEmbedOriginToken(input: { playerId: string; host: string; maxAgeSeconds?: number; nonce?: string; abTestId?: string }): string {
   const host = normalizeHost(input.host);
   if (!host) return "";
 
@@ -58,6 +111,10 @@ export function createEmbedOriginToken(input: { playerId: string; host: string; 
     v: TOKEN_VERSION,
     playerId: input.playerId,
     host,
+    ...(input.nonce ? { nonce: input.nonce } : {}),
+    // Embed A/B: o token é mintado no escopo do TESTE (playerId = testId) e
+    // carrega o claim redundante que autoriza o consumo via caminho de teste.
+    ...(input.abTestId ? { abTest: input.abTestId } : {}),
     exp: Math.floor(Date.now() / 1000) + (input.maxAgeSeconds ?? DEFAULT_MAX_AGE_SECONDS),
   }));
   const signature = sign(payload);
@@ -71,7 +128,7 @@ export function createEmbedOriginToken(input: { playerId: string; host: string; 
  * Returning an empty token does not bypass domain protection: the embed API
  * rejects protected players when the token cannot be verified.
  */
-export function createEmbedOriginTokenSafely(input: { playerId: string; host: string; maxAgeSeconds?: number }): string {
+export function createEmbedOriginTokenSafely(input: { playerId: string; host: string; maxAgeSeconds?: number; nonce?: string; abTestId?: string }): string {
   try {
     return createEmbedOriginToken(input);
   } catch (error) {
@@ -92,6 +149,10 @@ const EVENT_TOKEN_MAX_AGE_SECONDS = 6 * 60 * 60;
  *
  * The TTL covers a long VSL session; the token carries no secret of its own and
  * is scoped to a single video.
+ *
+ * Mantido apenas para compatibilidade com chamadores existentes (e testes).
+ * Toda emissão nova deve usar createBoundEmbedEventToken, que amarra o token
+ * ao contexto de emissão (host + sessão + nonce do render).
  */
 export function createEmbedEventToken(videoId: string, maxAgeSeconds = EVENT_TOKEN_MAX_AGE_SECONDS): string {
   const payload = base64url(JSON.stringify({
@@ -106,6 +167,44 @@ export function createEmbedEventToken(videoId: string, maxAgeSeconds = EVENT_TOK
 export function createEmbedEventTokenSafely(videoId: string): string {
   try {
     return createEmbedEventToken(videoId);
+  } catch (error) {
+    safeLog("embed_event_token_unavailable", {
+      reason: error instanceof Error ? error.message : "unknown_error",
+    });
+    return "";
+  }
+}
+
+export interface BoundEmbedEventTokenInput {
+  videoId: string;
+  host: string;
+  sessionId?: string;
+  nonce?: string;
+  maxAgeSeconds?: number;
+}
+
+/**
+ * Event token amarrado ao contexto de emissão (RM-03): carrega o host do embed
+ * autorizado e, quando conhecido, a sessão do viewer e o nonce do render. O
+ * endpoint que consome o token passa o que ele espera ver; qualquer divergência
+ * (sessão trocada, host forjado, token usado fora do render) rejeita a chamada.
+ */
+export function createBoundEmbedEventToken(input: BoundEmbedEventTokenInput, maxAgeSeconds = EVENT_TOKEN_MAX_AGE_SECONDS): string {
+  const payload = base64url(JSON.stringify({
+    v: TOKEN_VERSION,
+    k: EVENT_TOKEN_KIND,
+    videoId: input.videoId,
+    host: normalizeHost(input.host),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.nonce ? { nonce: input.nonce } : {}),
+    exp: Math.floor(Date.now() / 1000) + (input.maxAgeSeconds ?? maxAgeSeconds),
+  }));
+  return `${payload}.${sign(payload)}`;
+}
+
+export function createBoundEmbedEventTokenSafely(input: Omit<BoundEmbedEventTokenInput, "maxAgeSeconds">): string {
+  try {
+    return createBoundEmbedEventToken(input);
   } catch (error) {
     safeLog("embed_event_token_unavailable", {
       reason: error instanceof Error ? error.message : "unknown_error",
@@ -139,7 +238,62 @@ export function verifyEmbedEventToken(token: string | null | undefined, videoId:
   }
 }
 
-export function verifyEmbedOriginToken(token: string | null | undefined, playerId: string): { host: string } | null {
+export type VerifiedEmbedEventContext = {
+  host: string;
+  sessionId?: string;
+  nonce?: string;
+};
+
+/**
+ * Verifica a assinatura, a expiração e as reivindicações obrigatórias do token
+ * de evento. `expected` informa o que o chamador exige:
+ * - `videoId`: sempre exigido (o token é escopado a um vídeo).
+ * - `sessionId`: quando informado, o token precisa carregar EXATAMENTE esta
+ *   sessão (evento com sessionId trocado é rejeitado).
+ * - `host` / `nonce`: options claims — quando informados, precisam casar.
+ * Devolve o contexto decodificado (host/sessionId/nonce) para o chamador usar
+ * nas checagens de origem e de render.
+ */
+export function verifyEmbedEventTokenContext(
+  token: string | null | undefined,
+  expected: { videoId: string; sessionId?: string; host?: string; nonce?: string },
+): VerifiedEmbedEventContext | null {
+  if (!token) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+
+  let expectedSignature: string;
+  try {
+    expectedSignature = sign(payload);
+  } catch {
+    return null;
+  }
+  if (!expectedSignature) return null;
+
+  const expectedBuffer = Buffer.from(expectedSignature, "base64url");
+  const actualBuffer = Buffer.from(signature, "base64url");
+  if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) return null;
+
+  try {
+    const parsed = JSON.parse(fromBase64url(payload)) as { v?: string; k?: string; videoId?: string; host?: string; sessionId?: string; nonce?: string; exp?: number };
+    if (parsed.v !== TOKEN_VERSION || parsed.k !== EVENT_TOKEN_KIND || parsed.videoId !== expected.videoId) return null;
+    if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) return null;
+    const host = parsed.host ? normalizeHost(parsed.host) : "";
+    if (!host) return null;
+    if (expected.host !== undefined && host !== normalizeHost(expected.host)) return null;
+    if (expected.sessionId !== undefined && parsed.sessionId !== expected.sessionId) return null;
+    if (expected.nonce !== undefined && parsed.nonce !== expected.nonce) return null;
+
+    const context: VerifiedEmbedEventContext = { host };
+    if (parsed.sessionId) context.sessionId = parsed.sessionId;
+    if (parsed.nonce) context.nonce = parsed.nonce;
+    return context;
+  } catch {
+    return null;
+  }
+}
+
+export function verifyEmbedOriginToken(token: string | null | undefined, playerId: string, options?: { abTestPath?: string }): { host: string; nonce?: string } | null {
   if (!token) return null;
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return null;
@@ -157,11 +311,49 @@ export function verifyEmbedOriginToken(token: string | null | undefined, playerI
   if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) return null;
 
   try {
-    const parsed = JSON.parse(fromBase64url(payload)) as { v?: string; playerId?: string; host?: string; exp?: number };
-    if (parsed.v !== TOKEN_VERSION || (parsed.playerId !== playerId && parsed.playerId !== "*") || !parsed.host) return null;
+    const parsed = JSON.parse(fromBase64url(payload)) as { v?: string; playerId?: string; host?: string; nonce?: string; abTest?: string; exp?: number };
+    // Sem curinga: um token só vale para o player (ou escopo) em que foi
+    // mintado. O `*` antigo deixava o token do embed A/B verificar contra
+    // QUALQUER playerId da plataforma.
+    if (parsed.v !== TOKEN_VERSION || parsed.playerId !== playerId || !parsed.host) return null;
+    // Claim de teste é simétrico: token de teste só passa pelo caminho de teste
+    // (`abTestPath` igual ao claim) e o caminho de teste nunca aceita token de
+    // player puro. Sem as duas partes, token de teste volta a valer como player.
+    if ((parsed.abTest ?? "") !== (options?.abTestPath ?? "")) return null;
     if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) return null;
-    return { host: normalizeHost(parsed.host) };
+    const result: { host: string; nonce?: string } = { host: normalizeHost(parsed.host) };
+    if (parsed.nonce) result.nonce = parsed.nonce;
+    return result;
   } catch {
     return null;
   }
+}
+
+/**
+ * Lê o cookie de render do embed (`pp_embed`) enviado na requisição.
+ * O cookie é setado pelo proxy no response da página /embed e só quem de fato
+ * carregou a página no navegador o possui.
+ */
+export function readEmbedRenderCookie(headers: Pick<Headers, "get">): string | null {
+  const header = headers.get("cookie");
+  if (!header) return null;
+  for (const pair of header.split(";")) {
+    const separator = pair.indexOf("=");
+    if (separator === -1) continue;
+    const name = pair.slice(0, separator).trim();
+    if (name === SECURITY.EMBED_RENDER_COOKIE) return pair.slice(separator + 1).trim();
+  }
+  return null;
+}
+
+/**
+ * Confirma que a requisição veio de um render real: o nonce vinculado ao token
+ * precisa ser igual ao valor do cookie `pp_embed`. Comparação timing-safe.
+ */
+export function verifyEmbedRenderCookie(headers: Pick<Headers, "get">, nonce: string): boolean {
+  const value = readEmbedRenderCookie(headers);
+  if (!value || !nonce) return false;
+  const expectedBuffer = Buffer.from(value);
+  const actualBuffer = Buffer.from(nonce);
+  return expectedBuffer.length === actualBuffer.length && timingSafeEqual(expectedBuffer, actualBuffer);
 }

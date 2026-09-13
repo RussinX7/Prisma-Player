@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Play, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Play, CheckCircle2 } from "lucide-react";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
@@ -43,12 +43,12 @@ export default function Footer() {
               <Link href="/pricing" className="hover:text-[#B9FF66] transition-colors">
                 Preços
               </Link>
-              <a href="/#casos-de-uso" className="hover:text-[#B9FF66] transition-colors">
+              <Link href="/#casos-de-uso" className="hover:text-[#B9FF66] transition-colors">
                 Casos de Uso
-              </a>
-              <a href="/#processo" className="hover:text-[#B9FF66] transition-colors">
+              </Link>
+              <Link href="/#processo" className="hover:text-[#B9FF66] transition-colors">
                 Como Funciona
-              </a>
+              </Link>
             </div>
           </div>
 

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthField } from "@/features/auth/components/AuthField";
@@ -11,6 +12,7 @@ import type { AuthNoticeState } from "@/features/auth/model/types";
 import { authService } from "@/services/auth/client";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +31,9 @@ export default function SignupPage() {
       const data = await authService.signUpWithEmail({ name, email, password });
       if (data.session) {
         setNotice({ tone: "success", message: "Conta criada. Preparando seu espaço…" });
-        window.location.assign("/welcome");
+        // Mesmo padrao da pagina de login: navegação via router (Client Component).
+        router.replace("/welcome");
+        router.refresh();
       } else {
         setNotice({
           tone: "success",

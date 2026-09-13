@@ -10,7 +10,11 @@ export async function POST(request: Request) {
   const csrf = csrfGuard(request);
   if (csrf) return csrf;
 
-  const limited = await rateLimit(request, "auth-login", { max: 10, windowMs: 10 * 60_000, failClosed: true });
+  // O primeiro balde é por IP e existe para engrossar ataques distribuídos de
+  // força bruta. Em dev/local (onde o IP real não está presente e todos caem no
+  // balde "unknown") isso não deve travar o uso legítimo, então o teto é folgado;
+  // a proteção real contra credential stuffing é o balde por conta abaixo.
+  const limited = await rateLimit(request, "auth-login", { max: 20, windowMs: 10 * 60_000, failClosed: true });
   if (limited) return limited;
 
   const parsed = await readJsonBody<{ email?: unknown; password?: unknown }>(request);

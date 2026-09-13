@@ -82,5 +82,20 @@ VERCEL_ENVS.txt
 
 # Agent/skill tooling (third-party, not project code)
 .claude/
+.claude-flow/
 .opencode/
+.agents/
+.codex/
+.superpowers/
+# impeccable-hook-ignore-start .
+.impeccable/hook.cache.json
+.impeccable/hook.pending.json
+.impeccable/config.local.json
+# impeccable-hook-ignore-end .
+
+# Local tool artifacts / junk
+agentdb.rvf
+agentdb.rvf.lock
+ruvector.db
+nul
 

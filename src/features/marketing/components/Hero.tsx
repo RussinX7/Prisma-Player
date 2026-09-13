@@ -45,6 +45,9 @@ export default function Hero() {
   const [mounted, setMounted] = useState(false);
   const londonTime = useLondonTime();
 
+  // Portão de hidratação intencional: o relógio de Londres só aparece no cliente,
+  // evitando mismatch de hidratação (horário do servidor difere do cliente).
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização pós-hidratação é intencional aqui
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {

@@ -5,6 +5,8 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { POST } from "@/app/api/webhooks/abacatepay/route";
 
 const SECRET = "test-webhook-secret";
+// RH-02: a chave HMAC é sempre distinta do secret que viaja na URL.
+const SIGNING_SECRET = "test-hmac-signing-secret";
 
 const { adminState, makeAdmin } = vi.hoisted(() => {
   const adminState: { mode: "ok" | "over" | "down" } = { mode: "ok" };
@@ -47,7 +49,7 @@ function post(
 }
 
 function hmacHex(value: string): string {
-  return createHmac("sha256", SECRET).update(Buffer.from(value, "utf8")).digest("hex");
+  return createHmac("sha256", SIGNING_SECRET).update(Buffer.from(value, "utf8")).digest("hex");
 }
 
 // Payload cujo evento não está na allowlist: a rota responde 200 {ok,ignored}
@@ -122,12 +124,21 @@ describe("consumeRateLimit fail-closed (store indisponível)", () => {
 describe("rota do webhook AbacatePay — autenticação", () => {
   beforeEach(() => {
     process.env.ABACATEPAY_WEBHOOK_SECRET = SECRET;
+    // RH-02: a verificação HMAC exige uma chave de assinatura distinta do secret
+    // da URL (que o provedor anexa a cada entrega e aparece em logs de acesso).
+    process.env.ABACATEPAY_WEBHOOK_SIGNING_SECRET = SIGNING_SECRET;
+    // O fallback legado (?webhookSecret= na URL) agora e rejeitado por padrao
+    // (ABACATEPAY_ALLOW_URL_SECRET=false). Este bloco testa o fluxo legado, entao
+    // opta explicitamente pelo fallback.
+    process.env.ABACATEPAY_ALLOW_URL_SECRET = "true";
     delete process.env.ABACATEPAY_REQUIRE_HMAC;
     adminState.mode = "ok";
   });
   afterEach(() => {
     delete process.env.ABACATEPAY_WEBHOOK_SECRET;
+    delete process.env.ABACATEPAY_ALLOW_URL_SECRET;
     delete process.env.ABACATEPAY_REQUIRE_HMAC;
+    delete process.env.ABACATEPAY_WEBHOOK_SIGNING_SECRET;
     adminState.mode = "ok";
     vi.clearAllMocks();
   });

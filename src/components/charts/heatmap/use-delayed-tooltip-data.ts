@@ -30,14 +30,15 @@ export function useDelayedTooltipData(
     }
 
     if (tooltipData) {
-      if (isShowingRef.current) {
-        setDisplayData(tooltipData);
-        return;
-      }
-
-      if (showDelay === 0) {
-        isShowingRef.current = true;
-        setDisplayData(tooltipData);
+      if (isShowingRef.current || showDelay === 0) {
+        if (!isShowingRef.current) {
+          isShowingRef.current = true;
+        }
+        // Posterga a exibição imediata para um timer de 0ms: mesmo resultado
+        // visual (o tooltip já fica pendente), sem setState síncrono.
+        showTimerRef.current = setTimeout(() => {
+          setDisplayData(tooltipData);
+        }, 0);
         return;
       }
 
@@ -49,8 +50,11 @@ export function useDelayedTooltipData(
     }
 
     if (hideDelay === 0) {
-      isShowingRef.current = false;
-      setDisplayData(null);
+      // Ocultação imediata também postergada via timer de 0ms.
+      hideTimerRef.current = setTimeout(() => {
+        isShowingRef.current = false;
+        setDisplayData(null);
+      }, 0);
       return;
     }
 

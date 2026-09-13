@@ -39,9 +39,16 @@ export function useChartPhaseOrchestrator({
   const [isLoaded, setIsLoaded] = useState(() => chartStatus === "ready");
   const prevStatusRef = useRef(chartStatus);
   const phaseRef = useRef(chartPhase);
-  phaseRef.current = chartPhase;
+  // Espelho da fase mantido fora do render: sincronizado em efeito pós-commit.
+  useEffect(() => {
+    phaseRef.current = chartPhase;
+  }, [chartPhase]);
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: status transition branches for animation durations
+  /* eslint-disable react-hooks/set-state-in-effect -- transições de fase/status trocam dataset e fase na mesma passagem; comportamento intencional do orquestrador */
+
+  // Transição de status é um evento externo (carregamento concluído): os
+  // setStates aqui trocam o dataset/fase sincronamente na virada.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: prevStatusRef rastreia a transição
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     if (prevStatus === chartStatus) {
@@ -102,6 +109,8 @@ export function useChartPhaseOrchestrator({
     setIsLoaded(false);
   }, [animationDuration, chartStatus, revealSignature, skipEnterReveal]);
 
+  // Sincroniza o plot data com a fase: setStates intencionais pós-transição
+  // de fase (a fonte da verdade é chartPhase, definido no efeito anterior).
   useEffect(() => {
     switch (chartPhase) {
       case "loading":
@@ -151,6 +160,8 @@ export function useChartPhaseOrchestrator({
     }
   }, []);
 
+  // A fase "revealing" inicia a revelação: incrementa a época (chave de
+  // replay das animações) e agenda o descanso em "ready".
   useEffect(() => {
     if (chartPhase !== "revealing") {
       return;
@@ -169,6 +180,8 @@ export function useChartPhaseOrchestrator({
     }, animationDuration);
     return () => window.clearTimeout(timer);
   }, [animationDuration, chartPhase]);
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     chartPhase,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSpring } from "motion/react";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { useChartConfig } from "./chart-config-context";
 import { useChartHover, useChartStable } from "./chart-context";
 import {
@@ -46,16 +46,24 @@ export function useHighlightSegment({
   const widthSpring = useSpring(0, highlightSpring);
 
   // Jump on inactive→active so the band appears at the hovered point instead
-  // of sliding in from x=0; ease on subsequent moves.
-  const wasActive = useRef(false);
-  if (bounds.isActive && !wasActive.current) {
-    xSpring.jump(bounds.x);
-    widthSpring.jump(bounds.width);
-  } else {
-    xSpring.set(bounds.x);
-    widthSpring.set(bounds.width);
-  }
-  wasActive.current = bounds.isActive;
+  // of sliding in from x=0; ease on subsequent moves. Roda após o commit
+  // (não durante o render) via useLayoutEffect, imitando o timing anterior.
+  const wasActiveRef = useRef(false);
+  const boundsRef = useRef(bounds);
+
+  // Espelhos atualizados dentro do próprio efeito (nada de refs no render).
+  useLayoutEffect(() => {
+    boundsRef.current = bounds;
+    const current = boundsRef.current;
+    if (current.isActive && !wasActiveRef.current) {
+      xSpring.jump(current.x);
+      widthSpring.jump(current.width);
+    } else {
+      xSpring.set(current.x);
+      widthSpring.set(current.width);
+    }
+    wasActiveRef.current = current.isActive;
+  });
 
   return { xSpring, widthSpring, isActive: bounds.isActive };
 }

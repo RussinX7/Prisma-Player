@@ -226,23 +226,6 @@ const heatmapTooltipWeekdayFmt = new Intl.DateTimeFormat("pt-BR", {
   weekday: "long",
 });
 
-function formatHeatmapOrdinalDay(day: number): string {
-  if (day >= 11 && day <= 13) {
-    return `${day}th`;
-  }
-
-  switch (day % 10) {
-    case 1:
-      return `${day}st`;
-    case 2:
-      return `${day}nd`;
-    case 3:
-      return `${day}rd`;
-    default:
-      return `${day}th`;
-  }
-}
-
 /** PATCH LOCAL — cabeçalho do tooltip, ex. `20 de janeiro de 2026`. */
 export function formatHeatmapTooltipDate(date: Date): string {
   const month = heatmapTooltipMonthFmt.format(date);
@@ -255,10 +238,7 @@ export function formatHeatmapTooltipWeekday(date: Date): string {
 }
 
 /** Tooltip contribution line — e.g. `3 contributions`. */
-export function formatHeatmapContributionLabel(
-  count: number,
-  _date?: Date
-): string {
+export function formatHeatmapContributionLabel(count: number): string {
   const word = count === 1 ? "contribution" : "contributions";
   return `${count} ${word}`;
 }

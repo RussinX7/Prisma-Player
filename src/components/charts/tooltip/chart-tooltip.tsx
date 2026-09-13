@@ -358,15 +358,20 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
 
 export function ChartTooltip(props: ChartTooltipProps) {
   const { containerRef } = useChartStable();
-  const [mounted, setMounted] = useState(false);
 
-  // Only render portals on client side after mount
+  // O container é capturado para estado pós-commit (a ref não é lida durante
+  // o render). O portal só renderiza após o primeiro commit, como no antigo
+  // `mounted`, mas sem setState síncrono no corpo do efeito.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const el = containerRef.current;
+    if (el) {
+      const id = window.setTimeout(() => setContainer(el), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [containerRef]);
 
-  const container = containerRef.current;
-  if (!(mounted && container)) {
+  if (!container) {
     return null;
   }
 

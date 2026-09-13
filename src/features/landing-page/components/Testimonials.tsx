@@ -69,7 +69,7 @@ export default function Testimonials() {
               </div>
 
               <p className="text-lg sm:text-xl font-normal text-white leading-relaxed italic">
-                "{testimonials[currentIndex].quote}"
+                &quot;{testimonials[currentIndex].quote}&quot;
               </p>
 
               {/* Bubble Arrow Tail */}

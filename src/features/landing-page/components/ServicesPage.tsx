@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   Cpu,
   Layers,
-  Star,
 } from "lucide-react";
 
 interface ServicesPageProps {

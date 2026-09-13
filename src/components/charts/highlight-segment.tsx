@@ -1,7 +1,7 @@
 "use client";
 
 import { type MotionValue, motion } from "motion/react";
-import { type RefObject, useId } from "react";
+import { type RefObject, useId, useLayoutEffect, useState } from "react";
 
 // Hover-highlight overlay: re-strokes the base path `d`, clipped to a vertical
 // band whose x/width spring to track the hovered point, so only the segment
@@ -34,7 +34,19 @@ export function HighlightSegment({
   width,
 }: HighlightSegmentProps) {
   const clipId = useId();
-  if (!(visible && pathRef.current)) {
+  // O `d` do traço base é lido após o commit (nunca durante o render): o
+  // elemento só existe no DOM depois do mount, então o primeiro render usa
+  // "" e o estado sincroniza no layout effect seguinte.
+  const [baseD, setBaseD] = useState("");
+  useLayoutEffect(() => {
+    const el = pathRef.current;
+    // Re-lê quando `visible` muda: o path base pode ter sido (re)criado.
+    if (visible && el) {
+      const d = el.getAttribute("d") || "";
+      setBaseD((prev) => (prev === d ? prev : d));
+    }
+  }, [pathRef, visible]);
+  if (!visible) {
     return null;
   }
   return (
@@ -47,7 +59,7 @@ export function HighlightSegment({
       <motion.path
         animate={{ opacity: 1 }}
         clipPath={`url(#${clipId})`}
-        d={pathRef.current.getAttribute("d") || ""}
+        d={baseD}
         exit={{ opacity: 0 }}
         fill="none"
         initial={{ opacity: 0 }}

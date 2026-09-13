@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { domainAllowed, trustedEmbedHostFromHeaders } from "@/lib/security/embed-origin";
+import { domainAllowed, originHeaderDisagrees, verifyEmbedOriginToken, verifyEmbedRenderCookie } from "@/lib/security/embed-origin";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { envInt } from "@/lib/config/env";
 
@@ -60,12 +60,28 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
   if (!playerConfig) return NextResponse.json({ error: "player_not_found" }, { status: 404 });
 
-  const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((d) => d.trim()).filter(Boolean) : [];
-  const host = trustedEmbedHostFromHeaders(request.headers);
+  // RM-02: o manifest também não pode confiar em `Referer`/`Origin`. Sem token
+  // de origem válido (assinado, não expirado, do render) a requisição é rejeitada.
+  const requestUrl = new URL(request.url);
+  const originToken = requestUrl.searchParams.get("originToken");
+  // RM-04: no embed A/B o token chega mintado no escopo do TESTE (playerId =
+  // testId + claim `abTest`). O braço de verificação do teste usa o id de teste
+  // validado como UUID no query; um token de teste não vale para consumo direto.
+  const abTestIdParam = requestUrl.searchParams.get("abTestId");
+  const abTestId = abTestIdParam && uuid.test(abTestIdParam) ? abTestIdParam : "";
+  const verifiedOrigin = verifyEmbedOriginToken(originToken, playerConfig.id)
+    || verifyEmbedOriginToken(originToken, id)
+    || (abTestId ? verifyEmbedOriginToken(originToken, abTestId, { abTestPath: abTestId }) : null);
+  if (!verifiedOrigin) return NextResponse.json({ error: "invalid_origin_token" }, { status: 403 });
+  const host = verifiedOrigin.host;
+  if (!host || originHeaderDisagrees(request.headers, host, requestUrl.origin)) return NextResponse.json({ error: "origin_mismatch" }, { status: 403 });
+  if (!verifiedOrigin.nonce || !verifyEmbedRenderCookie(request.headers, verifiedOrigin.nonce)) return NextResponse.json({ error: "render_not_confirmed" }, { status: 403 });
+
   // Usa a mesma normalização do endpoint dinâmico (www., https://, curinga *.).
   // A comparação exata anterior bloqueava clientes legítimos que cadastraram o
-  // domínio em qualquer outro formato.
-  if (domains.length > 0 && (!host || !domainAllowed(host, domains))) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
+  // domínio em qualquer outro formato. O host vem do token, nunca dos headers.
+  const domains = Array.isArray(playerConfig.allowed_domains) ? playerConfig.allowed_domains.map((d) => d.trim()).filter(Boolean) : [];
+  if (domains.length > 0 && !domainAllowed(host, domains)) return NextResponse.json({ error: "domain_not_allowed" }, { status: 403 });
 
   const config = playerConfig.config && typeof playerConfig.config === "object"
     ? sanitizeConfigForManifest(playerConfig.config as Record<string, unknown>)
@@ -76,8 +92,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     {
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, s-maxage=30, stale-while-revalidate=300",
-        "cloudflare-cdn-cache": "public, s-maxage=30, stale-while-revalidate=300",
+        // A resposta agora depende do token do render; cache público na borda
+        // poderia servir o manifest validado para um host a outro host.
+        "cache-control": "private, no-store, max-age=0",
+        "cloudflare-cdn-cache": "private, no-store",
         "cache-tag": `player:${playerConfig.id}`,
         "x-robots-tag": "noindex, nofollow, noarchive",
       },
